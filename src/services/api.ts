@@ -22,11 +22,18 @@ async function fetchAPI<T>(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
-        errorData.message || `API Error: ${response.status} ${response.statusText}`
+        errorData.error || errorData.message || `API Error: ${response.status} ${response.statusText}`
       );
     }
 
-    return await response.json();
+    const json = await response.json();
+
+    // Backend wraps responses in { success, data }
+    if (json.success !== undefined && json.data !== undefined) {
+      return json.data as T;
+    }
+
+    return json as T;
   } catch (error) {
     if (error instanceof Error) {
       console.error(`API request failed: ${endpoint}`, error);
@@ -60,7 +67,7 @@ export const jobsAPI = {
   // Update a job
   update: async (id: string, patch: Partial<Job>): Promise<Job> => {
     return fetchAPI<Job>(`/api/jobs/${id}`, {
-      method: "PATCH",
+      method: "PUT",
       body: JSON.stringify(patch),
     });
   },
@@ -105,7 +112,7 @@ export const driversAPI = {
   // Update a driver
   update: async (id: string, patch: Partial<Driver>): Promise<Driver> => {
     return fetchAPI<Driver>(`/api/drivers/${id}`, {
-      method: "PATCH",
+      method: "PUT",
       body: JSON.stringify(patch),
     });
   },

@@ -7,6 +7,7 @@ import { AnalyticsView } from "./components/views/AnalyticsView";
 import { AdvancedAnalytics } from "./components/views/AdvancedAnalytics";
 import { HistoryView } from "./components/views/HistoryView";
 import { Card } from "./components/ui/Card";
+import { ConnectionStatus } from "./components/ConnectionStatus";
 
 function App() {
   const [activeNavItem, setActiveNavItem] = useState<string>("home");
@@ -48,6 +49,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* Connection Status Overlay */}
+      <ConnectionStatus />
+
       {/* Sidebar Navigation */}
       <Sidebar activeItem={activeNavItem} onItemChange={handleNavChange} />
 

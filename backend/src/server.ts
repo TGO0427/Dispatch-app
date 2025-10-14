@@ -1,0 +1,69 @@
+import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
+import morgan from 'morgan';
+import dotenv from 'dotenv';
+import jobsRouter from './routes/jobs';
+import driversRouter from './routes/drivers';
+
+dotenv.config();
+
+const app: Express = express();
+const PORT = process.env.PORT || 3001;
+
+// Middleware
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan('dev'));
+
+// Health check endpoint
+app.get('/health', (req: Request, res: Response) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// API Routes
+app.use('/api/jobs', jobsRouter);
+app.use('/api/drivers', driversRouter);
+
+// Root endpoint
+app.get('/', (req: Request, res: Response) => {
+  res.json({
+    message: 'Dispatch Management API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      jobs: '/api/jobs',
+      drivers: '/api/drivers'
+    }
+  });
+});
+
+// 404 handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+// Error handler
+app.use((err: Error, req: Request, res: Response) => {
+  console.error('Error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+});
+
+export default app;

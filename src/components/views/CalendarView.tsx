@@ -4,7 +4,6 @@ import { useDispatch } from "../../context/DispatchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { JobDetailsModal } from "../JobDetailsModal";
-import { Badge } from "../ui/Badge";
 import type { Job } from "../../types";
 
 export const CalendarView: React.FC = () => {

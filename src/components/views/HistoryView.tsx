@@ -7,7 +7,6 @@ import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
-import { Job } from "../../types";
 import * as XLSX from "xlsx";
 
 type HistoryFilter = "all" | "delivered" | "cancelled";

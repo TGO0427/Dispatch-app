@@ -3,8 +3,6 @@ import React, { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -21,9 +19,7 @@ import { TrendingUp, Package, Truck, Calendar, BarChart3, PieChart as PieChartIc
 import { useDispatch } from "../../context/DispatchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Select } from "../ui/Select";
-import { Job, Driver } from "../../types";
 
-// Color palette for charts
 const COLORS = {
   primary: "#0EA5E9",
   secondary: "#8B5CF6",
@@ -430,7 +426,7 @@ export const AdvancedAnalytics: React.FC = () => {
                   fill="#8884d8"
                   dataKey="count"
                 >
-                  {jobsByStatus.map((entry, index) => (
+                  {jobsByStatus.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
@@ -568,7 +564,7 @@ export const AdvancedAnalytics: React.FC = () => {
                   fill="#8884d8"
                   dataKey="count"
                 >
-                  {warehouseDistribution.map((entry, index) => (
+                  {warehouseDistribution.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>

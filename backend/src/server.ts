@@ -10,9 +10,19 @@ dotenv.config();
 const app: Express = express();
 const PORT = Number(process.env.PORT) || 3001;
 
+// Trust proxy for Railway
+app.set('trust proxy', 1);
+
 // Middleware
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3002',
+  'https://dispatch-app-t.vercel.app',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json());

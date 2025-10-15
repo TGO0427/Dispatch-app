@@ -14,12 +14,12 @@ const PORT = Number(process.env.PORT) || 3001;
 app.set('trust proxy', 1);
 
 // Middleware
-const allowedOrigins = [
+const allowedOrigins: string[] = [
   'http://localhost:3000',
   'http://localhost:3002',
   'https://dispatch-app-t.vercel.app',
-  process.env.FRONTEND_URL
-].filter(Boolean);
+  process.env.FRONTEND_URL || ''
+].filter(origin => origin !== '');
 
 app.use(cors({
   origin: allowedOrigins,

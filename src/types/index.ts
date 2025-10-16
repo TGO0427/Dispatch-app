@@ -103,6 +103,7 @@ export interface FilterOptions {
   warehouse?: string;
   searchQuery?: string;
   etaWeek?: string; // Format: "YYYY-Wnn" e.g. "2025-W45"
+  workflowStatus?: "ready" | "in-progress" | "not-started"; // Workflow filter
 }
 
 export interface SortOptions {

@@ -68,12 +68,21 @@ export const FilterBar: React.FC = () => {
     setFilters({ ...filters, etaWeek: value === "all" ? undefined : value });
   };
 
+  const handleWorkflowStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setFilters({
+      ...filters,
+      workflowStatus: value === "all" ? undefined : value as "ready" | "in-progress" | "not-started"
+    });
+  };
+
   const hasActiveFilters =
     filters.searchQuery ||
     (filters.status && filters.status.length > 0) ||
     (filters.priority && filters.priority.length > 0) ||
     filters.driverId ||
-    filters.etaWeek;
+    filters.etaWeek ||
+    filters.workflowStatus;
 
   return (
     <div className="space-y-4">
@@ -152,6 +161,17 @@ export const FilterBar: React.FC = () => {
               </option>
             );
           })}
+        </Select>
+
+        <Select
+          value={filters.workflowStatus || "all"}
+          onChange={handleWorkflowStatusChange}
+          className="w-auto"
+        >
+          <option value="all">Workflow Status</option>
+          <option value="ready">Ready for Dispatch</option>
+          <option value="in-progress">In Progress</option>
+          <option value="not-started">Not Started</option>
         </Select>
       </div>
     </div>

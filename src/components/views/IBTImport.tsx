@@ -151,7 +151,6 @@ const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | n
   const idx = indexHeaders(headers);
 
   const refIdx = findFirst(idx, ALIASES.ref);
-  const customerIdx = findFirst(idx, ALIASES.customer);
   const pickupIdx = findFirst(idx, ALIASES.pickup);
   const dropoffIdx = findFirst(idx, ALIASES.dropoff);
   const warehouseIdx = findFirst(idx, ALIASES.warehouse);

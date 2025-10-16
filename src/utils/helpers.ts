@@ -89,6 +89,19 @@ export function filterJobs(jobs: Job[], filters: FilterOptions): Job[] {
       }
     }
 
+    // Filter by individual workflow items
+    if (filters.transporterBooked !== undefined) {
+      if (!!job.transporterBooked !== filters.transporterBooked) return false;
+    }
+
+    if (filters.orderPicked !== undefined) {
+      if (!!job.orderPicked !== filters.orderPicked) return false;
+    }
+
+    if (filters.coaAvailable !== undefined) {
+      if (!!job.coaAvailable !== filters.coaAvailable) return false;
+    }
+
     return true;
   });
 }

@@ -104,6 +104,9 @@ export interface FilterOptions {
   searchQuery?: string;
   etaWeek?: string; // Format: "YYYY-Wnn" e.g. "2025-W45"
   workflowStatus?: "ready" | "in-progress" | "not-started"; // Workflow filter
+  transporterBooked?: boolean; // Filter by transporter booked status
+  orderPicked?: boolean; // Filter by order picked status
+  coaAvailable?: boolean; // Filter by COA available status
 }
 
 export interface SortOptions {

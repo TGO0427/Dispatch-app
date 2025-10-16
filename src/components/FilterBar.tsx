@@ -76,13 +76,40 @@ export const FilterBar: React.FC = () => {
     });
   };
 
+  const handleTransporterBookedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setFilters({
+      ...filters,
+      transporterBooked: value === "all" ? undefined : value === "yes"
+    });
+  };
+
+  const handleOrderPickedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setFilters({
+      ...filters,
+      orderPicked: value === "all" ? undefined : value === "yes"
+    });
+  };
+
+  const handleCoaAvailableChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setFilters({
+      ...filters,
+      coaAvailable: value === "all" ? undefined : value === "yes"
+    });
+  };
+
   const hasActiveFilters =
     filters.searchQuery ||
     (filters.status && filters.status.length > 0) ||
     (filters.priority && filters.priority.length > 0) ||
     filters.driverId ||
     filters.etaWeek ||
-    filters.workflowStatus;
+    filters.workflowStatus ||
+    filters.transporterBooked !== undefined ||
+    filters.orderPicked !== undefined ||
+    filters.coaAvailable !== undefined;
 
   return (
     <div className="space-y-4">
@@ -172,6 +199,36 @@ export const FilterBar: React.FC = () => {
           <option value="ready">Ready for Dispatch</option>
           <option value="in-progress">In Progress</option>
           <option value="not-started">Not Started</option>
+        </Select>
+
+        <Select
+          value={filters.transporterBooked === undefined ? "all" : filters.transporterBooked ? "yes" : "no"}
+          onChange={handleTransporterBookedChange}
+          className="w-auto"
+        >
+          <option value="all">Transporter Booked</option>
+          <option value="yes">✓ Booked</option>
+          <option value="no">✗ Not Booked</option>
+        </Select>
+
+        <Select
+          value={filters.orderPicked === undefined ? "all" : filters.orderPicked ? "yes" : "no"}
+          onChange={handleOrderPickedChange}
+          className="w-auto"
+        >
+          <option value="all">Order Picked</option>
+          <option value="yes">✓ Picked</option>
+          <option value="no">✗ Not Picked</option>
+        </Select>
+
+        <Select
+          value={filters.coaAvailable === undefined ? "all" : filters.coaAvailable ? "yes" : "no"}
+          onChange={handleCoaAvailableChange}
+          className="w-auto"
+        >
+          <option value="all">COA Available</option>
+          <option value="yes">✓ Available</option>
+          <option value="no">✗ Not Available</option>
         </Select>
       </div>
     </div>

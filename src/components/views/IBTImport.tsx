@@ -1,6 +1,6 @@
 // src/components/views/OrderImport.tsx
 import React, { useState, useCallback, useRef, useMemo } from "react";
-import { Upload, Check, AlertCircle, Download, Search, Filter, ArrowUpDown } from "lucide-react";
+import { Upload, Check, AlertCircle, Download, Search, Filter, ArrowUpDown, Plus, X, Save } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -245,6 +245,21 @@ export const IBTImport: React.FC = () => {
   const [importStatus, setImportStatus] = useState<"idle" | "success" | "error">("idle");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Manual IBT creation
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualOrder, setManualOrder] = useState<ImportedOrder>({
+    ref: "",
+    customer: DEFAULT_CUSTOMER,
+    pickup: DEFAULT_PICKUP,
+    dropoff: DEFAULT_DROPOFF,
+    warehouse: "",
+    priority: "normal",
+    pallets: undefined,
+    outstandingQty: undefined,
+    eta: "",
+    notes: "",
+  });
+
   // Advanced filtering and search
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
@@ -376,6 +391,29 @@ export const IBTImport: React.FC = () => {
     if (file) handleFileUpload(file);
   };
 
+  const handleAddManualOrder = () => {
+    if (!manualOrder.ref) {
+      setImportStatus("error");
+      return;
+    }
+
+    setImportedOrders([...importedOrders, manualOrder]);
+    setShowManualModal(false);
+    setManualOrder({
+      ref: "",
+      customer: DEFAULT_CUSTOMER,
+      pickup: DEFAULT_PICKUP,
+      dropoff: DEFAULT_DROPOFF,
+      warehouse: "",
+      priority: "normal",
+      pallets: undefined,
+      outstandingQty: undefined,
+      eta: "",
+      notes: "",
+    });
+    setImportStatus("success");
+  };
+
   const importToDispatch = async () => {
     try {
       // Convert all imported orders to jobs (without id, createdAt, updatedAt - server generates these)
@@ -471,6 +509,9 @@ export const IBTImport: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button onClick={() => setShowManualModal(true)} className="bg-green-600 hover:bg-green-700">
+              <Plus className="mr-2 h-4 w-4" /> Add IBT Manually
+            </Button>
             <Button variant="outline" onClick={() => downloadTemplate("csv")}>
               <Download className="mr-2 h-4 w-4" /> CSV Template
             </Button>
@@ -685,6 +726,166 @@ export const IBTImport: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Manual IBT Creation Modal */}
+      {showManualModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Add IBT Manually</h2>
+                <button
+                  onClick={() => setShowManualModal(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Reference */}
+                <div>
+                  <label htmlFor="manual-ref" className="block text-sm font-medium text-gray-700 mb-2">
+                    IBT / Transfer No <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="manual-ref"
+                    type="text"
+                    value={manualOrder.ref}
+                    onChange={(e) => setManualOrder({ ...manualOrder, ref: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="IBT-0001"
+                    required
+                  />
+                </div>
+
+                {/* From Branch (Pickup/Warehouse) */}
+                <div>
+                  <label htmlFor="manual-from" className="block text-sm font-medium text-gray-700 mb-2">
+                    From Branch / Source
+                  </label>
+                  <input
+                    id="manual-from"
+                    type="text"
+                    value={manualOrder.warehouse || ""}
+                    onChange={(e) => setManualOrder({ ...manualOrder, warehouse: e.target.value, pickup: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="K58 Warehouse"
+                  />
+                </div>
+
+                {/* To Branch (Dropoff) */}
+                <div>
+                  <label htmlFor="manual-to" className="block text-sm font-medium text-gray-700 mb-2">
+                    To Branch / Destination
+                  </label>
+                  <input
+                    id="manual-to"
+                    type="text"
+                    value={manualOrder.dropoff}
+                    onChange={(e) => setManualOrder({ ...manualOrder, dropoff: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="K63 Warehouse"
+                  />
+                </div>
+
+                {/* Priority */}
+                <div>
+                  <label htmlFor="manual-priority" className="block text-sm font-medium text-gray-700 mb-2">
+                    Priority
+                  </label>
+                  <select
+                    id="manual-priority"
+                    value={manualOrder.priority}
+                    onChange={(e) => setManualOrder({ ...manualOrder, priority: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="low">Low</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+
+                {/* Transfer Date */}
+                <div>
+                  <label htmlFor="manual-eta" className="block text-sm font-medium text-gray-700 mb-2">
+                    Transfer Date
+                  </label>
+                  <input
+                    id="manual-eta"
+                    type="date"
+                    value={manualOrder.eta || ""}
+                    onChange={(e) => setManualOrder({ ...manualOrder, eta: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Pallets */}
+                <div>
+                  <label htmlFor="manual-pallets" className="block text-sm font-medium text-gray-700 mb-2">
+                    Pallets
+                  </label>
+                  <input
+                    id="manual-pallets"
+                    type="number"
+                    value={manualOrder.pallets || ""}
+                    onChange={(e) => setManualOrder({ ...manualOrder, pallets: e.target.value ? parseInt(e.target.value) : undefined })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0"
+                    min="0"
+                  />
+                </div>
+
+                {/* Outstanding Qty */}
+                <div>
+                  <label htmlFor="manual-qty" className="block text-sm font-medium text-gray-700 mb-2">
+                    Outstanding Qty
+                  </label>
+                  <input
+                    id="manual-qty"
+                    type="number"
+                    value={manualOrder.outstandingQty || ""}
+                    onChange={(e) => setManualOrder({ ...manualOrder, outstandingQty: e.target.value ? parseInt(e.target.value) : undefined })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0"
+                    min="0"
+                  />
+                </div>
+
+                {/* Notes - Full Width */}
+                <div className="col-span-2">
+                  <label htmlFor="manual-notes" className="block text-sm font-medium text-gray-700 mb-2">
+                    Description / Items
+                  </label>
+                  <textarea
+                    id="manual-notes"
+                    value={manualOrder.notes || ""}
+                    onChange={(e) => setManualOrder({ ...manualOrder, notes: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Items being transferred"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 mt-6">
+                <Button onClick={handleAddManualOrder} className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700">
+                  <Save className="w-4 h-4" />
+                  Add IBT
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setShowManualModal(false)}
+                  className="flex-1 bg-gray-200 text-gray-800 hover:bg-gray-300"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

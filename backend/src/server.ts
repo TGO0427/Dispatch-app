@@ -14,15 +14,34 @@ const PORT = Number(process.env.PORT) || 3001;
 app.set('trust proxy', 1);
 
 // Middleware
-const allowedOrigins: string[] = [
+const allowedOrigins: (string | RegExp)[] = [
   'http://localhost:3000',
   'http://localhost:3002',
   'https://dispatch-app-t.vercel.app',
+  /^https:\/\/dispatch-.*\.vercel\.app$/, // Allow all Vercel preview deployments
   process.env.FRONTEND_URL || ''
 ].filter(origin => origin !== '');
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+
+    // Check if origin matches any allowed origins
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
+      return allowed === origin;
+    });
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());

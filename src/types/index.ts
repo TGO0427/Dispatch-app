@@ -52,6 +52,12 @@ export interface Job {
   pallets?: number;
   outstandingQty?: number;  // Outstanding quantity from Excel import
 
+  // Workflow tracking
+  transporterBooked?: boolean;  // Transporter has been booked
+  orderPicked?: boolean;        // Order has been picked from warehouse
+  coaAvailable?: boolean;       // Certificate of Analysis available
+  readyForDispatch?: boolean;   // Auto-calculated: all three above are true
+
   // Dates as ISO strings — easy to serialize, compare, and store
   eta?: string;                 // planned ETA (e.g. "2025-10-10" or ISO datetime)
   scheduledAt?: string;         // planned pickup/delivery (ISO datetime)

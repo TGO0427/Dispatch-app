@@ -7,6 +7,7 @@ import { priorityTone } from "../utils/helpers";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { useDispatch } from "../context/DispatchContext";
+import { JobWorkflow } from "./JobWorkflow";
 
 interface JobCardProps {
   job: Job;
@@ -24,7 +25,7 @@ const getWeekNumber = (dateString: string | undefined) => {
 };
 
 export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
-  const { drivers } = useDispatch();
+  const { drivers, updateJob } = useDispatch();
   const {
     attributes,
     listeners,
@@ -90,6 +91,9 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
             <span className="truncate">{drivers.find(d => d.id === job.driverId)?.name || "Unknown"}</span>
           </div>
         )}
+        <div className="mt-2">
+          <JobWorkflow job={job} onUpdate={updateJob} compact />
+        </div>
       </div>
 
       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>

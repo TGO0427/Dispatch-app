@@ -6,6 +6,7 @@ import { useDispatch } from "../context/DispatchContext";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
+import { JobWorkflow } from "./JobWorkflow";
 
 interface JobDetailsModalProps {
   job: Job;
@@ -139,6 +140,14 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                 </Badge>
               </div>
             )}
+          </div>
+
+          {/* Workflow Tracking */}
+          <div className="pt-4 border-t">
+            <JobWorkflow
+              job={isEditing ? editedJob : job}
+              onUpdate={updateJob}
+            />
           </div>
 
           {/* Customer */}

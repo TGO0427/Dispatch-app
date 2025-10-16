@@ -4,7 +4,7 @@
   "description": "Backend API for Dispatch Management System",
   "main": "dist/server.js",
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "npx prisma migrate deploy && node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsc",
     "postinstall": "prisma generate",

@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import jobsRouter from './routes/jobs';
 import driversRouter from './routes/drivers';
+import authRouter from './routes/auth';
 
 dotenv.config();
 
@@ -57,6 +58,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // API Routes
+app.use('/api/auth', authRouter);
 app.use('/api/jobs', jobsRouter);
 app.use('/api/drivers', driversRouter);
 
@@ -67,6 +69,7 @@ app.get('/', (req: Request, res: Response) => {
     version: '1.0.0',
     endpoints: {
       health: '/health',
+      auth: '/api/auth',
       jobs: '/api/jobs',
       drivers: '/api/drivers'
     }

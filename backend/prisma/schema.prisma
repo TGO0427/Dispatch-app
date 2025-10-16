@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Job {
+  id        String   @id @default(uuid())
+  ref       String   @db.VarChar(255)
+  customer  String   @db.VarChar(255)
+  pickup    String   @db.VarChar(255)
+  dropoff   String   @db.VarChar(255)
+  warehouse String?  @db.VarChar(255)
+
+  priority  String   @db.VarChar(50)  // "urgent" | "high" | "normal" | "low"
+  status    String   @db.VarChar(50)  // "pending" | "assigned" | "en-route" | "delivered" | "exception" | "cancelled"
+
+  pallets          Int?
+  outstandingQty   Int?
+
+  // Dates stored as ISO strings
+  eta                String?   @db.VarChar(255)
+  scheduledAt        String?   @db.VarChar(255)
+  actualDeliveryAt   String?   @db.VarChar(255)
+  exceptionReason    String?   @db.Text
+
+  driverId  String?  @db.VarChar(255)
+  driver    Driver?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  notes     String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([driverId])
+  @@index([warehouse])
+  @@map("jobs")
+}
+
+model Driver {
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(255)
+  callsign     String   @unique @db.VarChar(50)
+  location     String   @db.VarChar(255)
+  capacity     Int
+  assignedJobs Int      @default(0)
+  status       String   @db.VarChar(50)  // "available" | "busy" | "offline" | "break"
+  phone        String?  @db.VarChar(50)
+  email        String?  @db.VarChar(255)
+
+  jobs         Job[]
+
+  @@index([status])
+  @@map("drivers")
+}

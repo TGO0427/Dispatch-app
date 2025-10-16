@@ -19,7 +19,12 @@
       "Bash(git push:*)",
       "WebFetch(domain:dispatch-app-xi.vercel.app)",
       "Bash(git pull:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "WebFetch(domain:dispatch-app-t.vercel.app)",
+      "Bash(npx prisma:*)",
+      "Bash(node:*)",
+      "WebFetch(domain:dispatch-app-production.up.railway.app)",
+      "Bash(git fetch:*)"
     ],
     "deny": [],
     "ask": []

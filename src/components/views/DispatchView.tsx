@@ -19,6 +19,7 @@ import { JobCard } from "../JobCard";
 import { DriverCard } from "../DriverCard";
 import { JobDetailsModal } from "../JobDetailsModal";
 import { TransporterDetailsModal } from "../TransporterDetailsModal";
+import { AddDriverModal } from "../AddDriverModal";
 import { WarehouseSelector } from "../WarehouseSelector";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -26,11 +27,12 @@ import { Button } from "../ui/Button";
 import type { Job, Driver } from "../../types";
 
 export const DispatchView: React.FC = () => {
-  const { jobs, drivers, updateJob, updateDriver, filters, sortOptions } = useDispatch();
+  const { jobs, drivers, updateJob, updateDriver, addDriver, filters, sortOptions } = useDispatch();
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [selectedTransporter, setSelectedTransporter] = useState<Driver | null>(null);
+  const [showAddDriver, setShowAddDriver] = useState(false);
 
   const filteredAndSortedJobs = useMemo(() => {
     const filtered = filterJobs(jobs, filters);
@@ -79,6 +81,15 @@ export const DispatchView: React.FC = () => {
 
   const handleTransporterSave = (id: string, updates: Partial<Driver>) => {
     updateDriver(id, updates);
+  };
+
+  const handleAddDriver = async (driverData: Omit<Driver, "id" | "assignedJobs">) => {
+    const { driversAPI } = await import("../../services/api");
+    const newDriver = await driversAPI.create({
+      ...driverData,
+      assignedJobs: 0,
+    });
+    addDriver(newDriver);
   };
 
   const getDriverName = (driverId?: string) => {
@@ -204,10 +215,7 @@ export const DispatchView: React.FC = () => {
                     size="sm"
                     variant="outline"
                     className="gap-2"
-                    onClick={() => {
-                      // TODO: Implement add new transporter
-                      alert("Add new transporter functionality coming soon!");
-                    }}
+                    onClick={() => setShowAddDriver(true)}
                   >
                     <Plus className="h-4 w-4" />
                     Add
@@ -260,6 +268,14 @@ export const DispatchView: React.FC = () => {
           transporter={selectedTransporter}
           onClose={() => setSelectedTransporter(null)}
           onSave={handleTransporterSave}
+        />
+      )}
+
+      {/* Add Driver Modal */}
+      {showAddDriver && (
+        <AddDriverModal
+          onClose={() => setShowAddDriver(false)}
+          onSave={handleAddDriver}
         />
       )}
     </div>

@@ -54,6 +54,20 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   const updateField = <K extends keyof Job>(field: K, value: Job[K]) => {
     setEditedJob((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Helper to format ISO string or date string to datetime-local format
+  const formatDatetimeLocal = (dateString?: string): string => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      // Check if valid date
+      if (isNaN(date.getTime())) return "";
+      // Format to YYYY-MM-DDTHH:mm
+      return date.toISOString().slice(0, 16);
+    } catch {
+      return "";
+    }
+  };
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -205,7 +219,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               {isEditing ? (
                 <input
                   type="datetime-local"
-                  value={editedJob.eta ? editedJob.eta.slice(0, 16) : ""}
+                  value={formatDatetimeLocal(editedJob.eta)}
                   onChange={(e) => updateField("eta", e.target.value ? new Date(e.target.value).toISOString() : undefined)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -225,7 +239,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               {isEditing ? (
                 <input
                   type="datetime-local"
-                  value={editedJob.actualDeliveryAt ? editedJob.actualDeliveryAt.slice(0, 16) : ""}
+                  value={formatDatetimeLocal(editedJob.actualDeliveryAt)}
                   onChange={(e) => updateField("actualDeliveryAt", e.target.value ? new Date(e.target.value).toISOString() : undefined)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />

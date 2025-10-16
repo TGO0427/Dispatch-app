@@ -383,30 +383,36 @@ export const OrderImport: React.FC = () => {
     if (file) handleFileUpload(file);
   };
 
-  const importToDispatch = () => {
-    // Convert all imported orders to jobs
-    const newJobs: Job[] = importedOrders.map((order) => ({
-      id: genId(),
-      createdAt: nowStamp(),
-      updatedAt: nowStamp(),
-      ref: order.ref,
-      customer: order.customer,
-      pickup: order.pickup || DEFAULT_PICKUP,
-      dropoff: order.dropoff || DEFAULT_DROPOFF,
-      warehouse: order.warehouse,  // Add warehouse field for filtering
-      priority: normalizePriority(order.priority),
-      status: DEFAULT_STATUS,
-      pallets: order.pallets,
-      outstandingQty: order.outstandingQty,
-      eta: order.eta,
-      notes: order.notes,
-    }));
+  const importToDispatch = async () => {
+    try {
+      // Convert all imported orders to jobs (without id, createdAt, updatedAt - server generates these)
+      const jobsToCreate = importedOrders.map((order) => ({
+        ref: order.ref,
+        customer: order.customer,
+        pickup: order.pickup || DEFAULT_PICKUP,
+        dropoff: order.dropoff || DEFAULT_DROPOFF,
+        warehouse: order.warehouse,  // Add warehouse field for filtering
+        priority: normalizePriority(order.priority),
+        status: DEFAULT_STATUS,
+        pallets: order.pallets,
+        outstandingQty: order.outstandingQty,
+        eta: order.eta,
+        notes: order.notes,
+      }));
 
-    // Replace all existing jobs with the new ones
-    setJobs(newJobs);
+      // Save to database via API
+      const { jobsAPI } = await import("../../services/api");
+      const createdJobs = await jobsAPI.bulkCreate(jobsToCreate);
 
-    setImportedOrders([]);
-    setImportStatus("idle");
+      // Update local state with the created jobs from the database
+      setJobs(createdJobs);
+
+      setImportedOrders([]);
+      setImportStatus("idle");
+    } catch (error) {
+      console.error("Error importing jobs to database:", error);
+      setImportStatus("error");
+    }
   };
 
   const downloadTemplate = (format: "csv" | "excel" = "csv") => {

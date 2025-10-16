@@ -7,7 +7,7 @@ import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { Select } from "../ui/Select";
 import { useDispatch } from "../../context/DispatchContext";
-import { Job, JobPriority, JobStatus } from "../../types";
+import { JobPriority, JobStatus } from "../../types";
 
 /**
  * OrderImport component (Sales Orders mapping + ETA date normalization)
@@ -41,12 +41,6 @@ const DEFAULT_PICKUP = "K58 Warehouse";
 const DEFAULT_DROPOFF = "TBD";
 
 // ---------- Helpers ----------
-const genId = () =>
-  typeof crypto !== "undefined" && (crypto as any).randomUUID
-    ? (crypto as any).randomUUID()
-    : `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-const nowStamp = () => new Date().toISOString() as any;
-
 const pad2 = (n: number) => (n < 10 ? `0${n}` : `${n}`);
 const toISODate = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;

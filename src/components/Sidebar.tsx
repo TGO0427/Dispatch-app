@@ -7,7 +7,8 @@ import {
   Clock,
   Settings,
   Menu,
-  BarChart3
+  BarChart3,
+  ArrowRightLeft
 } from "lucide-react";
 
 interface SidebarProps {
@@ -17,7 +18,8 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange }) => {
   const navItems = [
-    { id: "home", icon: Home, label: "Home" },
+    { id: "home", icon: Home, label: "Import Orders" },
+    { id: "ibt", icon: ArrowRightLeft, label: "IBT" },
     { id: "clipboard", icon: ClipboardList, label: "Jobs" },
     { id: "calendar", icon: Calendar, label: "Calendar" },
     { id: "grid", icon: Grid3x3, label: "Reports" },

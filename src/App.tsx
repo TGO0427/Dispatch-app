@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { DispatchView } from "./components/views/DispatchView";
 import { OrderImport } from "./components/views/OrderImport";
+import { IBTImport } from "./components/views/IBTImport";
 import { CalendarView } from "./components/views/CalendarView";
 import { AnalyticsView } from "./components/views/AnalyticsView";
 import { AdvancedAnalytics } from "./components/views/AdvancedAnalytics";
@@ -25,6 +26,8 @@ function App() {
     switch (activeNavItem) {
       case "home":
         return <OrderImport />;
+      case "ibt":
+        return <IBTImport />;
       case "clipboard":
         return <DispatchView />;
       case "calendar":

@@ -6,7 +6,6 @@ import {
   Grid3x3,
   Clock,
   Settings,
-  Menu,
   BarChart3,
   ArrowRightLeft,
   LogOut,

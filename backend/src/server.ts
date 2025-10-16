@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import jobsRouter from './routes/jobs';
 import driversRouter from './routes/drivers';
 import authRouter from './routes/auth';
+import usersRouter from './routes/users';
 
 dotenv.config();
 
@@ -61,6 +62,7 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/api/auth', authRouter);
 app.use('/api/jobs', jobsRouter);
 app.use('/api/drivers', driversRouter);
+app.use('/api/users', usersRouter);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
@@ -71,7 +73,8 @@ app.get('/', (req: Request, res: Response) => {
       health: '/health',
       auth: '/api/auth',
       jobs: '/api/jobs',
-      drivers: '/api/drivers'
+      drivers: '/api/drivers',
+      users: '/api/users'
     }
   });
 });

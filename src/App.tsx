@@ -9,7 +9,7 @@ import { AnalyticsView } from "./components/views/AnalyticsView";
 import { AdvancedAnalytics } from "./components/views/AdvancedAnalytics";
 import { HistoryView } from "./components/views/HistoryView";
 import { Login } from "./components/views/Login";
-import { Card } from "./components/ui/Card";
+import { UserManagement } from "./components/views/UserManagement";
 import { ConnectionStatus } from "./components/ConnectionStatus";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
@@ -44,12 +44,7 @@ function AppContent() {
       case "clock":
         return <HistoryView />;
       case "settings":
-        return (
-          <Card className="p-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-            <p className="text-gray-600">Application configuration (Coming soon)</p>
-          </Card>
-        );
+        return <UserManagement />;
       default:
         return <DispatchView />;
     }

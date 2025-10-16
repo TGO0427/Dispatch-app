@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { UserPlus, Edit2, Trash2, X, Save, AlertCircle, Shield, Mail, User as UserIcon } from "lucide-react";
+import { UserPlus, Edit2, Trash2, X, Save, AlertCircle, Shield, Mail, User as UserIcon, Eye, EyeOff } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { useAuth, User } from "../../context/AuthContext";
@@ -18,6 +18,7 @@ export const UserManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<UserFormData>({
     username: "",
     email: "",
@@ -177,6 +178,7 @@ export const UserManagement: React.FC = () => {
     setEditingUser(null);
     resetForm();
     setError(null);
+    setShowPassword(false);
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -371,15 +373,29 @@ export const UserManagement: React.FC = () => {
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                     Password {editingUser && <span className="text-gray-500 text-xs">(leave blank to keep current)</span>}
                   </label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter password"
-                    required={!editingUser}
-                  />
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter password"
+                      required={!editingUser}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-100"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Role */}

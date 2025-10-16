@@ -17,8 +17,7 @@ app.set('trust proxy', 1);
 const allowedOrigins: (string | RegExp)[] = [
   'http://localhost:3000',
   'http://localhost:3002',
-  'https://dispatch-app-t.vercel.app',
-  /^https:\/\/dispatch-.*\.vercel\.app$/, // Allow all Vercel preview deployments
+  /^https:\/\/dispatch-[a-z0-9-]*\.vercel\.app$/, // Allow all Vercel deployments with "dispatch-*"
   process.env.FRONTEND_URL || ''
 ].filter(origin => origin !== '');
 

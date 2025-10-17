@@ -13,7 +13,7 @@ import { Login } from "./components/views/Login";
 import { UserManagement } from "./components/views/UserManagement";
 import { ConnectionStatus } from "./components/ConnectionStatus";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { Loader2 } from "lucide-react";
+import { Loader2, Save, Check } from "lucide-react";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -25,11 +25,27 @@ function AppContent() {
     return saved || "home";
   });
 
+  const [savedView, setSavedView] = useState<string | null>(() => {
+    return localStorage.getItem("activeNavItem");
+  });
+
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+
   const handleNavChange = (item: string) => {
     console.log("App: Changing nav to:", item);
     setActiveNavItem(item);
-    localStorage.setItem("activeNavItem", item);
-    console.log("App: Saved to localStorage:", item);
+  };
+
+  const handleSaveView = () => {
+    localStorage.setItem("activeNavItem", activeNavItem);
+    setSavedView(activeNavItem);
+    console.log("App: Saved view to localStorage:", activeNavItem);
+
+    // Show confirmation
+    setShowSaveConfirmation(true);
+    setTimeout(() => {
+      setShowSaveConfirmation(false);
+    }, 2000);
   };
 
   useEffect(() => {
@@ -97,6 +113,28 @@ function AppContent() {
         {/* Main Content Area */}
         <div className="ml-16 min-h-screen overflow-y-auto">
           <div className="mx-auto max-w-[1600px] p-8">
+            {/* Save View Button */}
+            <div className="fixed bottom-8 right-8 z-40">
+              {savedView !== activeNavItem && (
+                <button
+                  onClick={handleSaveView}
+                  className="flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition-all hover:scale-105"
+                  title="Save this view as your default"
+                >
+                  <Save className="h-5 w-5" />
+                  <span className="font-medium">Save as Default View</span>
+                </button>
+              )}
+
+              {/* Confirmation Message */}
+              {showSaveConfirmation && (
+                <div className="absolute bottom-16 right-0 flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg animate-fade-in">
+                  <Check className="h-5 w-5" />
+                  <span className="font-medium">View saved!</span>
+                </div>
+              )}
+            </div>
+
             {renderView()}
           </div>
         </div>

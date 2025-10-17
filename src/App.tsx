@@ -79,7 +79,7 @@ function AppContent() {
   // Show main app if authenticated
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 flex">
+      <div className="min-h-screen bg-gray-50">
         {/* Connection Status Overlay */}
         <ConnectionStatus />
 
@@ -87,7 +87,7 @@ function AppContent() {
         <Sidebar activeItem={activeNavItem} onItemChange={handleNavChange} />
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="ml-16 min-h-screen overflow-y-auto">
           <div className="mx-auto max-w-[1600px] p-8">
             {renderView()}
           </div>

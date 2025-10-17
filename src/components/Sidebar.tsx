@@ -62,7 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange }) =>
   };
 
   return (
-    <div className="w-16 bg-gray-900 flex flex-col items-center py-4 space-y-6">
+    <div className="fixed left-0 top-0 h-screen w-16 bg-gray-900 flex flex-col items-center py-4 space-y-6 z-30">
       {/* User Menu */}
       <div className="relative">
         <button

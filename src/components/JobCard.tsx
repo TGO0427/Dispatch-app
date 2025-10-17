@@ -53,8 +53,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
     e.stopPropagation();
     try {
       await updateJob(job.id, {
-        status: "delivered",
-        actualDeliveryAt: new Date().toISOString(),
+        status: "en-route",
       });
     } catch (error) {
       console.error("Error dispatching job:", error);
@@ -122,7 +121,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
             </div>
           </div>
         )}
-        {job.status !== "delivered" && job.status !== "cancelled" && (
+        {job.status !== "delivered" && job.status !== "cancelled" && job.status !== "en-route" && (
           <Button
             size="sm"
             onClick={handleDispatch}

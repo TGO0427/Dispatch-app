@@ -111,14 +111,23 @@ export function sortJobs(jobs: Job[], sortOptions: SortOptions): Job[] {
   const multiplier = direction === "asc" ? 1 : -1;
 
   return [...jobs].sort((a, b) => {
+    // ALWAYS prioritize high-priority jobs at the top, regardless of other sorting
+    const priorityOrder = { urgent: 4, high: 3, normal: 2, low: 1 };
+    const aPriority = priorityOrder[a.priority];
+    const bPriority = priorityOrder[b.priority];
+
+    // If one job is high priority and the other isn't, high priority comes first
+    if (aPriority >= 3 && bPriority < 3) return -1; // a (high/urgent) comes first
+    if (bPriority >= 3 && aPriority < 3) return 1;  // b (high/urgent) comes first
+
+    // If both are high priority or both are not, use the selected sort field
     let aVal: any = a[field];
     let bVal: any = b[field];
 
     // Handle priority sorting
     if (field === "priority") {
-      const priorityOrder = { urgent: 4, high: 3, normal: 2, low: 1 };
-      aVal = priorityOrder[a.priority];
-      bVal = priorityOrder[b.priority];
+      aVal = aPriority;
+      bVal = bPriority;
     }
 
     // Handle status sorting

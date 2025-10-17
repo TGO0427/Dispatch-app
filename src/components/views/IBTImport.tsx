@@ -451,7 +451,7 @@ export const IBTImport: React.FC = () => {
       "IBT No",
       "From Branch",
       "To Branch",
-      "Transfer Date",
+      "Due Date",
       "Priority",
       "Pallets",
       "Outstanding Qty",
@@ -505,7 +505,7 @@ export const IBTImport: React.FC = () => {
           <div>
             <h1 className="mb-2 text-3xl font-bold text-gray-900">Import Internal Branch Transfers (IBT)</h1>
             <p className="text-gray-600">
-              Drop your IBT export (CSV or Excel). We'll map <em>IBT No</em>, <em>From Branch</em>, <em>To Branch</em>, and <em>Transfer Date</em> automatically.
+              Drop your IBT export (CSV or Excel). We'll map <em>IBT No</em>, <em>From Branch</em>, <em>To Branch</em>, and <em>Due Date</em> automatically.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -716,7 +716,7 @@ export const IBTImport: React.FC = () => {
               <li><strong>IBT No / Transfer No</strong> → Reference</li>
               <li><strong>From Branch / Source</strong> → Pickup (Source Branch)</li>
               <li><strong>To Branch / Destination</strong> → Dropoff (Destination Branch)</li>
-              <li><strong>Transfer Date</strong> → ETA (normalized to YYYY-MM-DD)</li>
+              <li><strong>Due Date</strong> → ETA (normalized to YYYY-MM-DD)</li>
               <li><strong>Description / Notes</strong> → Notes</li>
               <li><strong>Priority / Status</strong> → Priority</li>
             </ul>
@@ -806,10 +806,10 @@ export const IBTImport: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Transfer Date */}
+                {/* Due Date */}
                 <div>
                   <label htmlFor="manual-eta" className="block text-sm font-medium text-gray-700 mb-2">
-                    Transfer Date
+                    Due Date
                   </label>
                   <input
                     id="manual-eta"

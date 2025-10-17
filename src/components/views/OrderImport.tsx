@@ -432,9 +432,9 @@ export const OrderImport: React.FC = () => {
         notes: order.notes,
       }));
 
-      // Save to database via API
+      // Replace all existing jobs in database via API
       const { jobsAPI } = await import("../../services/api");
-      const createdJobs = await jobsAPI.bulkCreate(jobsToCreate);
+      const createdJobs = await jobsAPI.bulkReplace(jobsToCreate);
 
       // Update local state with the created jobs from the database
       setJobs(createdJobs);

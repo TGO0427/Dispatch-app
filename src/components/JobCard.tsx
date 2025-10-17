@@ -1,7 +1,7 @@
 import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Clock, ChevronRight, GripVertical, Truck } from "lucide-react";
+import { Clock, ChevronRight, GripVertical, Truck, CheckCircle } from "lucide-react";
 import { Job } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { Badge } from "./ui/Badge";
@@ -47,6 +47,18 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
     if (job.status === "pending") return "new";
     if (job.status === "delivered") return "success";
     return "default";
+  };
+
+  const handleDispatch = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await updateJob(job.id, {
+        status: "delivered",
+        actualDeliveryAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error dispatching job:", error);
+    }
   };
 
   return (
@@ -109,6 +121,16 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
               Week {getWeekNumber(job.eta)}
             </div>
           </div>
+        )}
+        {job.status !== "delivered" && job.status !== "cancelled" && (
+          <Button
+            size="sm"
+            onClick={handleDispatch}
+            className="bg-green-600 hover:bg-green-700 text-white"
+            title="Mark as dispatched"
+          >
+            <CheckCircle className="h-4 w-4" />
+          </Button>
         )}
         <Button size="sm" onClick={(e) => { e.stopPropagation(); onSelect(); }}>
           Details <ChevronRight className="ml-1 h-4 w-4" />

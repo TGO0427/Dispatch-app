@@ -86,6 +86,14 @@ export const jobsAPI = {
       body: JSON.stringify({ jobs }),
     });
   },
+
+  // Bulk replace jobs (delete all existing and create new ones)
+  bulkReplace: async (jobs: Omit<Job, "id" | "createdAt" | "updatedAt">[]): Promise<Job[]> => {
+    return fetchAPI<Job[]>("/api/jobs/bulk-replace", {
+      method: "POST",
+      body: JSON.stringify({ jobs }),
+    });
+  },
 };
 
 // ============ Drivers API ============

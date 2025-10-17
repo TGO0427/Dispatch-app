@@ -135,7 +135,10 @@ router.post('/bulk', async (req: Request, res: Response) => {
       actualDeliveryAt: job.actualDeliveryAt,
       exceptionReason: job.exceptionReason,
       driverId: job.driverId,
-      notes: job.notes
+      notes: job.notes,
+      transporterBooked: job.transporterBooked,
+      orderPicked: job.orderPicked,
+      coaAvailable: job.coaAvailable
     }));
 
     const result = await prisma.job.createMany({
@@ -152,6 +155,55 @@ router.post('/bulk', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error bulk creating jobs:', error);
     res.status(500).json({ success: false, error: 'Failed to bulk create jobs' });
+  }
+});
+
+// POST bulk replace jobs (delete all existing jobs and create new ones)
+router.post('/bulk-replace', async (req: Request, res: Response) => {
+  try {
+    const jobsData = req.body.jobs.map((job: any) => ({
+      ref: job.ref,
+      customer: job.customer,
+      pickup: job.pickup,
+      dropoff: job.dropoff,
+      warehouse: job.warehouse,
+      priority: job.priority || 'normal',
+      status: job.status || 'pending',
+      pallets: job.pallets,
+      outstandingQty: job.outstandingQty,
+      eta: job.eta,
+      scheduledAt: job.scheduledAt,
+      actualDeliveryAt: job.actualDeliveryAt,
+      exceptionReason: job.exceptionReason,
+      driverId: job.driverId,
+      notes: job.notes,
+      transporterBooked: job.transporterBooked,
+      orderPicked: job.orderPicked,
+      coaAvailable: job.coaAvailable
+    }));
+
+    // Use a transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Delete all existing jobs
+      await tx.job.deleteMany({});
+
+      // Create new jobs
+      await tx.job.createMany({
+        data: jobsData
+      });
+
+      // Fetch the created jobs to return them
+      const createdJobs = await tx.job.findMany({
+        orderBy: { createdAt: 'desc' }
+      });
+
+      return createdJobs;
+    });
+
+    res.status(201).json({ success: true, data: result.map(formatJob) });
+  } catch (error) {
+    console.error('Error bulk replacing jobs:', error);
+    res.status(500).json({ success: false, error: 'Failed to bulk replace jobs' });
   }
 });
 

@@ -8,6 +8,7 @@ import {
   Settings,
   BarChart3,
   ArrowRightLeft,
+  Truck,
   LogOut,
   User
 } from "lucide-react";
@@ -24,7 +25,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange }) =>
 
   const navItems = [
     { id: "home", icon: Home, label: "Import Orders" },
-    { id: "ibt", icon: ArrowRightLeft, label: "IBT" },
+    { id: "ibt", icon: ArrowRightLeft, label: "IBT Import" },
+    { id: "ibt-dispatch", icon: Truck, label: "IBT Dispatch" },
     { id: "clipboard", icon: ClipboardList, label: "Jobs" },
     { id: "calendar", icon: Calendar, label: "Calendar" },
     { id: "grid", icon: Grid3x3, label: "Reports" },

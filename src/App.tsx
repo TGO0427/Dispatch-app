@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Sidebar } from "./components/Sidebar";
 import { DispatchView } from "./components/views/DispatchView";
+import { IBTDispatchView } from "./components/views/IBTDispatchView";
 import { OrderImport } from "./components/views/OrderImport";
 import { IBTImport } from "./components/views/IBTImport";
 import { CalendarView } from "./components/views/CalendarView";
@@ -33,6 +34,8 @@ function AppContent() {
         return <OrderImport />;
       case "ibt":
         return <IBTImport />;
+      case "ibt-dispatch":
+        return <IBTDispatchView />;
       case "clipboard":
         return <DispatchView />;
       case "calendar":

@@ -239,7 +239,7 @@ const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
 
 // ---------- Component ----------
 export const IBTImport: React.FC = () => {
-  const { setJobs } = useDispatch();
+  const { refreshData } = useDispatch();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importStatus, setImportStatus] = useState<"idle" | "success" | "error">("idle");
@@ -433,10 +433,10 @@ export const IBTImport: React.FC = () => {
 
       // Replace all existing IBT jobs in database via API (not customer orders)
       const { jobsAPI } = await import("../../services/api");
-      const createdJobs = await jobsAPI.bulkReplace(jobsToCreate, "ibt");
+      await jobsAPI.bulkReplace(jobsToCreate, "ibt");
 
-      // Update local state with the created jobs from the database
-      setJobs(createdJobs);
+      // Refresh all jobs from database (both customer orders and IBT jobs)
+      await refreshData();
 
       setImportedOrders([]);
       setImportStatus("idle");

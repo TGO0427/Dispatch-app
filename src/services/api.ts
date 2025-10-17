@@ -87,11 +87,11 @@ export const jobsAPI = {
     });
   },
 
-  // Bulk replace jobs (delete all existing and create new ones)
-  bulkReplace: async (jobs: Omit<Job, "id" | "createdAt" | "updatedAt">[]): Promise<Job[]> => {
+  // Bulk replace jobs (delete existing jobs of same type and create new ones)
+  bulkReplace: async (jobs: Omit<Job, "id" | "createdAt" | "updatedAt">[], jobType: "order" | "ibt" = "order"): Promise<Job[]> => {
     return fetchAPI<Job[]>("/api/jobs/bulk-replace", {
       method: "POST",
-      body: JSON.stringify({ jobs }),
+      body: JSON.stringify({ jobs, jobType }),
     });
   },
 };

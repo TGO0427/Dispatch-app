@@ -15,6 +15,8 @@ export type JobPriority = "urgent" | "high" | "normal" | "low";
 
 export type DriverStatus = "available" | "busy" | "offline" | "break";
 
+export type JobType = "order" | "ibt";
+
 // Handy constants (useful for dropdowns and validation)
 export const JOB_STATUSES: JobStatus[] = [
   "pending",
@@ -48,6 +50,7 @@ export interface Job {
 
   priority: JobPriority;
   status: JobStatus;
+  jobType?: JobType;       // "order" or "ibt" - distinguishes between customer orders and IBT jobs
 
   pallets?: number;
   outstandingQty?: number;  // Outstanding quantity from Excel import

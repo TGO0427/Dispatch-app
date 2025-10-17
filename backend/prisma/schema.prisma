@@ -20,6 +20,7 @@ model Job {
 
   priority  String   @db.VarChar(50)  // "urgent" | "high" | "normal" | "low"
   status    String   @db.VarChar(50)  // "pending" | "assigned" | "en-route" | "delivered" | "exception" | "cancelled"
+  jobType   String   @default("order") @db.VarChar(50)  // "order" | "ibt"
 
   pallets          Int?
   outstandingQty   Int?
@@ -42,6 +43,7 @@ model Job {
   @@index([priority])
   @@index([driverId])
   @@index([warehouse])
+  @@index([jobType])
   @@map("jobs")
 }
 

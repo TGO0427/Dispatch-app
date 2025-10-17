@@ -432,9 +432,9 @@ export const OrderImport: React.FC = () => {
         notes: order.notes,
       }));
 
-      // Replace all existing jobs in database via API
+      // Replace all existing CUSTOMER ORDER jobs in database via API (not IBT jobs)
       const { jobsAPI } = await import("../../services/api");
-      const createdJobs = await jobsAPI.bulkReplace(jobsToCreate);
+      const createdJobs = await jobsAPI.bulkReplace(jobsToCreate, "order");
 
       // Update local state with the created jobs from the database
       setJobs(createdJobs);
@@ -582,7 +582,22 @@ export const OrderImport: React.FC = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Preview Orders ({importedOrders.length})</CardTitle>
-              <Button onClick={importToDispatch}>Import to Dispatch System</Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setImportedOrders([]);
+                    setImportStatus("idle");
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = "";
+                    }
+                  }}
+                  variant="outline"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <X className="mr-2 h-4 w-4" /> Cancel
+                </Button>
+                <Button onClick={importToDispatch}>Import to Dispatch System</Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>

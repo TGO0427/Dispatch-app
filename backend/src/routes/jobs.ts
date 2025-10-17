@@ -158,9 +158,11 @@ router.post('/bulk', async (req: Request, res: Response) => {
   }
 });
 
-// POST bulk replace jobs (delete all existing jobs and create new ones)
+// POST bulk replace jobs (delete existing jobs of same type and create new ones)
 router.post('/bulk-replace', async (req: Request, res: Response) => {
   try {
+    const jobType = req.body.jobType || 'order'; // "order" or "ibt"
+
     const jobsData = req.body.jobs.map((job: any) => ({
       ref: job.ref,
       customer: job.customer,
@@ -169,6 +171,7 @@ router.post('/bulk-replace', async (req: Request, res: Response) => {
       warehouse: job.warehouse,
       priority: job.priority || 'normal',
       status: job.status || 'pending',
+      jobType: jobType,
       pallets: job.pallets,
       outstandingQty: job.outstandingQty,
       eta: job.eta,
@@ -184,8 +187,10 @@ router.post('/bulk-replace', async (req: Request, res: Response) => {
 
     // Use a transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // Delete all existing jobs
-      await tx.job.deleteMany({});
+      // Delete only jobs of the same type
+      await tx.job.deleteMany({
+        where: { jobType: jobType }
+      });
 
       // Create new jobs
       await tx.job.createMany({
@@ -194,6 +199,7 @@ router.post('/bulk-replace', async (req: Request, res: Response) => {
 
       // Fetch the created jobs to return them
       const createdJobs = await tx.job.findMany({
+        where: { jobType: jobType },
         orderBy: { createdAt: 'desc' }
       });
 

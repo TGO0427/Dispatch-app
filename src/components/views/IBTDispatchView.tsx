@@ -34,9 +34,9 @@ export const IBTDispatchView: React.FC = () => {
   const [selectedTransporter, setSelectedTransporter] = useState<Driver | null>(null);
   const [showAddDriver, setShowAddDriver] = useState(false);
 
-  // Filter to show only IBT jobs (where customer starts with "IBT")
+  // Filter to show only IBT jobs (jobType === "ibt")
   const ibtJobs = useMemo(() => {
-    return jobs.filter((job) => job.customer?.startsWith("IBT"));
+    return jobs.filter((job) => job.jobType === "ibt");
   }, [jobs]);
 
   const filteredAndSortedJobs = useMemo(() => {

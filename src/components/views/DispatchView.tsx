@@ -34,25 +34,30 @@ export const DispatchView: React.FC = () => {
   const [selectedTransporter, setSelectedTransporter] = useState<Driver | null>(null);
   const [showAddDriver, setShowAddDriver] = useState(false);
 
+  // Filter to show only customer order jobs (jobType === "order" or undefined for backwards compatibility)
+  const orderJobs = useMemo(() => {
+    return jobs.filter((job) => job.jobType === "order" || job.jobType === undefined);
+  }, [jobs]);
+
   const filteredAndSortedJobs = useMemo(() => {
-    const filtered = filterJobs(jobs, filters);
+    const filtered = filterJobs(orderJobs, filters);
     return sortJobs(filtered, sortOptions);
-  }, [jobs, filters, sortOptions]);
+  }, [orderJobs, filters, sortOptions]);
 
   const stats = useMemo(() => {
     return {
-      total: jobs.length,
-      pending: jobs.filter((j) => j.status === "pending").length,
-      inRoute: jobs.filter((j) => j.status === "en-route").length, // ✅ your union
-      delivered: jobs.filter((j) => j.status === "delivered").length, // ✅ your union
-      exceptions: jobs.filter((j) => j.status === "exception").length,
+      total: orderJobs.length,
+      pending: orderJobs.filter((j) => j.status === "pending").length,
+      inRoute: orderJobs.filter((j) => j.status === "en-route").length,
+      delivered: orderJobs.filter((j) => j.status === "delivered").length,
+      exceptions: orderJobs.filter((j) => j.status === "exception").length,
       availableDrivers: drivers.filter((d) => d.status === "available").length,
       busyDrivers: drivers.filter((d) => d.status === "busy").length,
     };
-  }, [jobs, drivers]);
+  }, [orderJobs, drivers]);
 
   const handleDragStart = (event: DragStartEvent) => {
-    const job = jobs.find((j) => j.id === event.active.id);
+    const job = orderJobs.find((j) => j.id === event.active.id);
     setActiveJob(job || null);
   };
 

@@ -40,6 +40,7 @@ export const DispatchView: React.FC = () => {
     pickup: "K58 Warehouse",
     dropoff: "TBD",
     warehouse: "",
+    serviceType: "delivery" as "collection" | "delivery",
     priority: "normal" as JobPriority,
     pallets: undefined as number | undefined,
     outstandingQty: undefined as number | undefined,
@@ -68,6 +69,17 @@ export const DispatchView: React.FC = () => {
       busyDrivers: drivers.filter((d) => d.status === "busy").length,
     };
   }, [orderJobs, drivers]);
+
+  // Get unique warehouses from all jobs
+  const warehouses = useMemo(() => {
+    const warehouseSet = new Set<string>();
+    jobs.forEach((job) => {
+      if (job.warehouse) {
+        warehouseSet.add(job.warehouse);
+      }
+    });
+    return Array.from(warehouseSet).sort();
+  }, [jobs]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const job = orderJobs.find((j) => j.id === event.active.id);
@@ -146,6 +158,7 @@ export const DispatchView: React.FC = () => {
         pickup: "K58 Warehouse",
         dropoff: "TBD",
         warehouse: "",
+        serviceType: "delivery",
         priority: "normal",
         pallets: undefined,
         outstandingQty: undefined,
@@ -405,14 +418,35 @@ export const DispatchView: React.FC = () => {
                   <label htmlFor="job-warehouse" className="block text-sm font-medium text-gray-700 mb-2">
                     Warehouse / Pickup
                   </label>
-                  <input
+                  <select
                     id="job-warehouse"
-                    type="text"
                     value={newJob.warehouse}
                     onChange={(e) => setNewJob({ ...newJob, warehouse: e.target.value, pickup: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="K58 Warehouse"
-                  />
+                  >
+                    <option value="">Select Warehouse</option>
+                    {warehouses.map((warehouse) => (
+                      <option key={warehouse} value={warehouse}>
+                        {warehouse}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Service Type */}
+                <div>
+                  <label htmlFor="job-service-type" className="block text-sm font-medium text-gray-700 mb-2">
+                    Service Type
+                  </label>
+                  <select
+                    id="job-service-type"
+                    value={newJob.serviceType}
+                    onChange={(e) => setNewJob({ ...newJob, serviceType: e.target.value as "collection" | "delivery" })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="delivery">Delivery</option>
+                    <option value="collection">Collection</option>
+                  </select>
                 </div>
 
                 {/* Dropoff */}

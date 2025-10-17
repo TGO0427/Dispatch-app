@@ -23,7 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange }) =>
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  const navItems = [
+  const allNavItems = [
     { id: "home", icon: Home, label: "Import Orders" },
     { id: "ibt", icon: ArrowRightLeft, label: "IBT Import" },
     { id: "ibt-dispatch", icon: Truck, label: "IBT Dispatch" },
@@ -32,8 +32,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange }) =>
     { id: "grid", icon: Grid3x3, label: "Reports" },
     { id: "analytics", icon: BarChart3, label: "Analytics" },
     { id: "clock", icon: Clock, label: "History" },
-    { id: "settings", icon: Settings, label: "Settings" },
+    { id: "settings", icon: Settings, label: "Settings", adminOnly: true },
   ];
+
+  // Filter nav items based on user role
+  const navItems = allNavItems.filter(item => {
+    if (item.adminOnly) {
+      return user?.role === "admin";
+    }
+    return true;
+  });
 
   useEffect(() => {
     console.log("Sidebar: activeItem prop changed to:", activeItem);

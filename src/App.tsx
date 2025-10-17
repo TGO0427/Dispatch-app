@@ -16,7 +16,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [activeNavItem, setActiveNavItem] = useState<string>("home");
 
   const handleNavChange = (item: string) => {
@@ -47,7 +47,13 @@ function AppContent() {
       case "clock":
         return <HistoryView />;
       case "settings":
-        return <UserManagement />;
+        // Only admins can access User Management
+        if (user?.role === "admin") {
+          return <UserManagement />;
+        }
+        // Redirect non-admin users to home
+        setActiveNavItem("home");
+        return <OrderImport />;
       default:
         return <DispatchView />;
     }

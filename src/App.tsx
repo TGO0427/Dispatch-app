@@ -21,6 +21,7 @@ function AppContent() {
   // Initialize from localStorage or default to "home"
   const [activeNavItem, setActiveNavItem] = useState<string>(() => {
     const saved = localStorage.getItem("activeNavItem");
+    console.log("App: Loading saved nav from localStorage:", saved);
     return saved || "home";
   });
 
@@ -28,6 +29,7 @@ function AppContent() {
     console.log("App: Changing nav to:", item);
     setActiveNavItem(item);
     localStorage.setItem("activeNavItem", item);
+    console.log("App: Saved to localStorage:", item);
   };
 
   useEffect(() => {

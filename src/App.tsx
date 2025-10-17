@@ -17,11 +17,17 @@ import { Loader2 } from "lucide-react";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const [activeNavItem, setActiveNavItem] = useState<string>("home");
+
+  // Initialize from localStorage or default to "home"
+  const [activeNavItem, setActiveNavItem] = useState<string>(() => {
+    const saved = localStorage.getItem("activeNavItem");
+    return saved || "home";
+  });
 
   const handleNavChange = (item: string) => {
     console.log("App: Changing nav to:", item);
     setActiveNavItem(item);
+    localStorage.setItem("activeNavItem", item);
   };
 
   useEffect(() => {

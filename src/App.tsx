@@ -5,7 +5,7 @@ import { Login } from "./components/views/Login";
 import { ConnectionStatus } from "./components/ConnectionStatus";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { Loader2, Save, Check } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 // Lazy-loaded views for code splitting
 const Dashboard = lazy(() => import("./components/views/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -30,28 +30,8 @@ const PageLoader = () => (
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
-
-  const [activeNavItem, setActiveNavItem] = useState<string>(() => {
-    return localStorage.getItem("activeNavItem") || "dashboard";
-  });
-
-  const [savedView, setSavedView] = useState<string | null>(() => {
-    return localStorage.getItem("activeNavItem");
-  });
-
-  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [activeNavItem, setActiveNavItem] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  const handleNavChange = (item: string) => {
-    setActiveNavItem(item);
-  };
-
-  const handleSaveView = () => {
-    localStorage.setItem("activeNavItem", activeNavItem);
-    setSavedView(activeNavItem);
-    setShowSaveConfirmation(true);
-    setTimeout(() => setShowSaveConfirmation(false), 2000);
-  };
 
   const renderView = () => {
     let view;
@@ -116,33 +96,13 @@ function AppContent() {
 
         <Sidebar
           activeItem={activeNavItem}
-          onItemChange={handleNavChange}
+          onItemChange={setActiveNavItem}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
 
         <div className={`${sidebarCollapsed ? "ml-16" : "ml-60"} min-h-screen overflow-y-auto transition-all duration-300`}>
           <div className="mx-auto max-w-[1600px] p-8">
-            {/* Save View Button */}
-            <div className="fixed bottom-8 right-8 z-40">
-              {savedView !== activeNavItem && (
-                <button
-                  onClick={handleSaveView}
-                  className="flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition-all hover:scale-105"
-                  title="Save this view as your default"
-                >
-                  <Save className="h-5 w-5" />
-                  <span className="font-medium">Save as Default View</span>
-                </button>
-              )}
-              {showSaveConfirmation && (
-                <div className="absolute bottom-16 right-0 flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg animate-fade-in">
-                  <Check className="h-5 w-5" />
-                  <span className="font-medium">View saved!</span>
-                </div>
-              )}
-            </div>
-
             {renderView()}
           </div>
         </div>

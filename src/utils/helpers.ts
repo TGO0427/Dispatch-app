@@ -111,26 +111,33 @@ export function sortJobs(jobs: Job[], sortOptions: SortOptions): Job[] {
   const multiplier = direction === "asc" ? 1 : -1;
 
   return [...jobs].sort((a, b) => {
-    // ALWAYS prioritize high-priority jobs at the top, regardless of other sorting
+    // PRIMARY SORT: nearest ETA date first (orders with upcoming dates on top)
+    const aEta = a.eta ? new Date(a.eta).getTime() : Infinity;
+    const bEta = b.eta ? new Date(b.eta).getTime() : Infinity;
+
+    // Jobs with ETA always come before jobs without ETA
+    if (aEta !== Infinity && bEta === Infinity) return -1;
+    if (bEta !== Infinity && aEta === Infinity) return 1;
+
+    // Both have ETA: nearest date first
+    if (aEta !== bEta) return aEta - bEta;
+
+    // SECONDARY SORT: high-priority jobs first
     const priorityOrder = { urgent: 4, high: 3, normal: 2, low: 1 };
     const aPriority = priorityOrder[a.priority];
     const bPriority = priorityOrder[b.priority];
 
-    // If one job is high priority and the other isn't, high priority comes first
-    if (aPriority >= 3 && bPriority < 3) return -1; // a (high/urgent) comes first
-    if (bPriority >= 3 && aPriority < 3) return 1;  // b (high/urgent) comes first
+    if (aPriority !== bPriority) return bPriority - aPriority;
 
-    // If both are high priority or both are not, use the selected sort field
+    // TERTIARY SORT: use the selected sort field
     let aVal: any = a[field];
     let bVal: any = b[field];
 
-    // Handle priority sorting
     if (field === "priority") {
       aVal = aPriority;
       bVal = bPriority;
     }
 
-    // Handle status sorting
     if (field === "status") {
       const statusOrder = {
         exception: 6,
@@ -144,18 +151,15 @@ export function sortJobs(jobs: Job[], sortOptions: SortOptions): Job[] {
       bVal = statusOrder[b.status] || 0;
     }
 
-    // Handle date sorting (createdAt is an ISO string)
-    if (field === "createdAt") {
-      aVal = new Date(a.createdAt).getTime();
-      bVal = new Date(b.createdAt).getTime();
+    if (field === "createdAt" || field === "eta") {
+      aVal = aVal ? new Date(aVal).getTime() : 0;
+      bVal = bVal ? new Date(bVal).getTime() : 0;
     }
 
-    // Handle string sorting
     if (typeof aVal === "string" && typeof bVal === "string") {
       return multiplier * aVal.localeCompare(bVal);
     }
 
-    // Handle number sorting
     if (aVal < bVal) return -1 * multiplier;
     if (aVal > bVal) return 1 * multiplier;
     return 0;

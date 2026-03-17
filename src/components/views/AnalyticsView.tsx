@@ -16,14 +16,14 @@ type ReportType =
   | "delivery-performance"
   | "warehouse-utilization";
 
-type DateRange = "today" | "week" | "month" | "quarter" | "year" | "custom";
+type DateRange = "all" | "today" | "week" | "month" | "quarter" | "year" | "custom";
 
 export const AnalyticsView: React.FC = () => {
   const { jobs, drivers } = useDispatch();
 
   // State for filters
   const [selectedReport, setSelectedReport] = useState<ReportType>("job-summary");
-  const [dateRange, setDateRange] = useState<DateRange>("month");
+  const [dateRange, setDateRange] = useState<DateRange>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -92,28 +92,30 @@ export const AnalyticsView: React.FC = () => {
       }
 
       // Date range filter (based on created date)
-      const jobDate = new Date(job.createdAt);
-      const now = new Date();
+      if (dateRange !== "all") {
+        const jobDate = new Date(job.createdAt);
+        const now = new Date();
 
-      if (dateRange === "custom" && startDate && endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        if (jobDate < start || jobDate > end) return false;
-      } else if (dateRange === "today") {
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        if (jobDate < today) return false;
-      } else if (dateRange === "week") {
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        if (jobDate < weekAgo) return false;
-      } else if (dateRange === "month") {
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        if (jobDate < monthAgo) return false;
-      } else if (dateRange === "quarter") {
-        const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        if (jobDate < quarterAgo) return false;
-      } else if (dateRange === "year") {
-        const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-        if (jobDate < yearAgo) return false;
+        if (dateRange === "custom" && startDate && endDate) {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          if (jobDate < start || jobDate > end) return false;
+        } else if (dateRange === "today") {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (jobDate < today) return false;
+        } else if (dateRange === "week") {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (jobDate < weekAgo) return false;
+        } else if (dateRange === "month") {
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          if (jobDate < monthAgo) return false;
+        } else if (dateRange === "quarter") {
+          const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          if (jobDate < quarterAgo) return false;
+        } else if (dateRange === "year") {
+          const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          if (jobDate < yearAgo) return false;
+        }
       }
 
       return true;
@@ -807,6 +809,7 @@ export const AnalyticsView: React.FC = () => {
                 onChange={(e) => setDateRange(e.target.value as DateRange)}
                 className="w-full"
               >
+                <option value="all">All Time</option>
                 <option value="today">Today</option>
                 <option value="week">Last 7 Days</option>
                 <option value="month">Last 30 Days</option>

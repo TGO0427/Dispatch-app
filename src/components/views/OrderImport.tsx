@@ -419,13 +419,19 @@ export const OrderImport: React.FC = () => {
 
   const importToDispatch = async () => {
     try {
-      // Convert all imported orders to jobs (without id, createdAt, updatedAt - server generates these)
-      const jobsToCreate = importedOrders.map((order) => ({
+      const { jobsAPI } = await import("../../services/api");
+
+      // Get existing refs from database to skip duplicates
+      const existingJobs = await jobsAPI.getAll();
+      const existingRefs = new Set(existingJobs.map((j) => j.ref));
+
+      // Convert imported orders, skipping any that already exist
+      const allOrders = importedOrders.map((order) => ({
         ref: order.ref,
         customer: order.customer,
         pickup: order.pickup || DEFAULT_PICKUP,
         dropoff: order.dropoff || DEFAULT_DROPOFF,
-        warehouse: order.warehouse,  // Add warehouse field for filtering
+        warehouse: order.warehouse,
         priority: normalizePriority(order.priority),
         status: DEFAULT_STATUS,
         pallets: order.pallets,
@@ -434,12 +440,18 @@ export const OrderImport: React.FC = () => {
         notes: order.notes,
       }));
 
-      // Add new orders to existing open orders (append, not replace)
-      const { jobsAPI } = await import("../../services/api");
-      await jobsAPI.bulkCreate(jobsToCreate);
+      const newOrders = allOrders.filter((order) => !existingRefs.has(order.ref));
+      const skippedCount = allOrders.length - newOrders.length;
 
-      // Refresh all jobs from database (both customer orders and IBT jobs)
+      if (newOrders.length > 0) {
+        await jobsAPI.bulkCreate(newOrders);
+      }
+
       await refreshData();
+
+      if (skippedCount > 0) {
+        alert(`Import complete!\n\n${newOrders.length} new orders imported.\n${skippedCount} duplicate orders skipped (already exist in system).`);
+      }
 
       setImportedOrders([]);
       setImportStatus("idle");

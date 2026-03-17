@@ -1,7 +1,7 @@
 import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Clock, ChevronRight, GripVertical, Truck, CheckCircle } from "lucide-react";
+import { Clock, ChevronRight, GripVertical, Truck, CheckCircle, Trash2 } from "lucide-react";
 import { Job } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { Badge } from "./ui/Badge";
@@ -25,7 +25,7 @@ const getWeekNumber = (dateString: string | undefined) => {
 };
 
 export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
-  const { drivers, updateJob } = useDispatch();
+  const { drivers, updateJob, removeJob } = useDispatch();
   const {
     attributes,
     listeners,
@@ -52,11 +52,20 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const handleDispatch = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await updateJob(job.id, {
-        status: "en-route",
-      });
+      await updateJob(job.id, { status: "en-route" });
     } catch (error) {
       console.error("Error dispatching job:", error);
+    }
+  };
+
+  const handleRemove = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm(`Remove order ${job.ref}? This cannot be undone.`)) {
+      try {
+        await removeJob(job.id);
+      } catch (error) {
+        console.error("Error removing job:", error);
+      }
     }
   };
 
@@ -131,6 +140,14 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
             <CheckCircle className="h-4 w-4" />
           </Button>
         )}
+        <Button
+          size="sm"
+          onClick={handleRemove}
+          className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+          title="Remove order"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
         <Button size="sm" onClick={(e) => { e.stopPropagation(); onSelect(); }}>
           Details <ChevronRight className="ml-1 h-4 w-4" />
         </Button>

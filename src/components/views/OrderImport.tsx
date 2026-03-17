@@ -395,9 +395,9 @@ export const OrderImport: React.FC = () => {
         notes: order.notes,
       }));
 
-      // Replace all existing CUSTOMER ORDER jobs in database via API (not IBT jobs)
+      // Add new orders to existing open orders (append, not replace)
       const { jobsAPI } = await import("../../services/api");
-      await jobsAPI.bulkReplace(jobsToCreate, "order");
+      await jobsAPI.bulkCreate(jobsToCreate);
 
       // Refresh all jobs from database (both customer orders and IBT jobs)
       await refreshData();

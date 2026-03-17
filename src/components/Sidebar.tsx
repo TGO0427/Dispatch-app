@@ -65,20 +65,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       key: "dispatch",
       title: "DISPATCH",
       items: [
-        { id: "home", icon: Home, label: "Import Orders" },
+        { id: "home", icon: Home, label: "Import Customer Orders" },
         { id: "ibt", icon: ArrowRightLeft, label: "IBT Import" },
         { id: "ibt-dispatch", icon: Truck, label: "IBT Dispatch" },
-        { id: "clipboard", icon: ClipboardList, label: "Jobs", badge: pendingCount, badgeType: "info" },
+        { id: "clipboard", icon: ClipboardList, label: "Order Management", badge: pendingCount, badgeType: "info" },
       ],
     },
     {
       key: "operations",
       title: "OPERATIONS",
       items: [
-        { id: "calendar", icon: Calendar, label: "Calendar" },
+        { id: "calendar", icon: Calendar, label: "Scheduling" },
         { id: "grid", icon: Grid3x3, label: "Reports" },
         { id: "analytics", icon: BarChart3, label: "Analytics" },
-        { id: "clock", icon: Clock, label: "History" },
+        { id: "clock", icon: Clock, label: "Order History" },
       ],
     },
   ];

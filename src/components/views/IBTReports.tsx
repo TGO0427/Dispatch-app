@@ -201,6 +201,8 @@ export const IBTReports: React.FC = () => {
                       <th className="text-right p-3 font-semibold text-gray-700">Weight (qty)</th>
                       <th className="text-left p-3 font-semibold text-gray-700">From → To</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">Service</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">ETD</th>
                       <th className="text-left p-3 font-semibold text-gray-700">ETA</th>
                     </tr>
                   </thead>
@@ -232,6 +234,21 @@ export const IBTReports: React.FC = () => {
                           <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
                           <td className="p-3 text-gray-700">
                             {job.driverId ? drivers.find((d) => d.id === job.driverId)?.name : "Unassigned"}
+                          </td>
+                          <td className="p-3 text-xs">
+                            {job.transportService ? (
+                              <span className={`font-semibold px-1.5 py-0.5 rounded ${
+                                job.transportService === "express" ? "bg-red-100 text-red-700" :
+                                job.transportService === "economy" ? "bg-blue-100 text-blue-700" :
+                                "bg-gray-100 text-gray-700"
+                              }`}>
+                                {job.transportService === "express" ? "⚡ Express" :
+                                 job.transportService === "economy" ? "🚛 Economy" : "📦 Outline"}
+                              </span>
+                            ) : <span className="text-gray-400">—</span>}
+                          </td>
+                          <td className="p-3 text-gray-600 text-xs font-medium">
+                            {job.etd || <span className="text-gray-400">—</span>}
                           </td>
                           <td className="p-3 text-gray-600 text-xs">
                             {job.eta || "N/A"}

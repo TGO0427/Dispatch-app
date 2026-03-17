@@ -67,7 +67,23 @@ export const Dashboard: React.FC = () => {
     const availableDrivers = drivers.filter((d) => d.status === "available").length;
     const busyDrivers = drivers.filter((d) => d.status === "busy").length;
 
-    const avgDays = total > 0 ? Math.round(total * 0.98) : 0;
+    // Count orders with ETD this week
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+    const departuresThisWeek = new Set<string>();
+    orderJobs.forEach((j) => {
+      if (j.etd) {
+        const etdDate = new Date(j.etd);
+        if (etdDate >= startOfWeek && etdDate < endOfWeek) {
+          departuresThisWeek.add(j.ref);
+        }
+      }
+    });
 
     return {
       total,
@@ -79,7 +95,7 @@ export const Dashboard: React.FC = () => {
       cancelled,
       availableDrivers,
       busyDrivers,
-      avgDays,
+      departuresThisWeek: departuresThisWeek.size,
     };
   }, [orderJobs, drivers]);
 
@@ -198,11 +214,11 @@ export const Dashboard: React.FC = () => {
     },
     {
       icon: Clock,
-      value: `${stats.avgDays}`,
-      label: "AVG PROCESSING",
-      change: "Days average",
-      changeType: "neutral" as const,
-      sublabel: "",
+      value: stats.departuresThisWeek,
+      label: "ETD THIS WEEK",
+      change: "Departures scheduled",
+      changeType: stats.departuresThisWeek > 0 ? "up" as const : "neutral" as const,
+      sublabel: stats.departuresThisWeek > 5 ? "Busy Week" : "",
       color: "text-purple-500",
       bgColor: "bg-purple-500/10",
     },

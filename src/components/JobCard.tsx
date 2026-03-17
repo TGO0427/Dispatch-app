@@ -126,14 +126,24 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
         <Badge variant={getBadgeVariant()}>
           {job.status}
         </Badge>
-        {job.eta && (
+        {(job.eta || job.etd) && (
           <div className="flex flex-col items-end text-xs">
-            <div className="flex items-center gap-1 text-gray-600">
-              <Clock className="h-3.5 w-3.5" /> {job.eta}
-            </div>
-            <div className="text-gray-400 text-xs">
-              Week {getWeekNumber(job.eta)}
-            </div>
+            {job.etd && (
+              <div className="flex items-center gap-1 text-blue-600 font-medium">
+                <span className="text-[9px] text-blue-400">ETD</span> {job.etd}
+              </div>
+            )}
+            {job.eta && (
+              <div className="flex items-center gap-1 text-gray-600">
+                <Clock className="h-3 w-3" />
+                <span className="text-[9px] text-gray-400">ETA</span> {job.eta}
+              </div>
+            )}
+            {job.eta && (
+              <div className="text-gray-400 text-[10px]">
+                Week {getWeekNumber(job.eta)}
+              </div>
+            )}
           </div>
         )}
         {job.status !== "delivered" && job.status !== "cancelled" && job.status !== "en-route" && (

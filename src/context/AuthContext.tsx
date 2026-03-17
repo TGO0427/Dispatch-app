@@ -29,21 +29,20 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// API base URL - empty for same-domain serverless functions
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing session on mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const token = localStorage.getItem("authToken");
         if (token) {
-          // Verify token with backend
-          const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/auth/verify`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+          const response = await fetch(`${API_BASE}/api/auth/verify`, {
+            headers: { Authorization: `Bearer ${token}` },
           });
 
           if (response.ok) {
@@ -66,11 +65,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/auth/login`, {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
 
@@ -92,11 +89,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const token = localStorage.getItem("authToken");
       if (token) {
-        await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/auth/logout`, {
+        await fetch(`${API_BASE}/api/auth/logout`, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
       }
     } catch (error) {

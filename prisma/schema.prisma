@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Job {
+  id        String   @id @default(uuid())
+  ref       String   @db.VarChar(255)
+  customer  String   @db.VarChar(255)
+  pickup    String   @db.VarChar(255)
+  dropoff   String   @db.VarChar(255)
+  warehouse String?  @db.VarChar(255)
+
+  priority  String   @db.VarChar(50)
+  status    String   @db.VarChar(50)
+  jobType   String   @default("order") @db.VarChar(50)
+
+  pallets          Int?
+  outstandingQty   Int?
+
+  eta                String?   @db.VarChar(255)
+  scheduledAt        String?   @db.VarChar(255)
+  actualDeliveryAt   String?   @db.VarChar(255)
+  exceptionReason    String?   @db.Text
+
+  transporterBooked  Boolean?  @default(false)
+  orderPicked        Boolean?  @default(false)
+  coaAvailable       Boolean?  @default(false)
+
+  driverId  String?  @db.VarChar(255)
+  driver    Driver?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  notes     String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([driverId])
+  @@index([warehouse])
+  @@index([jobType])
+  @@map("jobs")
+}
+
+model Driver {
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(255)
+  callsign     String   @unique @db.VarChar(50)
+  location     String   @db.VarChar(255)
+  capacity     Int
+  assignedJobs Int      @default(0)
+  status       String   @db.VarChar(50)
+  phone        String?  @db.VarChar(50)
+  email        String?  @db.VarChar(255)
+
+  jobs         Job[]
+
+  @@index([status])
+  @@map("drivers")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  role      String   @default("user") @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}

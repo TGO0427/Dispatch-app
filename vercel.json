@@ -1,16 +1,33 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "prisma generate && npm run build",
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node@3"
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+      ]
+    },
     {
       "source": "/assets/(.*)",
       "headers": [
@@ -20,8 +37,5 @@
         }
       ]
     }
-  ],
-  "env": {
-    "VITE_API_URL": "https://dispatch-app-production.up.railway.app"
-  }
+  ]
 }

@@ -1,7 +1,10 @@
 // src/services/api.ts
 import type { Job, Driver } from "../types";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+// For serverless: API is on the same domain, use relative paths
+// For local dev with vercel dev: also relative
+// Only set VITE_API_URL if you need to point to a different backend
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 // Helper function for API requests
 async function fetchAPI<T>(
@@ -46,17 +49,14 @@ async function fetchAPI<T>(
 // ============ Jobs API ============
 
 export const jobsAPI = {
-  // Get all jobs
   getAll: async (): Promise<Job[]> => {
     return fetchAPI<Job[]>("/api/jobs");
   },
 
-  // Get a single job by ID
   getById: async (id: string): Promise<Job> => {
     return fetchAPI<Job>(`/api/jobs/${id}`);
   },
 
-  // Create a new job
   create: async (job: Omit<Job, "id" | "createdAt" | "updatedAt">): Promise<Job> => {
     return fetchAPI<Job>("/api/jobs", {
       method: "POST",
@@ -64,7 +64,6 @@ export const jobsAPI = {
     });
   },
 
-  // Update a job
   update: async (id: string, patch: Partial<Job>): Promise<Job> => {
     return fetchAPI<Job>(`/api/jobs/${id}`, {
       method: "PUT",
@@ -72,14 +71,12 @@ export const jobsAPI = {
     });
   },
 
-  // Delete a job
   delete: async (id: string): Promise<void> => {
     return fetchAPI<void>(`/api/jobs/${id}`, {
       method: "DELETE",
     });
   },
 
-  // Bulk create jobs
   bulkCreate: async (jobs: Omit<Job, "id" | "createdAt" | "updatedAt">[]): Promise<Job[]> => {
     return fetchAPI<Job[]>("/api/jobs/bulk", {
       method: "POST",
@@ -87,7 +84,6 @@ export const jobsAPI = {
     });
   },
 
-  // Bulk replace jobs (delete existing jobs of same type and create new ones)
   bulkReplace: async (jobs: Omit<Job, "id" | "createdAt" | "updatedAt">[], jobType: "order" | "ibt" = "order"): Promise<Job[]> => {
     return fetchAPI<Job[]>("/api/jobs/bulk-replace", {
       method: "POST",
@@ -99,17 +95,14 @@ export const jobsAPI = {
 // ============ Drivers API ============
 
 export const driversAPI = {
-  // Get all drivers
   getAll: async (): Promise<Driver[]> => {
     return fetchAPI<Driver[]>("/api/drivers");
   },
 
-  // Get a single driver by ID
   getById: async (id: string): Promise<Driver> => {
     return fetchAPI<Driver>(`/api/drivers/${id}`);
   },
 
-  // Create a new driver
   create: async (driver: Omit<Driver, "id">): Promise<Driver> => {
     return fetchAPI<Driver>("/api/drivers", {
       method: "POST",
@@ -117,7 +110,6 @@ export const driversAPI = {
     });
   },
 
-  // Update a driver
   update: async (id: string, patch: Partial<Driver>): Promise<Driver> => {
     return fetchAPI<Driver>(`/api/drivers/${id}`, {
       method: "PUT",
@@ -125,7 +117,6 @@ export const driversAPI = {
     });
   },
 
-  // Delete a driver
   delete: async (id: string): Promise<void> => {
     return fetchAPI<void>(`/api/drivers/${id}`, {
       method: "DELETE",
@@ -136,8 +127,7 @@ export const driversAPI = {
 // ============ Health Check ============
 
 export const healthCheck = async (): Promise<{ status: string; timestamp: string }> => {
-  return fetchAPI<{ status: string; timestamp: string }>("/health");
+  return fetchAPI<{ status: string; timestamp: string }>("/api/health");
 };
 
-// Export API_URL for reference
 export { API_URL };

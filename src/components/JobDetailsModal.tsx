@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X, MapPin, User, Calendar, Package, AlertCircle, Edit2, Save } from "lucide-react";
-import { Job, JobStatus, JobPriority, JOB_STATUSES, JOB_PRIORITIES } from "../types";
+import { Job, JobStatus, JobPriority, ServiceType, JOB_STATUSES, JOB_PRIORITIES } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { useDispatch } from "../context/DispatchContext";
 import { Button } from "./ui/Button";
@@ -162,6 +162,35 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               job={isEditing ? editedJob : job}
               onUpdate={updateJob}
             />
+          </div>
+
+          {/* Service Type */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
+              Service Type
+            </div>
+            {isEditing ? (
+              <select
+                value={editedJob.serviceType || "delivery"}
+                onChange={(e) => updateField("serviceType", e.target.value as ServiceType)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="delivery">Delivery — We arrange transport</option>
+                <option value="collection">Collection / Ex Works — Customer collects</option>
+              </select>
+            ) : (
+              <div className="flex items-center gap-2">
+                {job.serviceType === "collection" ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-100 text-purple-700 font-semibold text-sm">
+                    📦 Ex Works / Customer Collection
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 font-semibold text-sm">
+                    🚚 Delivery — We arrange transport
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Customer */}

@@ -17,6 +17,10 @@ export type DriverStatus = "available" | "busy" | "offline" | "break";
 
 export type JobType = "order" | "ibt";
 
+export type ServiceType = "delivery" | "collection";
+
+export const SERVICE_TYPES: ServiceType[] = ["delivery", "collection"];
+
 // Handy constants (useful for dropdowns and validation)
 export const JOB_STATUSES: JobStatus[] = [
   "pending",
@@ -51,6 +55,7 @@ export interface Job {
   priority: JobPriority;
   status: JobStatus;
   jobType?: JobType;       // "order" or "ibt" - distinguishes between customer orders and IBT jobs
+  serviceType?: ServiceType; // "delivery" (we arrange transport) or "collection" (customer collects / ex works)
 
   pallets?: number;
   outstandingQty?: number;  // Outstanding quantity from Excel import

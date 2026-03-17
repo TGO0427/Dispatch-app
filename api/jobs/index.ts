@@ -50,6 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           transporterBooked: req.body.transporterBooked,
           orderPicked: req.body.orderPicked,
           coaAvailable: req.body.coaAvailable,
+          serviceType: req.body.serviceType,
         },
       });
       return res.status(201).json({ success: true, data: formatJob(newJob) });

@@ -92,9 +92,20 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
         <p className="truncate text-sm text-gray-600 mt-0.5">
           <span className={priorityTone(job.priority)}>{job.customer}</span>
         </p>
-        <p className="truncate text-xs text-gray-500 mt-1">
-          {job.pickup} → {job.dropoff}
-        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="truncate text-xs text-gray-500">
+            {job.pickup} → {job.dropoff}
+          </p>
+          {job.serviceType === "collection" ? (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 flex-shrink-0">
+              EX WORKS
+            </span>
+          ) : (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 flex-shrink-0">
+              DELIVERY
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2 mt-1 text-xs">
           {job.pallets !== undefined && (
             <span className="text-gray-500">{job.pallets} pallets</span>

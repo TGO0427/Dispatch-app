@@ -23,6 +23,12 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
 
+  // Workflow updates: save to API AND update local state so UI reflects changes immediately
+  const handleWorkflowUpdate = (jobId: string, updates: Partial<Job>) => {
+    updateJob(jobId, updates);
+    setEditedJob((prev) => ({ ...prev, ...updates }));
+  };
+
   const handleSave = () => {
     // Validation: if status is "exception", require exception reason
     if (editedJob.status === "exception" && !editedJob.exceptionReason?.trim()) {
@@ -159,8 +165,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           {/* Workflow Tracking */}
           <div className="pt-4 border-t">
             <JobWorkflow
-              job={isEditing ? editedJob : job}
-              onUpdate={updateJob}
+              job={editedJob}
+              onUpdate={handleWorkflowUpdate}
             />
           </div>
 

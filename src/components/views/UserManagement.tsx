@@ -35,7 +35,7 @@ export const UserManagement: React.FC = () => {
     try {
       setIsLoading(true);
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/users`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -61,7 +61,7 @@ export const UserManagement: React.FC = () => {
 
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/users`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -102,7 +102,7 @@ export const UserManagement: React.FC = () => {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/users/${editingUser.id}`,
+        `${import.meta.env.VITE_API_URL || ""}/api/users/${editingUser.id}`,
         {
           method: "PUT",
           headers: {
@@ -134,7 +134,7 @@ export const UserManagement: React.FC = () => {
     try {
       const token = localStorage.getItem("authToken");
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/users/${userId}`,
+        `${import.meta.env.VITE_API_URL || ""}/api/users/${userId}`,
         {
           method: "DELETE",
           headers: {

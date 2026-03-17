@@ -35,29 +35,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "PUT") {
     try {
+      // Only include fields that are actually present in the request body
+      const allowedFields = [
+        "ref", "customer", "pickup", "dropoff", "warehouse", "priority", "status",
+        "pallets", "outstandingQty", "eta", "scheduledAt", "actualDeliveryAt",
+        "exceptionReason", "driverId", "notes", "transporterBooked", "orderPicked",
+        "coaAvailable", "serviceType", "jobType",
+      ];
+      const data: Record<string, any> = {};
+      for (const field of allowedFields) {
+        if (field in req.body) {
+          data[field] = req.body[field];
+        }
+      }
       const updatedJob = await prisma.job.update({
         where: { id },
-        data: {
-          ref: req.body.ref,
-          customer: req.body.customer,
-          pickup: req.body.pickup,
-          dropoff: req.body.dropoff,
-          warehouse: req.body.warehouse,
-          priority: req.body.priority,
-          status: req.body.status,
-          pallets: req.body.pallets,
-          outstandingQty: req.body.outstandingQty,
-          eta: req.body.eta,
-          scheduledAt: req.body.scheduledAt,
-          actualDeliveryAt: req.body.actualDeliveryAt,
-          exceptionReason: req.body.exceptionReason,
-          driverId: req.body.driverId,
-          notes: req.body.notes,
-          transporterBooked: req.body.transporterBooked,
-          orderPicked: req.body.orderPicked,
-          coaAvailable: req.body.coaAvailable,
-          serviceType: req.body.serviceType,
-        },
+        data,
       });
       return res.json({ success: true, data: formatJob(updatedJob) });
     } catch (error: any) {

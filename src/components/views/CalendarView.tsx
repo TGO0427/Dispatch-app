@@ -203,18 +203,33 @@ export const CalendarView: React.FC = () => {
 
               const dayJobs = getJobsForDay(day);
               const today = isToday(day);
+              const isHighVolume = dayJobs.length >= 5;
 
               return (
                 <div
                   key={day}
                   className={`
                     aspect-square border rounded-lg p-2 overflow-hidden
-                    ${today ? 'border-blue-500 border-2 bg-blue-50' : 'border-gray-200'}
+                    ${isHighVolume
+                      ? 'border-red-400 border-2 bg-red-50'
+                      : today
+                        ? 'border-blue-500 border-2 bg-blue-50'
+                        : 'border-gray-200'
+                    }
                     hover:border-gray-400 transition-colors
                   `}
                 >
-                  <div className={`text-sm font-semibold mb-1 ${today ? 'text-blue-600' : 'text-gray-700'}`}>
-                    {day}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-sm font-semibold ${
+                      isHighVolume ? 'text-red-600' : today ? 'text-blue-600' : 'text-gray-700'
+                    }`}>
+                      {day}
+                    </span>
+                    {isHighVolume && (
+                      <span className="text-[9px] font-bold bg-red-500 text-white px-1 py-0.5 rounded">
+                        {dayJobs.length}
+                      </span>
+                    )}
                   </div>
 
                   <div className="space-y-1">

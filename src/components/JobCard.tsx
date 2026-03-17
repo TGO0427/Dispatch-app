@@ -106,16 +106,11 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 mt-1 text-xs">
-          {job.pallets !== undefined && (
+        {job.pallets !== undefined && job.pallets > 0 && (
+          <div className="flex items-center gap-2 mt-1 text-xs">
             <span className="text-gray-500">{job.pallets} pallets</span>
-          )}
-          {job.outstandingQty !== undefined && (
-            <span className="font-semibold text-orange-600">
-              Outstanding: {job.outstandingQty}
-            </span>
-          )}
-        </div>
+          </div>
+        )}
         {job.driverId && (
           <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
             <Truck className="h-3 w-3" />

@@ -48,9 +48,48 @@ export const DispatchView: React.FC = () => {
     notes: "",
   });
 
-  // Filter to show only customer order jobs (jobType === "order" or undefined for backwards compatibility)
+  // Filter to show only customer order jobs, deduplicated by ASO ref,
+  // and only orders due within current week + 4 weeks
   const orderJobs = useMemo(() => {
-    return jobs.filter((job) => job.jobType === "order" || job.jobType === undefined);
+    const allOrders = jobs.filter((job) => job.jobType === "order" || job.jobType === undefined);
+
+    // Deduplicate by ref (ASO number) - keep the first occurrence per ref
+    // and aggregate data from duplicate line items
+    const refMap = new Map<string, Job>();
+    allOrders.forEach((job) => {
+      const existing = refMap.get(job.ref);
+      if (!existing) {
+        refMap.set(job.ref, { ...job });
+      } else {
+        // Merge: keep earliest ETA, sum pallets/qty, preserve status if more progressed
+        if (job.eta && (!existing.eta || job.eta < existing.eta)) {
+          existing.eta = job.eta;
+        }
+        if (job.pallets) {
+          existing.pallets = (existing.pallets || 0) + job.pallets;
+        }
+        if (job.outstandingQty) {
+          existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
+        }
+      }
+    });
+
+    // Filter to current week + 4 weeks by ETA
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfRange = new Date(startOfWeek);
+    endOfRange.setDate(endOfRange.getDate() + 5 * 7); // 5 weeks total (current + 4)
+    endOfRange.setHours(23, 59, 59, 999);
+
+    return Array.from(refMap.values()).filter((job) => {
+      // Always show jobs without ETA (so they don't disappear)
+      if (!job.eta) return true;
+      const etaDate = new Date(job.eta);
+      return etaDate >= startOfWeek && etaDate <= endOfRange;
+    });
   }, [jobs]);
 
   const filteredAndSortedJobs = useMemo(() => {

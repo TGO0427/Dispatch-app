@@ -47,23 +47,53 @@ export const AnalyticsView: React.FC = () => {
     };
   };
 
+  // Deduplicate jobs by ASO ref and filter to current week + 4
+  const dedupedJobs = useMemo(() => {
+    const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
+    const refMap = new Map<string, typeof orderJobs[0]>();
+    orderJobs.forEach((job) => {
+      const existing = refMap.get(job.ref);
+      if (!existing) {
+        refMap.set(job.ref, { ...job });
+      } else {
+        if (job.eta && (!existing.eta || job.eta < existing.eta)) existing.eta = job.eta;
+        if (job.pallets) existing.pallets = (existing.pallets || 0) + job.pallets;
+        if (job.outstandingQty) existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
+      }
+    });
+
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const endOfRange = new Date(startOfWeek);
+    endOfRange.setDate(endOfRange.getDate() + 5 * 7);
+    endOfRange.setHours(23, 59, 59, 999);
+
+    return Array.from(refMap.values()).filter((job) => {
+      if (!job.eta) return true;
+      const etaDate = new Date(job.eta);
+      return etaDate >= startOfWeek && etaDate <= endOfRange;
+    });
+  }, [jobs]);
+
   // Get unique warehouses
   const warehouses = useMemo(() => {
-    const uniqueWarehouses = Array.from(new Set(jobs.map(j => j.warehouse).filter(Boolean)));
+    const uniqueWarehouses = Array.from(new Set(dedupedJobs.map(j => j.warehouse).filter(Boolean)));
     return uniqueWarehouses.sort();
-  }, [jobs]);
+  }, [dedupedJobs]);
 
   // Get unique ETA weeks
   const etaWeeks = useMemo(() => {
     const weeks = new Set<string>();
-    jobs.forEach(job => {
+    dedupedJobs.forEach(job => {
       const weekInfo = getWeekInfo(job.eta);
       if (weekInfo) {
         weeks.add(weekInfo.value);
       }
     });
-    return Array.from(weeks).sort().reverse(); // Most recent first
-  }, [jobs]);
+    return Array.from(weeks).sort().reverse();
+  }, [dedupedJobs]);
 
   // Get unique transporters
   const transporters = useMemo(() => {
@@ -72,7 +102,7 @@ export const AnalyticsView: React.FC = () => {
 
   // Filter jobs based on criteria
   const filteredJobs = useMemo(() => {
-    return jobs.filter(job => {
+    return dedupedJobs.filter(job => {
       // Status filter
       if (selectedStatus !== "all" && job.status !== selectedStatus) return false;
 
@@ -120,7 +150,7 @@ export const AnalyticsView: React.FC = () => {
 
       return true;
     });
-  }, [jobs, selectedStatus, selectedPriority, selectedWarehouse, selectedTransporter, etaWeekFilter, dateRange, startDate, endDate]);
+  }, [dedupedJobs, selectedStatus, selectedPriority, selectedWarehouse, selectedTransporter, etaWeekFilter, dateRange, startDate, endDate]);
 
   // Export functions
   const exportToExcel = () => {

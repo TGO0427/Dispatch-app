@@ -76,7 +76,18 @@ export const Dashboard: React.FC = () => {
     endOfWeek.setDate(endOfWeek.getDate() + 7);
 
     const departuresThisWeek = new Set<string>();
+    let palletsThisWeek = 0;
+    let weightThisWeek = 0;
     orderJobs.forEach((j) => {
+      // Use ETD if available, otherwise ETA for current week calculation
+      const dispatchDate = j.etd || j.eta;
+      if (dispatchDate) {
+        const d = new Date(dispatchDate);
+        if (d >= startOfWeek && d < endOfWeek) {
+          palletsThisWeek += j.pallets || 0;
+          weightThisWeek += j.outstandingQty || 0;
+        }
+      }
       if (j.etd) {
         const etdDate = new Date(j.etd);
         if (etdDate >= startOfWeek && etdDate < endOfWeek) {
@@ -96,6 +107,8 @@ export const Dashboard: React.FC = () => {
       availableDrivers,
       busyDrivers,
       departuresThisWeek: departuresThisWeek.size,
+      palletsThisWeek,
+      weightThisWeek,
     };
   }, [orderJobs, drivers]);
 
@@ -232,6 +245,26 @@ export const Dashboard: React.FC = () => {
       color: "text-teal-500",
       bgColor: "bg-teal-500/10",
     },
+    {
+      icon: Package,
+      value: stats.palletsThisWeek,
+      label: "PALLETS THIS WEEK",
+      change: "To dispatch",
+      changeType: stats.palletsThisWeek > 0 ? "up" as const : "neutral" as const,
+      sublabel: "",
+      color: "text-indigo-500",
+      bgColor: "bg-indigo-500/10",
+    },
+    {
+      icon: Archive,
+      value: stats.weightThisWeek.toLocaleString(),
+      label: "WEIGHT THIS WEEK",
+      change: "Qty to dispatch",
+      changeType: stats.weightThisWeek > 0 ? "up" as const : "neutral" as const,
+      sublabel: "",
+      color: "text-cyan-500",
+      bgColor: "bg-cyan-500/10",
+    },
   ];
 
   return (
@@ -322,7 +355,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-4">
         {statCards.map((card, idx) => (
           <div
             key={idx}

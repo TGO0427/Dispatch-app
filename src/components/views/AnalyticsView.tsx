@@ -372,6 +372,8 @@ export const AnalyticsView: React.FC = () => {
                       <th className="text-left p-3 font-semibold text-gray-700">Customer</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Status</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Priority</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Pallets</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Weight (qty)</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Route</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Created</th>
@@ -403,6 +405,8 @@ export const AnalyticsView: React.FC = () => {
                               {job.priority}
                             </Badge>
                           </td>
+                          <td className="p-3 text-right text-gray-700 font-medium">{job.pallets ?? "—"}</td>
+                          <td className="p-3 text-right text-gray-700 font-medium">{job.outstandingQty ? job.outstandingQty.toLocaleString() : "—"}</td>
                           <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
                           <td className="p-3 text-gray-700">
                             {job.driverId ? drivers.find(d => d.id === job.driverId)?.name : "Unassigned"}

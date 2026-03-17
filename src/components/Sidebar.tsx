@@ -107,9 +107,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800">
         {!collapsed && (
           <div>
-            <h1 className="text-white font-bold text-lg leading-tight">Import SCM</h1>
+            <h1 className="text-white font-bold text-lg leading-tight">Dispatch</h1>
             <p className="text-gray-400 text-[10px] uppercase tracking-wider">
-              Supply Chain Management
+              Dispatch & Receiving
             </p>
           </div>
         )}

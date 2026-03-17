@@ -216,7 +216,7 @@ export const Dashboard: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Synercore</h1>
             <p className="text-xs text-gray-500 uppercase tracking-wider">
-              Leaders in Food Innovation
+              Dispatch & Receiving
             </p>
           </div>
         </div>

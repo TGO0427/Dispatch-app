@@ -475,8 +475,9 @@ export const DispatchView: React.FC = () => {
             </Card>
           </div>
 
-          {/* Transporters List */}
+          {/* Transporters List - sticky so it stays visible while scrolling jobs */}
           <div className="lg:col-span-1">
+            <div className="lg:sticky lg:top-4" style={{ maxHeight: "calc(100vh - 2rem)", overflowY: "auto" }}>
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -516,6 +517,7 @@ export const DispatchView: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+            </div>
           </div>
         </div>
 

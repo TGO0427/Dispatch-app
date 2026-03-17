@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Sidebar } from "./components/Sidebar";
+import { Dashboard } from "./components/views/Dashboard";
 import { DispatchView } from "./components/views/DispatchView";
 import { IBTDispatchView } from "./components/views/IBTDispatchView";
 import { OrderImport } from "./components/views/OrderImport";
@@ -18,11 +19,10 @@ import { Loader2, Save, Check } from "lucide-react";
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
-  // Initialize from localStorage or default to "home"
+  // Initialize from localStorage or default to "dashboard"
   const [activeNavItem, setActiveNavItem] = useState<string>(() => {
     const saved = localStorage.getItem("activeNavItem");
-    console.log("App: Loading saved nav from localStorage:", saved);
-    return saved || "home";
+    return saved || "dashboard";
   });
 
   const [savedView, setSavedView] = useState<string | null>(() => {
@@ -30,30 +30,26 @@ function AppContent() {
   });
 
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleNavChange = (item: string) => {
-    console.log("App: Changing nav to:", item);
     setActiveNavItem(item);
   };
 
   const handleSaveView = () => {
     localStorage.setItem("activeNavItem", activeNavItem);
     setSavedView(activeNavItem);
-    console.log("App: Saved view to localStorage:", activeNavItem);
 
-    // Show confirmation
     setShowSaveConfirmation(true);
     setTimeout(() => {
       setShowSaveConfirmation(false);
     }, 2000);
   };
 
-  useEffect(() => {
-    console.log("App: activeNavItem state updated to:", activeNavItem);
-  }, [activeNavItem]);
-
   const renderView = () => {
     switch (activeNavItem) {
+      case "dashboard":
+        return <Dashboard />;
       case "home":
         return <OrderImport />;
       case "ibt":
@@ -71,19 +67,22 @@ function AppContent() {
       case "clock":
         return <HistoryView />;
       case "settings":
-        // Only admins can access User Management
         if (user?.role === "admin") {
           return <UserManagement />;
         }
-        // Redirect non-admin users to home
-        setActiveNavItem("home");
-        return <OrderImport />;
+        setActiveNavItem("dashboard");
+        return <Dashboard />;
+      case "user-management":
+        if (user?.role === "admin") {
+          return <UserManagement />;
+        }
+        setActiveNavItem("dashboard");
+        return <Dashboard />;
       default:
-        return <DispatchView />;
+        return <Dashboard />;
     }
   };
 
-  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -95,23 +94,24 @@ function AppContent() {
     );
   }
 
-  // Show login page if not authenticated
   if (!isAuthenticated) {
     return <Login />;
   }
 
-  // Show main app if authenticated
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50">
-        {/* Connection Status Overlay */}
         <ConnectionStatus />
 
-        {/* Sidebar Navigation */}
-        <Sidebar activeItem={activeNavItem} onItemChange={handleNavChange} />
+        <Sidebar
+          activeItem={activeNavItem}
+          onItemChange={handleNavChange}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
 
-        {/* Main Content Area */}
-        <div className="ml-16 min-h-screen overflow-y-auto">
+        {/* Main Content Area - responsive to sidebar width */}
+        <div className={`${sidebarCollapsed ? "ml-16" : "ml-60"} min-h-screen overflow-y-auto transition-all duration-300`}>
           <div className="mx-auto max-w-[1600px] p-8">
             {/* Save View Button */}
             <div className="fixed bottom-8 right-8 z-40">
@@ -126,7 +126,6 @@ function AppContent() {
                 </button>
               )}
 
-              {/* Confirmation Message */}
               {showSaveConfirmation && (
                 <div className="absolute bottom-16 right-0 flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg animate-fade-in">
                   <Check className="h-5 w-5" />

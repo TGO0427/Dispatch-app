@@ -1,9 +1,14 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import prisma from "../_lib/db";
-import { setCorsHeaders } from "../_lib/auth";
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const prisma = globalForPrisma.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   if (req.method === "GET") {
@@ -20,21 +25,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const newDriver = await prisma.driver.create({
         data: {
-          name: req.body.name,
-          callsign: req.body.callsign,
-          location: req.body.location,
-          capacity: req.body.capacity,
-          assignedJobs: req.body.assignedJobs || 0,
-          status: req.body.status || "offline",
-          phone: req.body.phone,
-          email: req.body.email,
+          name: req.body.name, callsign: req.body.callsign, location: req.body.location,
+          capacity: req.body.capacity, assignedJobs: req.body.assignedJobs || 0,
+          status: req.body.status || "offline", phone: req.body.phone, email: req.body.email,
         },
       });
       return res.status(201).json({ success: true, data: newDriver });
     } catch (error: any) {
-      if (error.code === "P2002") {
-        return res.status(409).json({ success: false, error: "Driver with this callsign already exists" });
-      }
+      if (error.code === "P2002") return res.status(409).json({ success: false, error: "Callsign already exists" });
       console.error("Error creating driver:", error);
       return res.status(500).json({ success: false, error: "Failed to create driver" });
     }

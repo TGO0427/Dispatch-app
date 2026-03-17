@@ -1,15 +1,18 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import prisma from "../_lib/db";
-import { setCorsHeaders } from "../_lib/auth";
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const prisma = globalForPrisma.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const { id } = req.query;
-  if (!id || typeof id !== "string") {
-    return res.status(400).json({ success: false, error: "Driver ID required" });
-  }
+  if (!id || typeof id !== "string") return res.status(400).json({ success: false, error: "Driver ID required" });
 
   if (req.method === "GET") {
     try {
@@ -27,14 +30,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const updatedDriver = await prisma.driver.update({
         where: { id },
         data: {
-          name: req.body.name,
-          callsign: req.body.callsign,
-          location: req.body.location,
-          capacity: req.body.capacity,
-          assignedJobs: req.body.assignedJobs,
-          status: req.body.status,
-          phone: req.body.phone,
-          email: req.body.email,
+          name: req.body.name, callsign: req.body.callsign, location: req.body.location,
+          capacity: req.body.capacity, assignedJobs: req.body.assignedJobs,
+          status: req.body.status, phone: req.body.phone, email: req.body.email,
         },
       });
       return res.json({ success: true, data: updatedDriver });

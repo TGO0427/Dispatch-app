@@ -8,7 +8,7 @@ import {
   closestCenter,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Truck, Briefcase, Plus, X, Save } from "lucide-react";
+import { Truck, Briefcase, Plus, X, Save, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 
 import { useDispatch } from "../../context/DispatchContext";
 import { filterJobs, sortJobs } from "../../utils/helpers";
@@ -108,6 +108,40 @@ export const DispatchView: React.FC = () => {
       busyDrivers: drivers.filter((d) => d.status === "busy").length,
     };
   }, [orderJobs, drivers]);
+
+  // Pagination
+  const ITEMS_PER_PAGE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.ceil(filteredAndSortedJobs.length / ITEMS_PER_PAGE);
+  const paginatedJobs = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAndSortedJobs.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredAndSortedJobs, currentPage]);
+
+  // Reset to page 1 when filters change
+  const prevFilterKey = useMemo(() => JSON.stringify(filters), [filters]);
+  useMemo(() => { setCurrentPage(1); }, [prevFilterKey]);
+
+  // Alert: dates with 5+ orders (including IBT) due
+  const busyDateAlerts = useMemo(() => {
+    const dateCounts: { [date: string]: { orders: number; ibts: number } } = {};
+    // Count ALL jobs (orders + IBT) by ETA date
+    jobs.forEach((job) => {
+      if (!job.eta) return;
+      const dateKey = job.eta.split("T")[0]; // normalize to YYYY-MM-DD
+      if (!dateCounts[dateKey]) dateCounts[dateKey] = { orders: 0, ibts: 0 };
+      if (job.jobType === "ibt") {
+        dateCounts[dateKey].ibts++;
+      } else {
+        dateCounts[dateKey].orders++;
+      }
+    });
+    // Return dates with 5+ total
+    return Object.entries(dateCounts)
+      .filter(([, counts]) => counts.orders + counts.ibts >= 5)
+      .map(([date, counts]) => ({ date, total: counts.orders + counts.ibts, ...counts }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [jobs]);
 
   // Get unique warehouses from all jobs
   const warehouses = useMemo(() => {
@@ -258,6 +292,30 @@ export const DispatchView: React.FC = () => {
         </Card>
       </div>
 
+      {/* Busy Date Alerts */}
+      {busyDateAlerts.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-5 h-5 text-amber-600" />
+            <span className="font-semibold text-amber-800">High Volume Dates</span>
+            <span className="text-xs text-amber-600">5+ orders due on the same day</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {busyDateAlerts.map((alert) => (
+              <div
+                key={alert.date}
+                className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 rounded-lg text-sm"
+              >
+                <span className="font-semibold text-amber-900">{alert.date}</span>
+                <span className="text-amber-700">
+                  {alert.total} total ({alert.orders} orders, {alert.ibts} IBT)
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Warehouse Selector */}
       <WarehouseSelector />
 
@@ -301,7 +359,7 @@ export const DispatchView: React.FC = () => {
 
               <CardContent>
                 <SortableContext
-                  items={filteredAndSortedJobs.map((j) => j.id)}
+                  items={paginatedJobs.map((j) => j.id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-2">
@@ -310,7 +368,7 @@ export const DispatchView: React.FC = () => {
                         No jobs found matching your filters
                       </div>
                     ) : (
-                      filteredAndSortedJobs.map((job) => (
+                      paginatedJobs.map((job) => (
                         <JobCard
                           key={job.id}
                           job={job}
@@ -320,6 +378,50 @@ export const DispatchView: React.FC = () => {
                     )}
                   </div>
                 </SortableContext>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                    <span className="text-sm text-gray-500">
+                      Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedJobs.length)} of {filteredAndSortedJobs.length}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Previous
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                              currentPage === page
+                                ? "bg-blue-600 text-white"
+                                : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

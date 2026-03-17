@@ -34,6 +34,7 @@ export const DispatchView: React.FC = () => {
   const [selectedTransporter, setSelectedTransporter] = useState<Driver | null>(null);
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
+  const [selectedAlertDate, setSelectedAlertDate] = useState<string | null>(null);
   const [newJob, setNewJob] = useState({
     ref: "",
     customer: "",
@@ -142,6 +143,19 @@ export const DispatchView: React.FC = () => {
       .map(([date, counts]) => ({ date, total: counts.orders + counts.ibts, ...counts }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [jobs]);
+
+  // Jobs due on selected alert date (all jobs, not deduplicated - show full detail)
+  const alertDateJobs = useMemo(() => {
+    if (!selectedAlertDate) return [];
+    return jobs.filter((job) => {
+      if (!job.eta) return false;
+      return job.eta.split("T")[0] === selectedAlertDate;
+    }).sort((a, b) => {
+      // Orders first, then IBT
+      if (a.jobType !== b.jobType) return a.jobType === "ibt" ? 1 : -1;
+      return (a.ref || "").localeCompare(b.ref || "");
+    });
+  }, [jobs, selectedAlertDate]);
 
   // Get unique warehouses from all jobs
   const warehouses = useMemo(() => {
@@ -302,15 +316,16 @@ export const DispatchView: React.FC = () => {
           </div>
           <div className="flex flex-wrap gap-2">
             {busyDateAlerts.map((alert) => (
-              <div
+              <button
                 key={alert.date}
-                className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 rounded-lg text-sm"
+                onClick={() => setSelectedAlertDate(alert.date)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 rounded-lg text-sm cursor-pointer transition-colors border border-transparent hover:border-amber-300"
               >
                 <span className="font-semibold text-amber-900">{alert.date}</span>
                 <span className="text-amber-700">
                   {alert.total} total ({alert.orders} orders, {alert.ibts} IBT)
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -479,6 +494,88 @@ export const DispatchView: React.FC = () => {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Date Drill-Down Modal */}
+      {selectedAlertDate && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedAlertDate(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-amber-50">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  Orders Due: {selectedAlertDate}
+                </h2>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  {alertDateJobs.length} orders due on this date
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedAlertDate(null)}
+                className="p-2 hover:bg-amber-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(85vh-80px)]">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                  <tr>
+                    <th className="text-left p-3 font-semibold text-gray-700">Reference</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Type</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Customer</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Status</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Route</th>
+                    <th className="text-right p-3 font-semibold text-gray-700">Pallets</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {alertDateJobs.map((job) => (
+                    <tr
+                      key={job.id}
+                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => { setSelectedAlertDate(null); setSelectedJob(job); }}
+                    >
+                      <td className="p-3 font-medium text-gray-900">{job.ref}</td>
+                      <td className="p-3">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                          job.jobType === "ibt" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                        }`}>
+                          {job.jobType === "ibt" ? "IBT" : "ORDER"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-gray-700">{job.customer}</td>
+                      <td className="p-3">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                          job.status === "pending" ? "bg-yellow-100 text-yellow-700" :
+                          job.status === "assigned" ? "bg-blue-100 text-blue-700" :
+                          job.status === "en-route" ? "bg-indigo-100 text-indigo-700" :
+                          job.status === "delivered" ? "bg-green-100 text-green-700" :
+                          job.status === "exception" ? "bg-red-100 text-red-700" :
+                          "bg-gray-100 text-gray-600"
+                        }`}>
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
+                      <td className="p-3 text-right font-medium">{job.pallets ?? "—"}</td>
+                      <td className="p-3 text-gray-700">
+                        {job.driverId ? drivers.find((d) => d.id === job.driverId)?.name : "Unassigned"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Job Details Modal */}
       {selectedJob && (

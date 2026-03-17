@@ -25,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       jobType: job.jobType || "order", pallets: job.pallets, outstandingQty: job.outstandingQty,
       eta: job.eta, scheduledAt: job.scheduledAt, actualDeliveryAt: job.actualDeliveryAt,
       exceptionReason: job.exceptionReason, driverId: job.driverId, notes: job.notes,
-      transporterBooked: job.transporterBooked, orderPicked: job.orderPicked, coaAvailable: job.coaAvailable, serviceType: job.serviceType,
+      transporterBooked: job.transporterBooked, orderPicked: job.orderPicked, coaAvailable: job.coaAvailable, serviceType: job.serviceType, transportService: job.transportService, etd: job.etd,
     }));
 
     const result = await prisma.job.createMany({ data: jobsData });

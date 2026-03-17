@@ -40,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         "ref", "customer", "pickup", "dropoff", "warehouse", "priority", "status",
         "pallets", "outstandingQty", "eta", "scheduledAt", "actualDeliveryAt",
         "exceptionReason", "driverId", "notes", "transporterBooked", "orderPicked",
-        "coaAvailable", "serviceType", "jobType",
+        "coaAvailable", "serviceType", "jobType", "transportService", "etd",
       ];
       const data: Record<string, any> = {};
       for (const field of allowedFields) {

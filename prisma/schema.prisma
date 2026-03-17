@@ -18,7 +18,9 @@ model Job {
   priority  String   @db.VarChar(50)
   status    String   @db.VarChar(50)
   jobType     String   @default("order") @db.VarChar(50)
-  serviceType String?  @db.VarChar(50)   // "delivery" or "collection"
+  serviceType      String?  @db.VarChar(50)   // "delivery" or "collection"
+  transportService String?  @db.VarChar(50)   // "express", "economy", "outline"
+  etd              String?  @db.VarChar(255)  // Estimated Time of Departure
 
   pallets          Int?
   outstandingQty   Int?

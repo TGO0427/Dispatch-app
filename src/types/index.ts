@@ -18,8 +18,14 @@ export type DriverStatus = "available" | "busy" | "offline" | "break";
 export type JobType = "order" | "ibt";
 
 export type ServiceType = "delivery" | "collection";
+export type TransportService = "express" | "economy" | "outline";
 
 export const SERVICE_TYPES: ServiceType[] = ["delivery", "collection"];
+export const TRANSPORT_SERVICES: { value: TransportService; label: string; hours: number }[] = [
+  { value: "express", label: "Express Road", hours: 24 },
+  { value: "economy", label: "Economy Road", hours: 48 },
+  { value: "outline", label: "Outline", hours: 96 },
+];
 
 // Handy constants (useful for dropdowns and validation)
 export const JOB_STATUSES: JobStatus[] = [
@@ -56,6 +62,8 @@ export interface Job {
   status: JobStatus;
   jobType?: JobType;       // "order" or "ibt" - distinguishes between customer orders and IBT jobs
   serviceType?: ServiceType; // "delivery" (we arrange transport) or "collection" (customer collects / ex works)
+  transportService?: TransportService; // "express" (24h), "economy" (48h), "outline" (96h)
+  etd?: string; // Estimated Time of Departure - calculated from ETA minus lead time
 
   pallets?: number;
   outstandingQty?: number;  // Outstanding quantity from Excel import

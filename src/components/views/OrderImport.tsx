@@ -63,7 +63,7 @@ const normalizeEta = (val: any): string | undefined => {
     return toISODate(val);
   }
 
-  // If Excel serial number
+  // If Excel serial number (pure number)
   if (typeof val === "number" && isFinite(val)) {
     const d = excelSerialToDate(val);
     if (!isNaN(d.getTime())) return toISODate(d);
@@ -71,13 +71,33 @@ const normalizeEta = (val: any): string | undefined => {
 
   // If string: try parse
   if (typeof val === "string") {
+    const trimmed = val.trim();
+
     // If already in YYYY-MM-DD format, return as-is
-    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-      return val;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
     }
 
-    // If in DD/MM/YYYY format (common in Excel exports)
-    const ddmmyyyyMatch = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    // Excel serial number formatted as string with appended date parts
+    // e.g. "46337-01-01" or "46097-01-01" — the first part is the serial
+    const serialMatch = trimmed.match(/^(\d{5})-\d{2}-\d{2}$/);
+    if (serialMatch) {
+      const serial = parseInt(serialMatch[1], 10);
+      if (serial > 30000 && serial < 100000) {
+        const d = excelSerialToDate(serial);
+        if (!isNaN(d.getTime())) return toISODate(d);
+      }
+    }
+
+    // Pure numeric string (Excel serial as text)
+    if (/^\d{5}$/.test(trimmed)) {
+      const serial = parseInt(trimmed, 10);
+      const d = excelSerialToDate(serial);
+      if (!isNaN(d.getTime())) return toISODate(d);
+    }
+
+    // In DD/MM/YYYY format (common in Excel exports)
+    const ddmmyyyyMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (ddmmyyyyMatch) {
       const [, day, month, year] = ddmmyyyyMatch;
       const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
@@ -86,15 +106,34 @@ const normalizeEta = (val: any): string | undefined => {
       }
     }
 
+    // In MM/DD/YYYY format
+    const mmddyyyyMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mmddyyyyMatch) {
+      const [, month, day, year] = mmddyyyyMatch;
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      if (!isNaN(date.getTime())) {
+        return toISODate(date);
+      }
+    }
+
+    // In DD-MM-YYYY or DD.MM.YYYY format
+    const dottedMatch = trimmed.match(/^(\d{1,2})[.\-](\d{1,2})[.\-](\d{4})$/);
+    if (dottedMatch) {
+      const [, day, month, year] = dottedMatch;
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      if (!isNaN(date.getTime())) {
+        return toISODate(date);
+      }
+    }
+
     // Try parsing as standard date string
-    const parsed = new Date(val);
-    if (!isNaN(parsed.getTime())) return toISODate(parsed);
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1970 && parsed.getFullYear() < 2100) {
+      return toISODate(parsed);
+    }
 
     // If it's a time-only "14:30", return undefined
-    if (/^\d{1,2}:\d{2}$/.test(val)) return undefined;
-
-    // Otherwise keep original string (might be useful for debugging)
-    return val;
+    if (/^\d{1,2}:\d{2}$/.test(trimmed)) return undefined;
   }
 
   return undefined;

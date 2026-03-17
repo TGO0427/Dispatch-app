@@ -76,7 +76,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       title: "OPERATIONS",
       items: [
         { id: "calendar", icon: Calendar, label: "Scheduling" },
-        { id: "grid", icon: Grid3x3, label: "Reports" },
+        { id: "grid", icon: Grid3x3, label: "Order Reports" },
+        { id: "ibt-reports", icon: ArrowRightLeft, label: "IBT Reports" },
         { id: "analytics", icon: BarChart3, label: "Analytics" },
         { id: "clock", icon: Clock, label: "Order History" },
       ],

@@ -17,6 +17,7 @@ const CalendarView = lazy(() => import("./components/views/CalendarView").then(m
 const AnalyticsView = lazy(() => import("./components/views/AnalyticsView").then(m => ({ default: m.AnalyticsView })));
 const AdvancedAnalytics = lazy(() => import("./components/views/AdvancedAnalytics").then(m => ({ default: m.AdvancedAnalytics })));
 const HistoryView = lazy(() => import("./components/views/HistoryView").then(m => ({ default: m.HistoryView })));
+const IBTReports = lazy(() => import("./components/views/IBTReports").then(m => ({ default: m.IBTReports })));
 const UserManagement = lazy(() => import("./components/views/UserManagement").then(m => ({ default: m.UserManagement })));
 
 const PageLoader = () => (
@@ -50,6 +51,8 @@ function AppContent() {
         view = <CalendarView />; break;
       case "grid":
         view = <AnalyticsView />; break;
+      case "ibt-reports":
+        view = <IBTReports />; break;
       case "analytics":
         view = <AdvancedAnalytics />; break;
       case "clock":

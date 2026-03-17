@@ -1,0 +1,532 @@
+import { useMemo, useState } from "react";
+import { ArrowRightLeft, Filter, FileSpreadsheet, Truck, Warehouse, MapPin } from "lucide-react";
+import { useDispatch } from "../../context/DispatchContext";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
+import { Badge } from "../ui/Badge";
+import { Button } from "../ui/Button";
+import { Select } from "../ui/Select";
+import * as XLSX from "xlsx";
+
+type ReportType =
+  | "ibt-summary"
+  | "transfer-routes"
+  | "branch-utilization"
+  | "transporter-performance"
+  | "exception-report";
+
+// Helper to get week info
+const getWeekInfo = (dateString: string | undefined) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  const startOfYear = new Date(date.getFullYear(), 0, 1);
+  const daysSinceStart = Math.floor((date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+  const weekNumber = Math.ceil((daysSinceStart + startOfYear.getDay() + 1) / 7);
+  return {
+    week: weekNumber,
+    year: date.getFullYear(),
+    label: `Week ${weekNumber}, ${date.getFullYear()}`,
+    value: `${date.getFullYear()}-W${weekNumber.toString().padStart(2, "0")}`,
+  };
+};
+
+export const IBTReports: React.FC = () => {
+  const { jobs, drivers } = useDispatch();
+
+  const [selectedReport, setSelectedReport] = useState<ReportType>("ibt-summary");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
+  const [selectedTransporter, setSelectedTransporter] = useState<string>("all");
+
+  // Deduplicate IBT jobs by ref and filter to current week + 4
+  const dedupedJobs = useMemo(() => {
+    const ibtJobs = jobs.filter((j) => j.jobType === "ibt");
+    const refMap = new Map<string, (typeof ibtJobs)[0]>();
+    ibtJobs.forEach((job) => {
+      const existing = refMap.get(job.ref);
+      if (!existing) {
+        refMap.set(job.ref, { ...job });
+      } else {
+        if (job.eta && (!existing.eta || job.eta < existing.eta)) existing.eta = job.eta;
+        if (job.pallets) existing.pallets = (existing.pallets || 0) + job.pallets;
+        if (job.outstandingQty) existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
+      }
+    });
+
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const endOfRange = new Date(startOfWeek);
+    endOfRange.setDate(endOfRange.getDate() + 5 * 7);
+    endOfRange.setHours(23, 59, 59, 999);
+
+    return Array.from(refMap.values()).filter((job) => {
+      if (!job.eta) return true;
+      const etaDate = new Date(job.eta);
+      return etaDate >= startOfWeek && etaDate <= endOfRange;
+    });
+  }, [jobs]);
+
+  // Get unique warehouses (from pickup + dropoff)
+  const warehouses = useMemo(() => {
+    const wh = new Set<string>();
+    dedupedJobs.forEach((j) => {
+      if (j.pickup) wh.add(j.pickup);
+      if (j.dropoff) wh.add(j.dropoff);
+      if (j.warehouse) wh.add(j.warehouse);
+    });
+    return Array.from(wh).sort();
+  }, [dedupedJobs]);
+
+  // Filtered jobs
+  const filteredJobs = useMemo(() => {
+    return dedupedJobs
+      .filter((job) => {
+        if (selectedStatus !== "all" && job.status !== selectedStatus) return false;
+        if (selectedWarehouse !== "all") {
+          if (job.pickup !== selectedWarehouse && job.dropoff !== selectedWarehouse && job.warehouse !== selectedWarehouse) return false;
+        }
+        if (selectedTransporter !== "all" && job.driverId !== selectedTransporter) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const aEta = a.eta ? new Date(a.eta).getTime() : Infinity;
+        const bEta = b.eta ? new Date(b.eta).getTime() : Infinity;
+        return aEta - bEta;
+      });
+  }, [dedupedJobs, selectedStatus, selectedWarehouse, selectedTransporter]);
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = filteredJobs.length;
+    const pending = filteredJobs.filter((j) => j.status === "pending").length;
+    const inTransit = filteredJobs.filter((j) => j.status === "en-route").length;
+    const delivered = filteredJobs.filter((j) => j.status === "delivered").length;
+    const exceptions = filteredJobs.filter((j) => j.status === "exception").length;
+    const totalPallets = filteredJobs.reduce((sum, j) => sum + (j.pallets || 0), 0);
+    const totalWeight = filteredJobs.reduce((sum, j) => sum + (j.outstandingQty || 0), 0);
+    return { total, pending, inTransit, delivered, exceptions, totalPallets, totalWeight };
+  }, [filteredJobs]);
+
+  // Transfer routes analysis
+  const routeStats = useMemo(() => {
+    const routes: { [key: string]: { count: number; pallets: number; weight: number } } = {};
+    filteredJobs.forEach((job) => {
+      const route = `${job.pickup} → ${job.dropoff}`;
+      if (!routes[route]) routes[route] = { count: 0, pallets: 0, weight: 0 };
+      routes[route].count++;
+      routes[route].pallets += job.pallets || 0;
+      routes[route].weight += job.outstandingQty || 0;
+    });
+    return Object.entries(routes)
+      .map(([route, data]) => ({ route, ...data }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredJobs]);
+
+  // Branch utilization (how much goes to/from each warehouse)
+  const branchStats = useMemo(() => {
+    const branches: { [key: string]: { outgoing: number; incoming: number; pallets: number; weight: number } } = {};
+    filteredJobs.forEach((job) => {
+      if (job.pickup) {
+        if (!branches[job.pickup]) branches[job.pickup] = { outgoing: 0, incoming: 0, pallets: 0, weight: 0 };
+        branches[job.pickup].outgoing++;
+        branches[job.pickup].pallets += job.pallets || 0;
+        branches[job.pickup].weight += job.outstandingQty || 0;
+      }
+      if (job.dropoff && job.dropoff !== "TBD") {
+        if (!branches[job.dropoff]) branches[job.dropoff] = { outgoing: 0, incoming: 0, pallets: 0, weight: 0 };
+        branches[job.dropoff].incoming++;
+      }
+    });
+    return Object.entries(branches)
+      .map(([name, data]) => ({ name, ...data, total: data.outgoing + data.incoming }))
+      .sort((a, b) => b.total - a.total);
+  }, [filteredJobs]);
+
+  // Transporter performance for IBT
+  const transporterStats = useMemo(() => {
+    return drivers.map((driver) => {
+      const driverJobs = filteredJobs.filter((j) => j.driverId === driver.id);
+      const completed = driverJobs.filter((j) => j.status === "delivered").length;
+      const exceptions = driverJobs.filter((j) => j.status === "exception").length;
+      const pallets = driverJobs.reduce((sum, j) => sum + (j.pallets || 0), 0);
+      return {
+        driver,
+        total: driverJobs.length,
+        completed,
+        exceptions,
+        pallets,
+        completionRate: driverJobs.length > 0 ? ((completed / driverJobs.length) * 100).toFixed(1) : "0",
+      };
+    }).filter((d) => d.total > 0).sort((a, b) => b.total - a.total);
+  }, [filteredJobs, drivers]);
+
+  // Export
+  const exportToExcel = () => {
+    const data = filteredJobs.map((job) => ({
+      Reference: job.ref,
+      Pickup: job.pickup,
+      Dropoff: job.dropoff,
+      Status: job.status,
+      Priority: job.priority,
+      Pallets: job.pallets || "",
+      "Weight (qty)": job.outstandingQty || "",
+      Transporter: job.driverId ? drivers.find((d) => d.id === job.driverId)?.name || "" : "Unassigned",
+      Created: new Date(job.createdAt).toLocaleDateString(),
+      ETA: job.eta || "N/A",
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "IBT Report");
+    XLSX.writeFile(wb, `IBT_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+  };
+
+  const renderReport = () => {
+    switch (selectedReport) {
+      case "ibt-summary":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>IBT Transfer Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left p-3 font-semibold text-gray-700">Reference</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">Status</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">Priority</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Pallets</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Weight (qty)</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">From → To</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">ETA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredJobs.map((job) => {
+                      const etaWeekInfo = getWeekInfo(job.eta);
+                      return (
+                        <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="p-3 font-medium text-gray-900">{job.ref}</td>
+                          <td className="p-3">
+                            <Badge variant={
+                              job.status === "delivered" ? "success" :
+                              job.status === "exception" ? "destructive" :
+                              job.status === "pending" ? "new" : "default"
+                            }>
+                              {job.status}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <Badge variant={
+                              job.priority === "urgent" ? "destructive" :
+                              job.priority === "high" ? "past-due" : "outline"
+                            }>
+                              {job.priority}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-right font-medium">{job.pallets ?? "—"}</td>
+                          <td className="p-3 text-right font-medium">{job.outstandingQty ? job.outstandingQty.toLocaleString() : "—"}</td>
+                          <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
+                          <td className="p-3 text-gray-700">
+                            {job.driverId ? drivers.find((d) => d.id === job.driverId)?.name : "Unassigned"}
+                          </td>
+                          <td className="p-3 text-gray-600 text-xs">
+                            {job.eta || "N/A"}
+                            {etaWeekInfo && <div className="text-gray-400 mt-1">{etaWeekInfo.label}</div>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {filteredJobs.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">No IBT transfers found</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case "transfer-routes":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Transfer Routes Analysis</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left p-3 font-semibold text-gray-700">Route</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Transfers</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Total Pallets</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Total Weight</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">% of All</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {routeStats.map((route, idx) => (
+                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="p-3 font-medium text-gray-900">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-blue-500" />
+                            {route.route}
+                          </div>
+                        </td>
+                        <td className="p-3 text-right font-semibold">{route.count}</td>
+                        <td className="p-3 text-right">{route.pallets}</td>
+                        <td className="p-3 text-right">{route.weight.toLocaleString()}</td>
+                        <td className="p-3 text-right text-gray-500">
+                          {filteredJobs.length > 0 ? ((route.count / filteredJobs.length) * 100).toFixed(1) : 0}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {routeStats.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">No route data available</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case "branch-utilization":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Branch / Warehouse Utilization</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left p-3 font-semibold text-gray-700">Branch / Warehouse</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Outgoing</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Incoming</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Total Moves</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Pallets Out</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Weight Out</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {branchStats.map((branch, idx) => (
+                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="p-3 font-medium text-gray-900">
+                          <div className="flex items-center gap-2">
+                            <Warehouse className="w-4 h-4 text-purple-500" />
+                            {branch.name}
+                          </div>
+                        </td>
+                        <td className="p-3 text-right">
+                          <span className="text-orange-600 font-medium">{branch.outgoing}</span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <span className="text-green-600 font-medium">{branch.incoming}</span>
+                        </td>
+                        <td className="p-3 text-right font-semibold">{branch.total}</td>
+                        <td className="p-3 text-right">{branch.pallets}</td>
+                        <td className="p-3 text-right">{branch.weight.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {branchStats.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">No branch data available</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case "transporter-performance":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>IBT Transporter Performance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Total IBTs</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Completed</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Exceptions</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Pallets</th>
+                      <th className="text-right p-3 font-semibold text-gray-700">Completion %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transporterStats.map((ts) => (
+                      <tr key={ts.driver.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="p-3 font-medium text-gray-900">
+                          <div className="flex items-center gap-2">
+                            <Truck className="w-4 h-4 text-blue-500" />
+                            {ts.driver.name}
+                          </div>
+                          <div className="text-xs text-gray-500">{ts.driver.callsign}</div>
+                        </td>
+                        <td className="p-3 text-right font-semibold">{ts.total}</td>
+                        <td className="p-3 text-right text-green-600 font-medium">{ts.completed}</td>
+                        <td className="p-3 text-right text-red-600 font-medium">{ts.exceptions}</td>
+                        <td className="p-3 text-right">{ts.pallets}</td>
+                        <td className="p-3 text-right">
+                          <span className={`font-semibold ${parseFloat(ts.completionRate) >= 90 ? "text-green-600" : parseFloat(ts.completionRate) >= 70 ? "text-yellow-600" : "text-red-600"}`}>
+                            {ts.completionRate}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {transporterStats.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">No transporter data for IBT transfers</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case "exception-report":
+        const exceptionJobs = filteredJobs.filter((j) => j.status === "exception");
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>IBT Exception Report</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left p-3 font-semibold text-gray-700">Reference</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">Route</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">Reason</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">ETA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {exceptionJobs.map((job) => (
+                      <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="p-3 font-medium text-gray-900">{job.ref}</td>
+                        <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
+                        <td className="p-3 text-gray-700">
+                          {job.driverId ? drivers.find((d) => d.id === job.driverId)?.name : "Unassigned"}
+                        </td>
+                        <td className="p-3 text-red-600 text-sm">{job.exceptionReason || "No reason provided"}</td>
+                        <td className="p-3 text-gray-600 text-xs">{job.eta || "N/A"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {exceptionJobs.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">No IBT exceptions — all transfers running smoothly</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <ArrowRightLeft className="w-7 h-7 text-purple-600" />
+            IBT Reports & Analytics
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Inter-Branch Transfer metrics • Current week + 4 weeks
+          </p>
+        </div>
+        <Button onClick={exportToExcel} className="flex items-center gap-2">
+          <FileSpreadsheet className="w-4 h-4" />
+          Export to Excel
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        {[
+          { label: "Total IBTs", value: stats.total, color: "text-blue-600", bg: "bg-blue-50" },
+          { label: "Pending", value: stats.pending, color: "text-yellow-600", bg: "bg-yellow-50" },
+          { label: "In Transit", value: stats.inTransit, color: "text-indigo-600", bg: "bg-indigo-50" },
+          { label: "Delivered", value: stats.delivered, color: "text-green-600", bg: "bg-green-50" },
+          { label: "Exceptions", value: stats.exceptions, color: "text-red-600", bg: "bg-red-50" },
+          { label: "Total Pallets", value: stats.totalPallets, color: "text-purple-600", bg: "bg-purple-50" },
+          { label: "Total Weight", value: stats.totalWeight.toLocaleString(), color: "text-teal-600", bg: "bg-teal-50" },
+        ].map((stat, idx) => (
+          <div key={idx} className={`${stat.bg} rounded-xl p-4 border border-gray-100`}>
+            <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
+            <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <span className="text-sm font-semibold text-gray-700">Filters</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
+              <Select value={selectedReport} onChange={(e) => setSelectedReport(e.target.value as ReportType)} className="w-full">
+                <option value="ibt-summary">IBT Transfer Summary</option>
+                <option value="transfer-routes">Transfer Routes</option>
+                <option value="branch-utilization">Branch Utilization</option>
+                <option value="transporter-performance">Transporter Performance</option>
+                <option value="exception-report">Exception Report</option>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <Select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)} className="w-full">
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="assigned">Assigned</option>
+                <option value="en-route">In Transit</option>
+                <option value="delivered">Delivered</option>
+                <option value="exception">Exception</option>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Warehouse / Branch</label>
+              <Select value={selectedWarehouse} onChange={(e) => setSelectedWarehouse(e.target.value)} className="w-full">
+                <option value="all">All Warehouses</option>
+                {warehouses.map((wh) => (
+                  <option key={wh} value={wh}>{wh}</option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Transporter</label>
+              <Select value={selectedTransporter} onChange={(e) => setSelectedTransporter(e.target.value)} className="w-full">
+                <option value="all">All Transporters</option>
+                {drivers.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Report Content */}
+      {renderReport()}
+    </div>
+  );
+};

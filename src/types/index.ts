@@ -21,10 +21,10 @@ export type ServiceType = "delivery" | "collection";
 export type TransportService = "express" | "economy" | "outline";
 
 export const SERVICE_TYPES: ServiceType[] = ["delivery", "collection"];
-export const TRANSPORT_SERVICES: { value: TransportService; label: string; hours: number }[] = [
-  { value: "express", label: "Express Road", hours: 24 },
-  { value: "economy", label: "Economy Road", hours: 48 },
-  { value: "outline", label: "Outline", hours: 96 },
+export const TRANSPORT_SERVICES: { value: TransportService; label: string; hours: number; businessDays: number }[] = [
+  { value: "express", label: "Express Road", hours: 24, businessDays: 1 },
+  { value: "economy", label: "Economy Road", hours: 48, businessDays: 2 },
+  { value: "outline", label: "Outline", hours: 96, businessDays: 4 },
 ];
 
 // Handy constants (useful for dropdowns and validation)

@@ -8,7 +8,25 @@ interface JobWorkflowProps {
   compact?: boolean;
 }
 
-// Calculate ETD from ETA and transport service
+// Subtract business days (skip Sat/Sun) from a date
+function subtractBusinessDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  let remaining = days;
+  while (remaining > 0) {
+    result.setDate(result.getDate() - 1);
+    const dow = result.getDay(); // 0=Sun, 6=Sat
+    if (dow !== 0 && dow !== 6) {
+      remaining--;
+    }
+  }
+  // If result lands on weekend, move to previous Friday
+  while (result.getDay() === 0 || result.getDay() === 6) {
+    result.setDate(result.getDate() - 1);
+  }
+  return result;
+}
+
+// Calculate ETD from ETA and transport service (business days only, no weekends)
 function calculateETD(eta: string | undefined, service: TransportService): string | undefined {
   if (!eta) return undefined;
   const serviceConfig = TRANSPORT_SERVICES.find((s) => s.value === service);
@@ -17,8 +35,11 @@ function calculateETD(eta: string | undefined, service: TransportService): strin
   const etaDate = new Date(eta);
   if (isNaN(etaDate.getTime())) return undefined;
 
-  const etdDate = new Date(etaDate.getTime() - serviceConfig.hours * 60 * 60 * 1000);
-  return etdDate.toISOString().split("T")[0];
+  // Convert hours to business days (24h = 1 day, 48h = 2 days, 96h = 4 days)
+  const businessDays = Math.ceil(serviceConfig.hours / 24);
+  const etdDate = subtractBusinessDays(etaDate, businessDays);
+
+  return `${etdDate.getFullYear()}-${String(etdDate.getMonth() + 1).padStart(2, "0")}-${String(etdDate.getDate()).padStart(2, "0")}`;
 }
 
 const serviceIcons: Record<string, string> = {
@@ -145,7 +166,7 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
             >
               <div className="text-lg mb-1">{serviceIcons[service.value]}</div>
               <div className="text-xs font-semibold">{service.label}</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">{service.hours}h lead time</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">{service.businessDays} business day{service.businessDays > 1 ? "s" : ""}</div>
             </button>
           ))}
         </div>
@@ -166,7 +187,7 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
           </div>
           {currentService && (
             <div className="mt-2 text-xs text-blue-700">
-              {serviceIcons[job.transportService!]} {currentService.label} — {currentService.hours}h lead time from warehouse
+              {serviceIcons[job.transportService!]} {currentService.label} — {currentService.businessDays} business day{currentService.businessDays > 1 ? "s" : ""} lead time (excl. weekends)
             </div>
           )}
         </div>

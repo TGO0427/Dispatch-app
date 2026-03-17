@@ -48,9 +48,38 @@ export const IBTDispatchView: React.FC = () => {
     notes: "",
   });
 
-  // Filter to show only IBT jobs (jobType === "ibt")
+  // Filter to show only IBT jobs, deduplicated by ref,
+  // and only jobs due within current week + 4 weeks
   const ibtJobs = useMemo(() => {
-    return jobs.filter((job) => job.jobType === "ibt");
+    const allIbt = jobs.filter((job) => job.jobType === "ibt");
+
+    // Deduplicate by ref - keep first occurrence, aggregate data
+    const refMap = new Map<string, Job>();
+    allIbt.forEach((job) => {
+      const existing = refMap.get(job.ref);
+      if (!existing) {
+        refMap.set(job.ref, { ...job });
+      } else {
+        if (job.eta && (!existing.eta || job.eta < existing.eta)) existing.eta = job.eta;
+        if (job.pallets) existing.pallets = (existing.pallets || 0) + job.pallets;
+        if (job.outstandingQty) existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
+      }
+    });
+
+    // Filter to current week + 4 weeks by ETA
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const endOfRange = new Date(startOfWeek);
+    endOfRange.setDate(endOfRange.getDate() + 5 * 7);
+    endOfRange.setHours(23, 59, 59, 999);
+
+    return Array.from(refMap.values()).filter((job) => {
+      if (!job.eta) return true;
+      const etaDate = new Date(job.eta);
+      return etaDate >= startOfWeek && etaDate <= endOfRange;
+    });
   }, [jobs]);
 
   const filteredAndSortedJobs = useMemo(() => {

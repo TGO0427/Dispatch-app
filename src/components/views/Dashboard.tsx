@@ -46,19 +46,27 @@ export const Dashboard: React.FC = () => {
     return jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
   }, [jobs]);
 
-  // Stats
+  // Stats - count unique order refs (ASO numbers), not individual line items
   const stats = useMemo(() => {
-    const total = orderJobs.length;
-    const pending = orderJobs.filter((j) => j.status === "pending").length;
-    const assigned = orderJobs.filter((j) => j.status === "assigned").length;
-    const inTransit = orderJobs.filter((j) => j.status === "en-route").length;
-    const delivered = orderJobs.filter((j) => j.status === "delivered").length;
-    const exceptions = orderJobs.filter((j) => j.status === "exception").length;
-    const cancelled = orderJobs.filter((j) => j.status === "cancelled").length;
+    // Helper: count unique refs matching a filter
+    const uniqueRefs = (filter?: (j: typeof orderJobs[0]) => boolean) => {
+      const refs = new Set<string>();
+      orderJobs.forEach((j) => {
+        if (!filter || filter(j)) refs.add(j.ref);
+      });
+      return refs.size;
+    };
+
+    const total = uniqueRefs();
+    const pending = uniqueRefs((j) => j.status === "pending");
+    const assigned = uniqueRefs((j) => j.status === "assigned");
+    const inTransit = uniqueRefs((j) => j.status === "en-route");
+    const delivered = uniqueRefs((j) => j.status === "delivered");
+    const exceptions = uniqueRefs((j) => j.status === "exception");
+    const cancelled = uniqueRefs((j) => j.status === "cancelled");
     const availableDrivers = drivers.filter((d) => d.status === "available").length;
     const busyDrivers = drivers.filter((d) => d.status === "busy").length;
 
-    // Calculate avg days (mock for demo)
     const avgDays = total > 0 ? Math.round(total * 0.98) : 0;
 
     return {
@@ -120,16 +128,19 @@ export const Dashboard: React.FC = () => {
       .sort((a, b) => b.count - a.count);
   }, [orderJobs]);
 
-  // Top customers
+  // Top customers - count unique order references (ASO numbers), not line items
   const topCustomers = useMemo(() => {
-    const customers: { [key: string]: number } = {};
+    const customerOrders: { [customer: string]: Set<string> } = {};
     orderJobs.forEach((job) => {
-      if (job.customer) {
-        customers[job.customer] = (customers[job.customer] || 0) + 1;
+      if (job.customer && job.ref) {
+        if (!customerOrders[job.customer]) {
+          customerOrders[job.customer] = new Set();
+        }
+        customerOrders[job.customer].add(job.ref);
       }
     });
-    return Object.entries(customers)
-      .map(([name, count]) => ({ name, count }))
+    return Object.entries(customerOrders)
+      .map(([name, refs]) => ({ name, count: refs.size }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
   }, [orderJobs]);

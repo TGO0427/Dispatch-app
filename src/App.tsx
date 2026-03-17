@@ -1,28 +1,38 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Sidebar } from "./components/Sidebar";
-import { Dashboard } from "./components/views/Dashboard";
-import { DispatchView } from "./components/views/DispatchView";
-import { IBTDispatchView } from "./components/views/IBTDispatchView";
-import { OrderImport } from "./components/views/OrderImport";
-import { IBTImport } from "./components/views/IBTImport";
-import { CalendarView } from "./components/views/CalendarView";
-import { AnalyticsView } from "./components/views/AnalyticsView";
-import { AdvancedAnalytics } from "./components/views/AdvancedAnalytics";
-import { HistoryView } from "./components/views/HistoryView";
 import { Login } from "./components/views/Login";
-import { UserManagement } from "./components/views/UserManagement";
 import { ConnectionStatus } from "./components/ConnectionStatus";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Loader2, Save, Check } from "lucide-react";
+
+// Lazy-loaded views for code splitting
+const Dashboard = lazy(() => import("./components/views/Dashboard").then(m => ({ default: m.Dashboard })));
+const DispatchView = lazy(() => import("./components/views/DispatchView").then(m => ({ default: m.DispatchView })));
+const IBTDispatchView = lazy(() => import("./components/views/IBTDispatchView").then(m => ({ default: m.IBTDispatchView })));
+const OrderImport = lazy(() => import("./components/views/OrderImport").then(m => ({ default: m.OrderImport })));
+const IBTImport = lazy(() => import("./components/views/IBTImport").then(m => ({ default: m.IBTImport })));
+const CalendarView = lazy(() => import("./components/views/CalendarView").then(m => ({ default: m.CalendarView })));
+const AnalyticsView = lazy(() => import("./components/views/AnalyticsView").then(m => ({ default: m.AnalyticsView })));
+const AdvancedAnalytics = lazy(() => import("./components/views/AdvancedAnalytics").then(m => ({ default: m.AdvancedAnalytics })));
+const HistoryView = lazy(() => import("./components/views/HistoryView").then(m => ({ default: m.HistoryView })));
+const UserManagement = lazy(() => import("./components/views/UserManagement").then(m => ({ default: m.UserManagement })));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[400px]">
+    <div className="text-center">
+      <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-3" />
+      <p className="text-sm text-gray-500">Loading...</p>
+    </div>
+  </div>
+);
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
-  // Initialize from localStorage or default to "dashboard"
   const [activeNavItem, setActiveNavItem] = useState<string>(() => {
-    const saved = localStorage.getItem("activeNavItem");
-    return saved || "dashboard";
+    return localStorage.getItem("activeNavItem") || "dashboard";
   });
 
   const [savedView, setSavedView] = useState<string | null>(() => {
@@ -39,48 +49,49 @@ function AppContent() {
   const handleSaveView = () => {
     localStorage.setItem("activeNavItem", activeNavItem);
     setSavedView(activeNavItem);
-
     setShowSaveConfirmation(true);
-    setTimeout(() => {
-      setShowSaveConfirmation(false);
-    }, 2000);
+    setTimeout(() => setShowSaveConfirmation(false), 2000);
   };
 
   const renderView = () => {
+    let view;
     switch (activeNavItem) {
       case "dashboard":
-        return <Dashboard />;
+        view = <Dashboard />; break;
       case "home":
-        return <OrderImport />;
+        view = <OrderImport />; break;
       case "ibt":
-        return <IBTImport />;
+        view = <IBTImport />; break;
       case "ibt-dispatch":
-        return <IBTDispatchView />;
+        view = <IBTDispatchView />; break;
       case "clipboard":
-        return <DispatchView />;
+        view = <DispatchView />; break;
       case "calendar":
-        return <CalendarView />;
+        view = <CalendarView />; break;
       case "grid":
-        return <AnalyticsView />;
+        view = <AnalyticsView />; break;
       case "analytics":
-        return <AdvancedAnalytics />;
+        view = <AdvancedAnalytics />; break;
       case "clock":
-        return <HistoryView />;
+        view = <HistoryView />; break;
       case "settings":
-        if (user?.role === "admin") {
-          return <UserManagement />;
-        }
-        setActiveNavItem("dashboard");
-        return <Dashboard />;
       case "user-management":
         if (user?.role === "admin") {
-          return <UserManagement />;
+          view = <UserManagement />; break;
         }
         setActiveNavItem("dashboard");
-        return <Dashboard />;
+        view = <Dashboard />; break;
       default:
-        return <Dashboard />;
+        view = <Dashboard />; break;
     }
+
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          {view}
+        </Suspense>
+      </ErrorBoundary>
+    );
   };
 
   if (isLoading) {
@@ -110,7 +121,6 @@ function AppContent() {
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
 
-        {/* Main Content Area - responsive to sidebar width */}
         <div className={`${sidebarCollapsed ? "ml-16" : "ml-60"} min-h-screen overflow-y-auto transition-all duration-300`}>
           <div className="mx-auto max-w-[1600px] p-8">
             {/* Save View Button */}
@@ -125,7 +135,6 @@ function AppContent() {
                   <span className="font-medium">Save as Default View</span>
                 </button>
               )}
-
               {showSaveConfirmation && (
                 <div className="absolute bottom-16 right-0 flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg animate-fade-in">
                   <Check className="h-5 w-5" />

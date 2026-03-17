@@ -14,11 +14,13 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Bell,
   Users,
   Search,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useDispatch } from "../context/DispatchContext";
 
 interface SidebarProps {
   activeItem: string;
@@ -27,39 +29,50 @@ interface SidebarProps {
   onToggleCollapse: () => void;
 }
 
-interface NavSection {
-  title: string;
-  items: NavItem[];
-}
-
 interface NavItem {
   id: string;
   icon: React.FC<any>;
   label: string;
   adminOnly?: boolean;
+  badge?: number;
+  badgeType?: "danger" | "info";
+}
+
+interface NavSection {
+  key: string;
+  title: string;
+  items: NavItem[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, collapsed, onToggleCollapse }) => {
   const { user, logout } = useAuth();
+  const { jobs } = useDispatch();
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    dispatch: true,
+    operations: true,
+  });
+
+  // Compute live stats
+  const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
+  const totalJobs = orderJobs.length;
+  const inTransit = orderJobs.filter((j) => j.status === "en-route").length;
+  const exceptions = orderJobs.filter((j) => j.status === "exception").length;
+  const pendingCount = orderJobs.filter((j) => j.status === "pending").length;
 
   const navSections: NavSection[] = [
     {
-      title: "",
-      items: [
-        { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      ],
-    },
-    {
+      key: "dispatch",
       title: "DISPATCH",
       items: [
         { id: "home", icon: Home, label: "Import Orders" },
         { id: "ibt", icon: ArrowRightLeft, label: "IBT Import" },
         { id: "ibt-dispatch", icon: Truck, label: "IBT Dispatch" },
-        { id: "clipboard", icon: ClipboardList, label: "Jobs" },
+        { id: "clipboard", icon: ClipboardList, label: "Jobs", badge: pendingCount, badgeType: "info" },
       ],
     },
     {
+      key: "operations",
       title: "OPERATIONS",
       items: [
         { id: "calendar", icon: Calendar, label: "Calendar" },
@@ -82,20 +95,53 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
   });
 
   const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
+    try { await logout(); } catch (error) { console.error("Logout error:", error); }
   };
 
-  // Filter nav items based on search
-  const filterItems = (items: NavItem[]) => {
-    if (!searchQuery) return items;
-    return items.filter(item =>
-      item.label.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+  const toggleSection = (key: string) => {
+    setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
+
+  const matchesSearch = (label: string) => {
+    if (!searchQuery) return true;
+    return label.toLowerCase().includes(searchQuery.toLowerCase());
+  };
+
+  const filterItems = (items: NavItem[]) => {
+    return items.filter(item => {
+      if (item.adminOnly && user?.role !== "admin") return false;
+      return matchesSearch(item.label);
+    });
+  };
+
+  const renderNavButton = ({ id, icon: Icon, label, badge, badgeType }: NavItem) => (
+    <button
+      key={id}
+      onClick={() => onItemChange(id)}
+      className={`w-full flex items-center gap-3 rounded-lg transition-all duration-150 ${
+        collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
+      } ${
+        activeItem === id
+          ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
+          : "text-gray-400 hover:text-white hover:bg-gray-800"
+      }`}
+      title={collapsed ? label : undefined}
+    >
+      <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+      {!collapsed && (
+        <>
+          <span className="text-sm font-medium truncate flex-1 text-left">{label}</span>
+          {badge !== undefined && badge > 0 && (
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+              badgeType === "danger" ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"
+            }`}>
+              {badge}
+            </span>
+          )}
+        </>
+      )}
+    </button>
+  );
 
   return (
     <div
@@ -137,47 +183,46 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         </div>
       )}
 
-      {/* Navigation Sections */}
-      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-4 scrollbar-thin">
-        {navSections.map((section, sectionIdx) => {
-          const items = filterItems(
-            section.items.filter(item => {
-              if ((item as any).adminOnly) return user?.role === "admin";
-              return true;
-            })
-          );
+      {/* Navigation */}
+      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-1">
+        {/* Dashboard - always visible */}
+        {matchesSearch("Dashboard") && renderNavButton({
+          id: "dashboard", icon: LayoutDashboard, label: "Dashboard",
+        })}
+
+        {/* Collapsible Sections */}
+        {navSections.map((section) => {
+          const items = filterItems(section.items);
           if (items.length === 0) return null;
 
+          const isExpanded = searchQuery ? true : expandedSections[section.key] !== false;
+
           return (
-            <div key={sectionIdx}>
-              {section.title && !collapsed && (
-                <p className="px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                  {section.title}
-                </p>
-              )}
-              {collapsed && section.title && (
+            <div key={section.key} className="mt-3">
+              {!collapsed ? (
+                <button
+                  onClick={() => !searchQuery && toggleSection(section.key)}
+                  className="w-full flex items-center justify-between px-3 mb-1.5 group"
+                >
+                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                    {section.title}
+                  </span>
+                  <ChevronDown
+                    className={`w-3 h-3 text-gray-600 transition-transform duration-200 ${
+                      isExpanded ? "" : "-rotate-90"
+                    }`}
+                  />
+                </button>
+              ) : (
                 <div className="border-t border-gray-800 mx-2 my-2" />
               )}
-              <div className="space-y-0.5">
-                {items.map(({ id, icon: Icon, label }) => (
-                  <button
-                    key={id}
-                    onClick={() => onItemChange(id)}
-                    className={`w-full flex items-center gap-3 rounded-lg transition-all duration-150 ${
-                      collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
-                    } ${
-                      activeItem === id
-                        ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
-                        : "text-gray-400 hover:text-white hover:bg-gray-800"
-                    }`}
-                    title={collapsed ? label : undefined}
-                  >
-                    <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-                    {!collapsed && (
-                      <span className="text-sm font-medium truncate">{label}</span>
-                    )}
-                  </button>
-                ))}
+
+              <div
+                className={`space-y-0.5 overflow-hidden transition-all duration-200 ${
+                  isExpanded ? "max-h-96 opacity-100" : collapsed ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+                }`}
+              >
+                {items.map(renderNavButton)}
               </div>
             </div>
           );
@@ -192,16 +237,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           </p>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-sm text-gray-400">Total Items</span>
-              <span className="text-sm font-semibold text-white">--</span>
+              <span className="text-sm text-gray-400">Total Jobs</span>
+              <span className="text-sm font-semibold text-white">{totalJobs}</span>
             </div>
             <div className="flex items-center justify-between px-2 py-1">
               <span className="text-sm text-green-400">In Transit</span>
-              <span className="text-sm font-semibold text-white">--</span>
+              <span className="text-sm font-semibold text-white">{inTransit}</span>
             </div>
             <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-sm text-red-400">Delayed</span>
-              <span className="text-sm font-bold text-red-400">--</span>
+              <span className="text-sm text-red-400">Exceptions</span>
+              <span className={`text-sm font-bold ${exceptions > 0 ? "text-red-400" : "text-white"}`}>
+                {exceptions}
+              </span>
             </div>
           </div>
         </div>
@@ -209,23 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Bottom Section */}
       <div className="border-t border-gray-800 px-2 py-2 space-y-0.5">
-        {filteredBottomItems.map(({ id, icon: Icon, label }) => (
-          <button
-            key={id}
-            onClick={() => onItemChange(id)}
-            className={`w-full flex items-center gap-3 rounded-lg transition-all duration-150 ${
-              collapsed ? "justify-center px-2 py-2" : "px-3 py-2"
-            } ${
-              activeItem === id
-                ? "bg-blue-600 text-white"
-                : "text-gray-400 hover:text-white hover:bg-gray-800"
-            }`}
-            title={collapsed ? label : undefined}
-          >
-            <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-            {!collapsed && <span className="text-sm font-medium">{label}</span>}
-          </button>
-        ))}
+        {filteredBottomItems.map(renderNavButton)}
 
         {/* Logout */}
         <button

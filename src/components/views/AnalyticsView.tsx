@@ -149,6 +149,12 @@ export const AnalyticsView: React.FC = () => {
       }
 
       return true;
+    }).sort((a, b) => {
+      // Always sort by nearest ETA date first, regardless of status
+      const aEta = a.eta ? new Date(a.eta).getTime() : Infinity;
+      const bEta = b.eta ? new Date(b.eta).getTime() : Infinity;
+      if (aEta !== bEta) return aEta - bEta;
+      return 0;
     });
   }, [dedupedJobs, selectedStatus, selectedPriority, selectedWarehouse, selectedTransporter, etaWeekFilter, dateRange, startDate, endDate]);
 

@@ -110,6 +110,17 @@ export const DispatchView: React.FC = () => {
     };
   }, [orderJobs, drivers]);
 
+  // Compute assigned pallets per driver (from ALL jobs, not just deduplicated)
+  const palletsByDriver = useMemo(() => {
+    const map: Record<string, number> = {};
+    jobs.forEach((job) => {
+      if (job.driverId && job.status !== "delivered" && job.status !== "cancelled") {
+        map[job.driverId] = (map[job.driverId] || 0) + (job.pallets || 0);
+      }
+    });
+    return map;
+  }, [jobs]);
+
   // Pagination
   const ITEMS_PER_PAGE = 20;
   const [currentPage, setCurrentPage] = useState(1);
@@ -178,8 +189,31 @@ export const DispatchView: React.FC = () => {
 
     if (over && active.id !== over.id) {
       const driver = drivers.find((d) => d.id === over.id);
-      if (driver) {
-        // Assign job to driver; also move status to "assigned" if it isn't yet
+      const job = orderJobs.find((j) => j.id === active.id);
+
+      if (driver && job) {
+        const jobPallets = job.pallets || 0;
+        const currentLoad = palletsByDriver[driver.id] || 0;
+        const newLoad = currentLoad + jobPallets;
+        const capacity = driver.capacity || 0;
+
+        if (capacity > 0 && newLoad > capacity) {
+          const proceed = window.confirm(
+            `⚠️ Capacity Warning!\n\n` +
+            `Transporter: ${driver.name}\n` +
+            `Current load: ${currentLoad} pallets\n` +
+            `This order: ${jobPallets} pallets\n` +
+            `New total: ${newLoad} pallets\n` +
+            `Capacity: ${capacity} pallets\n\n` +
+            `This will exceed capacity by ${newLoad - capacity} pallets.\n` +
+            `Do you want to assign anyway?`
+          );
+          if (!proceed) {
+            setActiveJob(null);
+            return;
+          }
+        }
+
         updateJob(active.id as string, {
           driverId: driver.id,
           status: "assigned",
@@ -475,6 +509,7 @@ export const DispatchView: React.FC = () => {
                         key={driver.id}
                         driver={driver}
                         onEdit={handleTransporterEdit}
+                        assignedPallets={palletsByDriver[driver.id] || 0}
                       />
                     ))
                   )}

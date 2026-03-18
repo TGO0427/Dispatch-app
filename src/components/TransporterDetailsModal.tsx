@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, Save } from "lucide-react";
 import { Driver, DriverStatus } from "../types";
+import { useDispatch } from "../context/DispatchContext";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
@@ -17,6 +18,11 @@ export const TransporterDetailsModal: React.FC<TransporterDetailsModalProps> = (
   onClose,
   onSave,
 }) => {
+  const { jobs } = useDispatch();
+  const actualAssignedJobs = transporter
+    ? jobs.filter(j => j.driverId === transporter.id && j.status !== "delivered" && j.status !== "cancelled").length
+    : 0;
+
   const [formData, setFormData] = useState({
     name: transporter?.name || "",
     callsign: transporter?.callsign || "",
@@ -176,7 +182,7 @@ export const TransporterDetailsModal: React.FC<TransporterDetailsModalProps> = (
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-600 mb-1">Assigned Jobs</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {transporter.assignedJobs}
+                  {actualAssignedJobs}
                 </p>
               </div>
 

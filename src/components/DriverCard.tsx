@@ -2,6 +2,7 @@ import React from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Phone, MessageSquare, Edit, AlertTriangle } from "lucide-react";
 import { Driver } from "../types";
+import { useDispatch } from "../context/DispatchContext";
 import { statusColour } from "../utils/helpers";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
@@ -13,6 +14,8 @@ interface DriverCardProps {
 }
 
 export const DriverCard: React.FC<DriverCardProps> = ({ driver, onEdit, assignedPallets = 0 }) => {
+  const { jobs } = useDispatch();
+  const actualAssignedJobs = jobs.filter(j => j.driverId === driver.id && j.status !== "delivered" && j.status !== "cancelled").length;
   const { setNodeRef, isOver } = useDroppable({
     id: driver.id,
   });
@@ -43,7 +46,7 @@ export const DriverCard: React.FC<DriverCardProps> = ({ driver, onEdit, assigned
             {driver.callsign}
           </p>
           <p className="truncate text-xs text-gray-500 mt-1">
-            {driver.location} • Jobs: {driver.assignedJobs}
+            {driver.location} • Jobs: {actualAssignedJobs}
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -149,10 +149,10 @@ const normalizePriority = (p?: string): JobPriority => {
 
 const parsePallets = (v?: string | number): number | undefined => {
   if (v === undefined || v === null || v === "") return undefined;
-  const s = typeof v === "number" ? String(v) : v;
-  const cleaned = s.replace(/\s/g, "").replace(/,/g, "");
-  const n = Number.parseInt(cleaned, 10);
-  return Number.isFinite(n) ? n : undefined;
+  if (typeof v === "number") return Math.round(v);
+  const cleaned = v.replace(/\s/g, "").replace(/,/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? Math.round(n) : undefined;
 };
 
 type HeaderIndex = Record<string, number>;

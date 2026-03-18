@@ -12,7 +12,7 @@ const formatJob = (job: any) => ({
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -29,6 +29,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "POST") {
     try {
+      // Validate required fields
+      if (!req.body.ref || !req.body.customer) {
+        return res.status(400).json({ success: false, error: "Reference and customer are required" });
+      }
+      const validStatuses = ["pending", "assigned", "en-route", "delivered", "exception", "cancelled"];
+      const validPriorities = ["urgent", "high", "normal", "low"];
+      if (req.body.status && !validStatuses.includes(req.body.status)) {
+        return res.status(400).json({ success: false, error: "Invalid status" });
+      }
+      if (req.body.priority && !validPriorities.includes(req.body.priority)) {
+        return res.status(400).json({ success: false, error: "Invalid priority" });
+      }
+
       const newJob = await prisma.job.create({
         data: {
           ref: req.body.ref,

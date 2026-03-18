@@ -6,6 +6,12 @@ import type { Job, Driver } from "../types";
 // Only set VITE_API_URL if you need to point to a different backend
 const API_URL = import.meta.env.VITE_API_URL || "";
 
+// Get auth token for API requests
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem("authToken");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 // Helper function for API requests
 async function fetchAPI<T>(
   endpoint: string,
@@ -18,6 +24,7 @@ async function fetchAPI<T>(
       ...options,
       headers: {
         "Content-Type": "application/json",
+        ...getAuthHeaders(),
         ...options?.headers,
       },
     });

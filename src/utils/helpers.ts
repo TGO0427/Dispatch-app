@@ -73,18 +73,15 @@ export function filterJobs(jobs: Job[], filters: FilterOptions): Job[] {
       if (!searchableText.includes(query)) return false;
     }
 
-    // Filter by workflow status
+    // Filter by workflow status (compute readyForDispatch from flags)
     if (filters.workflowStatus) {
+      const isReady = !!(job.transporterBooked && job.orderPicked && job.coaAvailable);
+      const hasAnyChecked = !!(job.transporterBooked || job.orderPicked || job.coaAvailable);
       if (filters.workflowStatus === "ready") {
-        // Ready for dispatch: all three workflow items complete
-        if (!job.readyForDispatch) return false;
+        if (!isReady) return false;
       } else if (filters.workflowStatus === "in-progress") {
-        // In progress: at least one item checked but not all
-        const hasAnyChecked = job.transporterBooked || job.orderPicked || job.coaAvailable;
-        if (!hasAnyChecked || job.readyForDispatch) return false;
+        if (!hasAnyChecked || isReady) return false;
       } else if (filters.workflowStatus === "not-started") {
-        // Not started: none of the workflow items checked
-        const hasAnyChecked = job.transporterBooked || job.orderPicked || job.coaAvailable;
         if (hasAnyChecked) return false;
       }
     }

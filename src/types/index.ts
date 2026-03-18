@@ -72,7 +72,7 @@ export interface Job {
   transporterBooked?: boolean;  // Transporter has been booked
   orderPicked?: boolean;        // Order has been picked from warehouse
   coaAvailable?: boolean;       // Certificate of Analysis available
-  readyForDispatch?: boolean;   // Auto-calculated: all three above are true
+  readyForDispatch?: boolean;   // Computed: transporterBooked && orderPicked && coaAvailable (not persisted to DB)
 
   // Dates as ISO strings — easy to serialize, compare, and store
   eta?: string;                 // planned ETA (e.g. "2025-10-10" or ISO datetime)

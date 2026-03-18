@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Environment files with secrets
+backend/.env
+.env
+.env.local
+.env.production

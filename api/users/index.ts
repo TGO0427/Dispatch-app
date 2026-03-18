@@ -1,21 +1,22 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+const SECRET = process.env.JWT_SECRET || "dev-only-fallback-key";
 
 function getUser(req: VercelRequest): any {
   const auth = req.headers.authorization;
   if (!auth?.startsWith("Bearer ")) return null;
-  try { return jwt.verify(auth.substring(7), JWT_SECRET); } catch { return null; }
+  try { return jwt.verify(auth.substring(7), SECRET); } catch { return null; }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -46,8 +47,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!validRoles.includes(role)) {
         return res.status(400).json({ success: false, message: "Invalid role" });
       }
+      if (password.length < 6) {
+        return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
       const newUser = await prisma.user.create({
-        data: { username, email, password, role },
+        data: { username, email, password: hashedPassword, role },
         select: { id: true, username: true, email: true, role: true },
       });
       return res.status(201).json({ success: true, user: newUser, message: "User created successfully" });

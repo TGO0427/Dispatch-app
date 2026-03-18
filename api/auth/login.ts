@@ -1,21 +1,24 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) console.warn("WARNING: JWT_SECRET not set - using insecure fallback");
+const SECRET = JWT_SECRET || "dev-only-fallback-key";
 
-const DEMO_USERS = [
-  { id: "1", username: "admin", password: "admin123", email: "admin@dispatch.com", role: "admin" },
-  { id: "2", username: "dispatcher", password: "dispatcher123", email: "dispatcher@dispatch.com", role: "dispatcher" },
-  { id: "3", username: "manager", password: "manager123", email: "manager@dispatch.com", role: "manager" },
-];
+// Demo admin only - for initial setup (remove after creating real admin user)
+const DEMO_ADMIN = {
+  id: "1", username: "admin", password: "admin123",
+  email: "admin@dispatch.com", role: "admin",
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -28,14 +31,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     let user: any = null;
+
+    // Try database first (passwords should be hashed with bcrypt)
     try {
       const dbUser = await prisma.user.findUnique({ where: { username } });
-      if (dbUser && dbUser.password === password) user = dbUser;
-    } catch { /* DB not ready, fall through */ }
+      if (dbUser) {
+        // Support both hashed and plain passwords (migration period)
+        const isMatch = dbUser.password.startsWith("$2")
+          ? await bcrypt.compare(password, dbUser.password)
+          : dbUser.password === password;
+        if (isMatch) user = dbUser;
+      }
+    } catch {
+      // DB not ready, fall through to demo
+    }
 
-    if (!user) {
-      const demoUser = DEMO_USERS.find((u) => u.username === username && u.password === password);
-      if (demoUser) user = demoUser;
+    // Fallback to demo admin only
+    if (!user && username === DEMO_ADMIN.username && password === DEMO_ADMIN.password) {
+      user = DEMO_ADMIN;
     }
 
     if (!user) {
@@ -44,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const token = jwt.sign(
       { id: user.id, username: user.username, email: user.email, role: user.role },
-      JWT_SECRET,
+      SECRET,
       { expiresIn: "24h" }
     );
     const { password: _, ...userWithoutPassword } = user;

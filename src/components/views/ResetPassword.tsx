@@ -48,7 +48,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onBack }) =
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/auth/reset-password`, {
+      const response = await fetch(`${API_BASE}/api/auth?action=reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),

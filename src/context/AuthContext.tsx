@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const token = localStorage.getItem("authToken");
         if (token) {
-          const response = await fetch(`${API_BASE}/api/auth/verify`, {
+          const response = await fetch(`${API_BASE}/api/auth?action=verify`, {
             headers: { Authorization: `Bearer ${token}` },
           });
 
@@ -65,7 +65,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/login`, {
+      const response = await fetch(`${API_BASE}/api/auth?action=login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const token = localStorage.getItem("authToken");
       if (token) {
-        await fetch(`${API_BASE}/api/auth/logout`, {
+        await fetch(`${API_BASE}/api/auth?action=logout`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         });

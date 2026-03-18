@@ -131,21 +131,14 @@ export function DispatchProvider({
   const resetFilters = () => setFilters({});
   const clearError = () => dispatch({ type: "SET_ERROR", error: null });
 
-  // Fetch initial data from API on mount + auto-refresh every 30 seconds
-  useEffect(() => {
-    if (useAPI) {
-      refreshData();
-      const interval = setInterval(refreshData, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [useAPI]);
-
-  // Refresh data from API
-  const refreshData = useCallback(async () => {
+  // Refresh data from API (silent=true skips loading indicator for background polls)
+  const refreshData = useCallback(async (silent = false) => {
     if (!useAPI) return;
 
     try {
-      dispatch({ type: "SET_LOADING", loading: true });
+      if (!silent) {
+        dispatch({ type: "SET_LOADING", loading: true });
+      }
       dispatch({ type: "SET_ERROR", error: null });
 
       const [fetchedJobs, fetchedDrivers] = await Promise.all([
@@ -161,12 +154,25 @@ export function DispatchProvider({
       saveDrivers(fetchedDrivers);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to load data";
-      dispatch({ type: "SET_ERROR", error: errorMessage });
+      if (!silent) {
+        dispatch({ type: "SET_ERROR", error: errorMessage });
+      }
       console.error("Failed to refresh data:", error);
     } finally {
-      dispatch({ type: "SET_LOADING", loading: false });
+      if (!silent) {
+        dispatch({ type: "SET_LOADING", loading: false });
+      }
     }
   }, [useAPI]);
+
+  // Fetch initial data on mount + silent auto-refresh every 15 seconds
+  useEffect(() => {
+    if (useAPI) {
+      refreshData();
+      const interval = setInterval(() => refreshData(true), 15000);
+      return () => clearInterval(interval);
+    }
+  }, [useAPI, refreshData]);
 
   // Auto-save to localStorage (backup)
   useEffect(() => {

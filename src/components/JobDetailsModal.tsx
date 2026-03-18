@@ -308,13 +308,30 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           ) : null}
 
           {/* Assigned Driver */}
-          {driverName && (
+          {(driverName || editedJob.driverId) && (
             <div>
               <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 mb-1">
                 <User className="h-4 w-4" />
-                Assigned Driver
+                Assigned Transporter
               </div>
-              <p className="font-semibold">{driverName}</p>
+              <div className="flex items-center justify-between">
+                <p className="font-semibold">{driverName || "Assigned"}</p>
+                {editedJob.status !== "delivered" && editedJob.status !== "cancelled" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={() => {
+                      if (window.confirm("Unassign this order from the transporter?")) {
+                        handleWorkflowUpdate(job.id, { driverId: undefined, status: "pending" });
+                        onClose();
+                      }
+                    }}
+                  >
+                    Unassign
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 

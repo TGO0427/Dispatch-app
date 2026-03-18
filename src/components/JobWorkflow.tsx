@@ -55,7 +55,10 @@ const serviceColors: Record<string, string> = {
 };
 
 export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact = false }) => {
+  const isLocked = job.status === "en-route" || job.status === "delivered" || job.status === "cancelled";
+
   const handleToggle = (field: "transporterBooked" | "orderPicked" | "coaAvailable") => {
+    if (isLocked) return;
     const updates: Partial<Job> = {
       [field]: !job[field],
     };
@@ -91,10 +94,13 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
           <button
             key={item.id}
             onClick={(e) => { e.stopPropagation(); handleToggle(item.id); }}
+            disabled={isLocked}
             className={`p-1 rounded-full transition-colors ${
-              item.checked ? "text-green-600 hover:text-green-700" : "text-gray-300 hover:text-gray-400"
+              isLocked
+                ? item.checked ? "text-green-600 opacity-60 cursor-default" : "text-gray-300 opacity-60 cursor-default"
+                : item.checked ? "text-green-600 hover:text-green-700" : "text-gray-300 hover:text-gray-400"
             }`}
-            title={item.label}
+            title={isLocked ? `${item.label} (locked)` : item.label}
           >
             {item.checked ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
           </button>
@@ -127,17 +133,25 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
       </h4>
 
       {/* Workflow Checkboxes */}
+      {isLocked && (
+        <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
+          <span>Workflow steps are locked — shipment is {job.status}.</span>
+        </div>
+      )}
       <div className="space-y-2">
         {workflowItems.map((item) => (
           <label
             key={item.id}
-            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+            className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${
+              isLocked ? "opacity-70 cursor-default" : "hover:bg-gray-50 cursor-pointer"
+            }`}
           >
             <input
               type="checkbox"
               checked={item.checked}
               onChange={() => handleToggle(item.id)}
-              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              disabled={isLocked}
+              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             />
             <span className={`text-sm ${item.checked ? "text-gray-900 font-medium" : "text-gray-600"}`}>
               {item.label}
@@ -157,12 +171,13 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
           {TRANSPORT_SERVICES.map((service) => (
             <button
               key={service.value}
-              onClick={() => handleTransportServiceChange(service.value)}
+              onClick={() => !isLocked && handleTransportServiceChange(service.value)}
+              disabled={isLocked}
               className={`p-3 rounded-lg border-2 text-center transition-all ${
                 job.transportService === service.value
                   ? `${serviceColors[service.value]} border-current shadow-sm`
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
-              }`}
+              } ${isLocked ? "opacity-70 cursor-default" : ""}`}
             >
               <div className="text-lg mb-1">{serviceIcons[service.value]}</div>
               <div className="text-xs font-semibold">{service.label}</div>

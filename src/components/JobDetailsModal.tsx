@@ -36,6 +36,15 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
       return;
     }
 
+    // Validation: require all workflow steps before moving to en-route
+    if (editedJob.status === "en-route" && job.status !== "en-route") {
+      const allWorkflowComplete = editedJob.transporterBooked && editedJob.orderPicked && editedJob.coaAvailable;
+      if (!allWorkflowComplete) {
+        alert("Complete all dispatch workflow steps (Transporter Booked, Order Picked, COA Available) before moving to En Route.");
+        return;
+      }
+    }
+
     // Auto-set actualDeliveryAt when marking as delivered
     const updates: Partial<Job> = { ...editedJob };
     if (editedJob.status === "delivered" && !editedJob.actualDeliveryAt) {

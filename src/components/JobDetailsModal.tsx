@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { X, MapPin, User, Calendar, Package, AlertCircle, Edit2, Save } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { X, MapPin, User, Calendar, Package, AlertCircle, Edit2, Save, Undo2, List } from "lucide-react";
 import { Job, JobStatus, JobPriority, ServiceType, JOB_STATUSES, JOB_PRIORITIES } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { useDispatch } from "../context/DispatchContext";
@@ -19,14 +19,33 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   onClose,
   driverName,
 }) => {
-  const { updateJob } = useDispatch();
+  const { updateJob, jobs } = useDispatch();
   const [isEditing, setIsEditing] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
 
-  // Workflow updates: save to API AND update local state so UI reflects changes immediately
-  const handleWorkflowUpdate = (jobId: string, updates: Partial<Job>) => {
-    updateJob(jobId, updates);
+  // All line items sharing this ASO ref
+  const lineItems = useMemo(() => {
+    return jobs.filter((j) => j.ref === job.ref);
+  }, [jobs, job.ref]);
+
+  const hasMultipleLineItems = lineItems.length > 1;
+
+  // Update all line items sharing the same ASO ref
+  const updateAllLineItems = (updates: Partial<Job>) => {
+    lineItems.forEach((lineItem) => {
+      updateJob(lineItem.id, updates);
+    });
+  };
+
+  // Workflow updates: propagate to all line items
+  const handleWorkflowUpdate = (_jobId: string, updates: Partial<Job>) => {
+    updateAllLineItems(updates);
     setEditedJob((prev) => ({ ...prev, ...updates }));
+  };
+
+  // Unassign a single line item back to pending
+  const handleUnassignLineItem = (lineItemId: string) => {
+    updateJob(lineItemId, { driverId: undefined, status: "pending" });
   };
 
   const handleSave = () => {
@@ -56,7 +75,30 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
       updates.exceptionReason = undefined;
     }
 
+    // Build shared updates to propagate to all line items
+    const sharedUpdates: Partial<Job> = {};
+    if (editedJob.status !== job.status) sharedUpdates.status = editedJob.status;
+    if (editedJob.driverId !== job.driverId) sharedUpdates.driverId = editedJob.driverId;
+    if (editedJob.transporterBooked !== job.transporterBooked) sharedUpdates.transporterBooked = editedJob.transporterBooked;
+    if (editedJob.orderPicked !== job.orderPicked) sharedUpdates.orderPicked = editedJob.orderPicked;
+    if (editedJob.coaAvailable !== job.coaAvailable) sharedUpdates.coaAvailable = editedJob.coaAvailable;
+    if (editedJob.readyForDispatch !== job.readyForDispatch) sharedUpdates.readyForDispatch = editedJob.readyForDispatch;
+    if (editedJob.transportService !== job.transportService) sharedUpdates.transportService = editedJob.transportService;
+    if (editedJob.etd !== job.etd) sharedUpdates.etd = editedJob.etd;
+    if (updates.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
+    if (updates.exceptionReason !== undefined) sharedUpdates.exceptionReason = updates.exceptionReason;
+
+    // Update the primary job with all edits
     updateJob(job.id, updates);
+
+    // Propagate shared fields to sibling line items (only those still assigned)
+    if (Object.keys(sharedUpdates).length > 0) {
+      const assignedSiblings = jobs.filter((j) => j.ref === job.ref && j.id !== job.id && j.status !== "pending");
+      assignedSiblings.forEach((sibling) => {
+        updateJob(sibling.id, sharedUpdates);
+      });
+    }
+
     setIsEditing(false);
     onClose();
   };
@@ -331,15 +373,81 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                     variant="outline"
                     className="text-red-600 border-red-200 hover:bg-red-50"
                     onClick={() => {
-                      if (window.confirm("Unassign this order from the transporter?")) {
-                        handleWorkflowUpdate(job.id, { driverId: undefined, status: "pending" });
+                      if (window.confirm("Unassign ALL line items for this order from the transporter?")) {
+                        updateAllLineItems({ driverId: undefined, status: "pending" });
                         onClose();
                       }
                     }}
                   >
-                    Unassign
+                    Unassign All
                   </Button>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Line Items (only show when there are multiple under same ASO ref) */}
+          {hasMultipleLineItems && (
+            <div className="pt-4 border-t">
+              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 mb-3">
+                <List className="h-4 w-4" />
+                Line Items ({lineItems.length})
+              </div>
+              <div className="space-y-2">
+                {lineItems.map((item, idx) => {
+                  const isAssigned = item.status !== "pending" && item.driverId;
+                  const isPending = item.status === "pending";
+                  return (
+                    <div
+                      key={item.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        isPending ? "bg-yellow-50 border-yellow-200" : "bg-gray-50 border-gray-200"
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-gray-500">#{idx + 1}</span>
+                          <span className="text-sm font-medium text-gray-900 truncate">
+                            {item.dropoff}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                          {item.pallets != null && <span>{item.pallets} pallets</span>}
+                          {item.outstandingQty != null && <span>{item.outstandingQty.toLocaleString()} qty</span>}
+                          <Badge
+                            variant={
+                              item.status === "delivered" ? "success" :
+                              item.status === "exception" ? "destructive" :
+                              item.status === "pending" ? "new" : "default"
+                            }
+                            className="text-[10px] px-1.5 py-0"
+                          >
+                            {item.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      {isAssigned && item.status !== "delivered" && item.status !== "cancelled" && item.status !== "en-route" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 ml-2 shrink-0"
+                          onClick={() => {
+                            if (window.confirm(`Unassign line item #${idx + 1} (${item.dropoff}) back to pending?`)) {
+                              handleUnassignLineItem(item.id);
+                            }
+                          }}
+                          title="Send back to pending"
+                        >
+                          <Undo2 className="h-4 w-4 mr-1" />
+                          <span className="text-xs">Unassign</span>
+                        </Button>
+                      )}
+                      {isPending && !item.driverId && (
+                        <span className="text-xs text-yellow-600 font-medium ml-2 shrink-0">Pending</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

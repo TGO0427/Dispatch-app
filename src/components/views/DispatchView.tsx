@@ -240,9 +240,13 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
           }
         }
 
-        updateJob(active.id as string, {
-          driverId: driver.id,
-          status: "assigned",
+        // Assign ALL line items sharing this ASO ref to the transporter
+        const allLineItems = jobs.filter((j) => j.ref === job.ref);
+        allLineItems.forEach((lineItem) => {
+          updateJob(lineItem.id, {
+            driverId: driver.id,
+            status: "assigned",
+          });
         });
       }
     }

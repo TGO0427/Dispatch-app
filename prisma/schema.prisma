@@ -68,13 +68,15 @@ model Driver {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  username  String   @unique @db.VarChar(255)
-  email     String   @unique @db.VarChar(255)
-  password  String   @db.VarChar(255)
-  role      String   @default("user") @db.VarChar(50)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String    @id @default(uuid())
+  username             String    @unique @db.VarChar(255)
+  email                String    @unique @db.VarChar(255)
+  password             String    @db.VarChar(255)
+  role                 String    @default("user") @db.VarChar(50)
+  passwordResetToken   String?   @db.VarChar(255)
+  passwordResetExpires DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   @@map("users")
 }

@@ -131,10 +131,12 @@ export function DispatchProvider({
   const resetFilters = () => setFilters({});
   const clearError = () => dispatch({ type: "SET_ERROR", error: null });
 
-  // Fetch initial data from API on mount
+  // Fetch initial data from API on mount + auto-refresh every 30 seconds
   useEffect(() => {
     if (useAPI) {
       refreshData();
+      const interval = setInterval(refreshData, 30000);
+      return () => clearInterval(interval);
     }
   }, [useAPI]);
 

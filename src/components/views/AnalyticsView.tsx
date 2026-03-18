@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
-import { FileText, Filter, BarChart3, FileSpreadsheet, FileDown, TrendingUp, Package, Truck, AlertCircle } from "lucide-react";
+import { FileText, Filter, BarChart3, FileSpreadsheet, FileDown, TrendingUp, Package, Truck, AlertCircle, Search } from "lucide-react";
 import { useDispatch } from "../../context/DispatchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
+import { JobDetailsModal } from "../JobDetailsModal";
+import type { Job } from "../../types";
 import * as XLSX from "xlsx";
 
 type ReportType =
@@ -31,6 +33,8 @@ export const AnalyticsView: React.FC = () => {
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
   const [selectedTransporter, setSelectedTransporter] = useState<string>("all");
   const [etaWeekFilter, setEtaWeekFilter] = useState<string>("all");
+  const [customerSearch, setCustomerSearch] = useState<string>("");
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   // Helper function to get week number and year from date
   const getWeekInfo = (dateString: string | undefined) => {
@@ -115,6 +119,9 @@ export const AnalyticsView: React.FC = () => {
       // Transporter filter
       if (selectedTransporter !== "all" && job.driverId !== selectedTransporter) return false;
 
+      // Customer search filter
+      if (customerSearch.trim() && !job.customer.toLowerCase().includes(customerSearch.toLowerCase())) return false;
+
       // ETA Week filter
       if (etaWeekFilter !== "all") {
         const weekInfo = getWeekInfo(job.eta);
@@ -156,7 +163,7 @@ export const AnalyticsView: React.FC = () => {
       if (aEta !== bEta) return aEta - bEta;
       return 0;
     });
-  }, [dedupedJobs, selectedStatus, selectedPriority, selectedWarehouse, selectedTransporter, etaWeekFilter, dateRange, startDate, endDate]);
+  }, [dedupedJobs, selectedStatus, selectedPriority, selectedWarehouse, selectedTransporter, etaWeekFilter, dateRange, startDate, endDate, customerSearch]);
 
   // Export functions
   const exportToExcel = () => {
@@ -386,7 +393,15 @@ export const AnalyticsView: React.FC = () => {
                       const etaWeekInfo = getWeekInfo(job.eta);
                       return (
                         <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="p-3 font-medium text-gray-900">{job.ref}</td>
+                          <td className="p-3">
+                            <button
+                              onClick={() => setSelectedJob(job)}
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                              title="View order details"
+                            >
+                              {job.ref}
+                            </button>
+                          </td>
                           <td className="p-3 text-gray-700">{job.customer}</td>
                           <td className="p-3">
                             <Badge variant={
@@ -623,7 +638,15 @@ export const AnalyticsView: React.FC = () => {
                       const etaWeekInfo = getWeekInfo(job.eta);
                       return (
                         <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="p-3 font-medium text-gray-900">{job.ref}</td>
+                          <td className="p-3">
+                            <button
+                              onClick={() => setSelectedJob(job)}
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                              title="View order details"
+                            >
+                              {job.ref}
+                            </button>
+                          </td>
                           <td className="p-3 text-gray-700">{job.customer}</td>
                           <td className="p-3">
                             <Badge variant={
@@ -967,6 +990,23 @@ export const AnalyticsView: React.FC = () => {
                 })}
               </Select>
             </div>
+
+            {/* Customer Search */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Customer Search
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search by customer name..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="w-full pl-9"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Custom Date Range */}
@@ -1066,6 +1106,15 @@ export const AnalyticsView: React.FC = () => {
 
       {/* Report Content */}
       {renderReportContent()}
+
+      {/* Job Details Modal */}
+      {selectedJob && (
+        <JobDetailsModal
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+          driverName={selectedJob.driverId ? drivers.find(d => d.id === selectedJob.driverId)?.name : undefined}
+        />
+      )}
     </div>
   );
 };

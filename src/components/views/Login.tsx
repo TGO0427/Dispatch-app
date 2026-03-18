@@ -4,7 +4,11 @@ import { Truck, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 
-export const Login: React.FC = () => {
+interface LoginProps {
+  onForgotPassword?: () => void;
+}
+
+export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -114,6 +118,7 @@ export const Login: React.FC = () => {
               </label>
               <button
                 type="button"
+                onClick={onForgotPassword}
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
                 Forgot password?

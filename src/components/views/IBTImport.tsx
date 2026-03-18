@@ -418,11 +418,16 @@ export const IBTImport: React.FC = () => {
     try {
       const { jobsAPI } = await import("../../services/api");
 
-      // Get existing refs from database to skip duplicates
+      // Get existing jobs from database to detect duplicates
       const existingJobs = await jobsAPI.getAll();
-      const existingRefs = new Set(existingJobs.map((j) => j.ref));
+      const existingByRef = new Map<string, typeof existingJobs>();
+      existingJobs.forEach((j) => {
+        const list = existingByRef.get(j.ref) || [];
+        list.push(j);
+        existingByRef.set(j.ref, list);
+      });
 
-      // Convert imported orders, skipping any that already exist
+      // Convert imported orders
       const allOrders = importedOrders.map((order) => ({
         ref: order.ref,
         customer: order.customer,
@@ -438,18 +443,49 @@ export const IBTImport: React.FC = () => {
         notes: order.notes,
       }));
 
-      const newOrders = allOrders.filter((order) => !existingRefs.has(order.ref));
-      const skippedCount = allOrders.length - newOrders.length;
+      // Split into new and existing orders
+      const newOrders = allOrders.filter((order) => !existingByRef.has(order.ref));
+      const existingOrders = allOrders.filter((order) => existingByRef.has(order.ref));
 
+      // Create new orders
       if (newOrders.length > 0) {
         await jobsAPI.bulkCreate(newOrders);
       }
 
+      // Update existing orders: match by ref + notes (product name) for line-item accuracy
+      let updatedCount = 0;
+      for (const order of existingOrders) {
+        const existingLines = existingByRef.get(order.ref) || [];
+        const match = existingLines.find((j) => j.notes === order.notes)
+          || existingLines.find((j) => !j.notes && order.notes) // match empty notes to fill in product name
+          || (existingLines.length === 1 ? existingLines[0] : null);
+
+        if (match) {
+          await jobsAPI.update(match.id, {
+            customer: order.customer,
+            pickup: order.pickup,
+            dropoff: order.dropoff,
+            warehouse: order.warehouse,
+            pallets: order.pallets,
+            outstandingQty: order.outstandingQty,
+            eta: order.eta,
+            notes: order.notes,
+          });
+          // Remove matched item so it's not matched again
+          const list = existingByRef.get(order.ref)!;
+          const matchIdx = list.indexOf(match);
+          if (matchIdx !== -1) list.splice(matchIdx, 1);
+          updatedCount++;
+        }
+      }
+
       await refreshData();
 
-      if (skippedCount > 0) {
-        alert(`Import complete!\n\n${newOrders.length} new IBT orders imported.\n${skippedCount} duplicate orders skipped (already exist in system).`);
-      }
+      const parts = [];
+      if (newOrders.length > 0) parts.push(`${newOrders.length} new IBT orders imported`);
+      if (updatedCount > 0) parts.push(`${updatedCount} existing orders updated`);
+      if (parts.length === 0) parts.push("No changes needed");
+      alert(`Import complete!\n\n${parts.join(".\n")}.`);
 
       setImportedOrders([]);
       setImportStatus("idle");

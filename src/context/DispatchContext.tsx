@@ -246,19 +246,29 @@ export function DispatchProvider({
     try {
       dispatch({ type: "SET_LOADING", loading: true });
 
-      if (useAPI) {
-        await jobsAPI.update(id, patch);
-      }
-
+      // Update local state immediately (optimistic)
       dispatch({ type: "UPDATE_JOB", id, patch });
+
+      if (useAPI) {
+        // Convert undefined to null for fields that need to be cleared in the DB
+        // JSON.stringify strips undefined values, so Prisma wouldn't clear them
+        const apiPatch: Record<string, any> = {};
+        for (const [key, value] of Object.entries(patch)) {
+          if (key === "readyForDispatch") continue; // Computed field, not in DB
+          apiPatch[key] = value === undefined ? null : value;
+        }
+        await jobsAPI.update(id, apiPatch as Partial<Job>);
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to update job";
       dispatch({ type: "SET_ERROR", error: errorMessage });
+      // Re-fetch to revert optimistic update on failure
+      refreshData(true);
       throw error;
     } finally {
       dispatch({ type: "SET_LOADING", loading: false });
     }
-  }, [useAPI]);
+  }, [useAPI, refreshData]);
 
   // Drivers API
   const setDrivers = (drivers: Driver[]) => dispatch({ type: "SET_DRIVERS", drivers });

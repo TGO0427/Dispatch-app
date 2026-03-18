@@ -48,7 +48,7 @@ function AppContent() {
     let view;
     switch (activeNavItem) {
       case "dashboard":
-        view = <Dashboard />; break;
+        view = <Dashboard onOpenAlerts={() => setAlertHubOpen(true)} />; break;
       case "home":
         view = <OrderImport />; break;
       case "ibt":
@@ -56,7 +56,7 @@ function AppContent() {
       case "ibt-dispatch":
         view = <IBTDispatchView />; break;
       case "clipboard":
-        view = <DispatchView />; break;
+        view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} />; break;
       case "calendar":
         view = <CalendarView />; break;
       case "grid":
@@ -112,7 +112,6 @@ function AppContent() {
           onItemChange={setActiveNavItem}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          onOpenAlerts={() => setAlertHubOpen(true)}
         />
 
         <div className={`${sidebarCollapsed ? "ml-16" : "ml-60"} min-h-screen overflow-y-auto transition-all duration-300`}>

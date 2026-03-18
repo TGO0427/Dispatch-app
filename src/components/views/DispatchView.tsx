@@ -8,7 +8,7 @@ import {
   closestCenter,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Truck, Briefcase, Plus, X, Save, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { Truck, Briefcase, Plus, X, Save, ChevronLeft, ChevronRight, AlertTriangle, Bell } from "lucide-react";
 
 import { useDispatch } from "../../context/DispatchContext";
 import { filterJobs, sortJobs } from "../../utils/helpers";
@@ -26,7 +26,11 @@ import { Button } from "../ui/Button";
 
 import type { Job, Driver, JobPriority, JobStatus } from "../../types";
 
-export const DispatchView: React.FC = () => {
+interface DispatchViewProps {
+  onOpenAlerts?: () => void;
+}
+
+export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
   const { jobs, drivers, updateJob, updateDriver, addDriver, refreshData, filters, sortOptions } = useDispatch();
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -318,10 +322,28 @@ export const DispatchView: React.FC = () => {
     <div className="space-y-8">
       {/* Header */}
       <Card className="p-6">
-        <h1 className="mb-2 text-3xl font-bold text-gray-900">Dispatch Dashboard</h1>
-        <p className="text-gray-600">
-          Manage jobs, assign transporters, and track deliveries in real-time
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="mb-2 text-3xl font-bold text-gray-900">Order Management</h1>
+            <p className="text-gray-600">
+              Manage jobs, assign transporters, and track deliveries in real-time
+            </p>
+          </div>
+          {onOpenAlerts && (
+            <button
+              onClick={onOpenAlerts}
+              className="relative flex items-center gap-1.5 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+            >
+              <Bell className="w-4 h-4" />
+              Alerts
+              {stats.exceptions > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {stats.exceptions}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
       </Card>
 
       {/* Statistics */}

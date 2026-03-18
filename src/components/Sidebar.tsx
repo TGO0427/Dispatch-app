@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
   LayoutDashboard,
   Home,
@@ -15,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  Bell,
   Users,
   Search,
 } from "lucide-react";
@@ -27,7 +26,6 @@ interface SidebarProps {
   onItemChange: (item: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
-  onOpenAlerts?: () => void;
 }
 
 interface NavItem {
@@ -45,7 +43,7 @@ interface NavSection {
   items: NavItem[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, collapsed, onToggleCollapse, onOpenAlerts }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, collapsed, onToggleCollapse }) => {
   const { user, logout } = useAuth();
   const { jobs } = useDispatch();
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,29 +82,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       ],
     },
   ];
-
-  // Count active alerts (overdue, exceptions, ETD today/tomorrow, unassigned priority)
-  const alertCount = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    let count = 0;
-    const seen = new Set<string>();
-    orderJobs.forEach((j) => {
-      if (seen.has(j.ref)) return;
-      seen.add(j.ref);
-      if (j.status === "exception") count++;
-      if (j.eta && j.status !== "delivered" && j.status !== "cancelled") {
-        const eta = new Date(j.eta); eta.setHours(0, 0, 0, 0);
-        if (eta < now) count++; // overdue
-      }
-      if (j.etd && j.status !== "delivered" && j.status !== "cancelled" && j.status !== "en-route") {
-        const etd = new Date(j.etd); etd.setHours(0, 0, 0, 0);
-        const diff = Math.floor((etd.getTime() - now.getTime()) / 86400000);
-        if (diff <= 1) count++; // ETD today or tomorrow
-      }
-    });
-    return count;
-  }, [orderJobs]);
 
   const bottomItems: NavItem[] = [
     { id: "settings", icon: Settings, label: "Settings", adminOnly: true },
@@ -280,34 +255,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Bottom Section */}
       <div className="border-t border-gray-800 px-2 py-2 space-y-0.5">
-        {/* Alerts Button */}
-        <button
-          onClick={onOpenAlerts}
-          className={`w-full flex items-center gap-3 rounded-lg transition-all duration-150 text-gray-400 hover:text-white hover:bg-gray-800 ${
-            collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
-          }`}
-          title={collapsed ? "Alerts" : undefined}
-        >
-          <div className="relative flex-shrink-0">
-            <Bell className="w-[18px] h-[18px]" />
-            {alertCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                {alertCount > 9 ? "9+" : alertCount}
-              </span>
-            )}
-          </div>
-          {!collapsed && (
-            <>
-              <span className="text-sm font-medium flex-1 text-left">Alerts</span>
-              {alertCount > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">
-                  {alertCount}
-                </span>
-              )}
-            </>
-          )}
-        </button>
-
         {filteredBottomItems.map(renderNavButton)}
 
         {/* Logout */}

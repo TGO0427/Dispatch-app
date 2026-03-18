@@ -10,6 +10,7 @@ import {
   TrendingDown,
   Minus,
   ChevronRight,
+  Bell,
 } from "lucide-react";
 import { GlobalSearch } from "../GlobalSearch";
 import {
@@ -36,7 +37,11 @@ function getWeekNumber(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  onOpenAlerts?: () => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
   const { jobs, drivers } = useDispatch();
   const { user } = useAuth();
 
@@ -290,6 +295,21 @@ export const Dashboard: React.FC = () => {
             </span>
           </div>
 
+          {/* Alerts */}
+          {onOpenAlerts && (
+            <button
+              onClick={onOpenAlerts}
+              className="relative flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+            >
+              <Bell className="w-4 h-4" />
+              Alerts
+              {stats.exceptions > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {stats.exceptions}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 

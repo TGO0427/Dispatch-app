@@ -408,12 +408,12 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-gray-500">#{idx + 1}</span>
                           <span className="text-sm font-medium text-gray-900 truncate">
-                            {item.dropoff}
+                            {item.notes || item.dropoff}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                          {item.pallets != null && <span>{item.pallets} pallets</span>}
-                          {item.outstandingQty != null && <span>{item.outstandingQty.toLocaleString()} qty</span>}
+                          {item.pallets != null && item.pallets > 0 && <span>{item.pallets} pallets</span>}
+                          {item.outstandingQty != null && item.outstandingQty > 0 && <span>{item.outstandingQty.toLocaleString()} qty</span>}
                           <Badge
                             variant={
                               item.status === "delivered" ? "success" :

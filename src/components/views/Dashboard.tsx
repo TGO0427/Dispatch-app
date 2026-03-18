@@ -9,7 +9,6 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Bell,
   ChevronRight,
 } from "lucide-react";
 import { GlobalSearch } from "../GlobalSearch";
@@ -291,16 +290,6 @@ export const Dashboard: React.FC = () => {
             </span>
           </div>
 
-          {/* Alerts */}
-          <button className="relative flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium">
-            <Bell className="w-4 h-4" />
-            Alerts
-            {stats.exceptions > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                {stats.exceptions}
-              </span>
-            )}
-          </button>
         </div>
       </div>
 

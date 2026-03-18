@@ -35,6 +35,7 @@ export const DispatchView: React.FC = () => {
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
   const [selectedAlertDate, setSelectedAlertDate] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"open" | "assigned" | "delivered">("open");
   const [newJob, setNewJob] = useState({
     ref: "",
     customer: "",
@@ -95,8 +96,29 @@ export const DispatchView: React.FC = () => {
 
   const filteredAndSortedJobs = useMemo(() => {
     const filtered = filterJobs(orderJobs, filters);
-    return sortJobs(filtered, sortOptions);
-  }, [orderJobs, filters, sortOptions]);
+    const sorted = sortJobs(filtered, sortOptions);
+
+    // Apply tab filter
+    return sorted.filter((job) => {
+      switch (activeTab) {
+        case "open":
+          return job.status === "pending" || job.status === "exception";
+        case "assigned":
+          return job.status === "assigned" || job.status === "en-route";
+        case "delivered":
+          return job.status === "delivered" || job.status === "cancelled";
+        default:
+          return true;
+      }
+    });
+  }, [orderJobs, filters, sortOptions, activeTab]);
+
+  // Tab counts (unfiltered by search/filters, so tabs always show totals)
+  const tabCounts = useMemo(() => ({
+    open: orderJobs.filter((j) => j.status === "pending" || j.status === "exception").length,
+    assigned: orderJobs.filter((j) => j.status === "assigned" || j.status === "en-route").length,
+    delivered: orderJobs.filter((j) => j.status === "delivered" || j.status === "cancelled").length,
+  }), [orderJobs]);
 
   const stats = useMemo(() => {
     return {
@@ -340,6 +362,33 @@ export const DispatchView: React.FC = () => {
         </Card>
       </div>
 
+      {/* Order Tabs */}
+      <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1.5">
+        {([
+          { key: "open" as const, label: "Open Orders", count: tabCounts.open, color: "text-yellow-600", dotColor: "bg-yellow-500" },
+          { key: "assigned" as const, label: "Assigned / In Transit", count: tabCounts.assigned, color: "text-blue-600", dotColor: "bg-blue-500" },
+          { key: "delivered" as const, label: "Delivered / Closed", count: tabCounts.delivered, color: "text-green-600", dotColor: "bg-green-500" },
+        ]).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setActiveTab(tab.key); setCurrentPage(1); }}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === tab.key
+                ? "bg-gray-900 text-white shadow-sm"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${activeTab === tab.key ? "bg-white" : tab.dotColor}`} />
+            {tab.label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              activeTab === tab.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+            }`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Busy Date Alerts */}
       {busyDateAlerts.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -391,9 +440,15 @@ export const DispatchView: React.FC = () => {
                   <div>
                     <div className="flex items-center gap-2">
                       <Briefcase className="h-5 w-5 text-gray-600" />
-                      <CardTitle>Jobs ({filteredAndSortedJobs.length})</CardTitle>
+                      <CardTitle>
+                        {activeTab === "open" ? "Open Orders" : activeTab === "assigned" ? "Assigned Orders" : "Delivered Orders"} ({filteredAndSortedJobs.length})
+                      </CardTitle>
                     </div>
-                    <p className="mt-1 text-sm text-gray-600">Drag jobs to transporters to assign</p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {activeTab === "open" ? "Drag jobs to transporters to assign" :
+                       activeTab === "assigned" ? "Orders assigned to transporters or in transit" :
+                       "Completed and closed orders"}
+                    </p>
                   </div>
                   <Button
                     size="sm"

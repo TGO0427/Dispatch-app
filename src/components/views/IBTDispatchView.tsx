@@ -34,6 +34,7 @@ export const IBTDispatchView: React.FC = () => {
   const [selectedTransporter, setSelectedTransporter] = useState<Driver | null>(null);
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
+  const [activeTab, setActiveTab] = useState<"open" | "assigned" | "delivered">("open");
   const [newJob, setNewJob] = useState({
     ref: "",
     customer: "",
@@ -84,8 +85,22 @@ export const IBTDispatchView: React.FC = () => {
 
   const filteredAndSortedJobs = useMemo(() => {
     const filtered = filterJobs(ibtJobs, filters);
-    return sortJobs(filtered, sortOptions);
-  }, [ibtJobs, filters, sortOptions]);
+    const sorted = sortJobs(filtered, sortOptions);
+    return sorted.filter((job) => {
+      switch (activeTab) {
+        case "open": return job.status === "pending" || job.status === "exception";
+        case "assigned": return job.status === "assigned" || job.status === "en-route";
+        case "delivered": return job.status === "delivered" || job.status === "cancelled";
+        default: return true;
+      }
+    });
+  }, [ibtJobs, filters, sortOptions, activeTab]);
+
+  const tabCounts = useMemo(() => ({
+    open: ibtJobs.filter((j) => j.status === "pending" || j.status === "exception").length,
+    assigned: ibtJobs.filter((j) => j.status === "assigned" || j.status === "en-route").length,
+    delivered: ibtJobs.filter((j) => j.status === "delivered" || j.status === "cancelled").length,
+  }), [ibtJobs]);
 
   const stats = useMemo(() => {
     return {
@@ -289,6 +304,31 @@ export const IBTDispatchView: React.FC = () => {
 
       {/* Warehouse Selector */}
       <WarehouseSelector />
+
+      {/* IBT Tabs */}
+      <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1.5">
+        {([
+          { key: "open" as const, label: "Open", count: tabCounts.open, dotColor: "bg-yellow-500" },
+          { key: "assigned" as const, label: "Assigned / In Transit", count: tabCounts.assigned, dotColor: "bg-blue-500" },
+          { key: "delivered" as const, label: "Delivered / Closed", count: tabCounts.delivered, dotColor: "bg-green-500" },
+        ]).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === tab.key
+                ? "bg-gray-900 text-white shadow-sm"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${activeTab === tab.key ? "bg-white" : tab.dotColor}`} />
+            {tab.label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              activeTab === tab.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+            }`}>{tab.count}</span>
+          </button>
+        ))}
+      </div>
 
       {/* Filter and Sort Controls */}
       <Card>

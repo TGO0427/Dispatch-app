@@ -1,10 +1,13 @@
 import { useState, lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Sidebar } from "./components/Sidebar";
+import { AlertHub } from "./components/AlertHub";
+import { JobDetailsModal } from "./components/JobDetailsModal";
 import { Login } from "./components/views/Login";
 import { ConnectionStatus } from "./components/ConnectionStatus";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { useDispatch } from "./context/DispatchContext";
 import { Loader2 } from "lucide-react";
 
 // Lazy-loaded views for code splitting
@@ -31,8 +34,15 @@ const PageLoader = () => (
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const { jobs, drivers } = useDispatch();
   const [activeNavItem, setActiveNavItem] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [alertHubOpen, setAlertHubOpen] = useState(false);
+  const [selectedJobFromAlert, setSelectedJobFromAlert] = useState<string | null>(null);
+
+  // Find job by ID for the modal triggered from AlertHub
+  const alertJob = selectedJobFromAlert ? jobs.find(j => j.id === selectedJobFromAlert) : null;
+  const alertJobDriver = alertJob?.driverId ? drivers.find(d => d.id === alertJob.driverId)?.name : undefined;
 
   const renderView = () => {
     let view;
@@ -102,6 +112,7 @@ function AppContent() {
           onItemChange={setActiveNavItem}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onOpenAlerts={() => setAlertHubOpen(true)}
         />
 
         <div className={`${sidebarCollapsed ? "ml-16" : "ml-60"} min-h-screen overflow-y-auto transition-all duration-300`}>
@@ -109,6 +120,22 @@ function AppContent() {
             {renderView()}
           </div>
         </div>
+
+        {/* Alert Hub */}
+        <AlertHub
+          open={alertHubOpen}
+          onClose={() => setAlertHubOpen(false)}
+          onSelectJob={(jobId) => setSelectedJobFromAlert(jobId)}
+        />
+
+        {/* Job Details from Alert */}
+        {alertJob && (
+          <JobDetailsModal
+            job={alertJob}
+            onClose={() => setSelectedJobFromAlert(null)}
+            driverName={alertJobDriver}
+          />
+        )}
       </div>
     </ProtectedRoute>
   );

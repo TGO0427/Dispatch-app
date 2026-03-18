@@ -352,40 +352,28 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
 
       {/* Statistics */}
       <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-7">
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Total Jobs</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-resilinc-warning">{stats.pending}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Pending</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-resilinc-primary">{stats.inRoute}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">En Route</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-green-600">{stats.delivered}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Delivered</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-resilinc-alert">{stats.exceptions}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Exceptions</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-green-600">{stats.availableDrivers}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Available</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-resilinc-warning">{stats.busyDrivers}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Busy</div>
-        </Card>
+        {([
+          { label: "Total Jobs", value: stats.total, color: "text-gray-900", tab: "open" as const, borderColor: "hover:border-gray-400" },
+          { label: "Pending", value: stats.pending, color: "text-resilinc-warning", tab: "open" as const, borderColor: "hover:border-yellow-400" },
+          { label: "En Route", value: stats.inRoute, color: "text-resilinc-primary", tab: "assigned" as const, borderColor: "hover:border-blue-400" },
+          { label: "Delivered", value: stats.delivered, color: "text-green-600", tab: "delivered" as const, borderColor: "hover:border-green-400" },
+          { label: "Exceptions", value: stats.exceptions, color: "text-resilinc-alert", tab: "open" as const, borderColor: "hover:border-red-400" },
+          { label: "Available", value: stats.availableDrivers, color: "text-green-600", tab: null, borderColor: "hover:border-green-400" },
+          { label: "Busy", value: stats.busyDrivers, color: "text-resilinc-warning", tab: null, borderColor: "hover:border-yellow-400" },
+        ] as const).map((stat) => (
+          <Card
+            key={stat.label}
+            className={`p-4 transition-all ${
+              stat.tab
+                ? `cursor-pointer ${stat.borderColor} hover:shadow-md active:scale-[0.97] ${activeTab === stat.tab ? "ring-2 ring-offset-1 ring-blue-200" : ""}`
+                : ""
+            }`}
+            onClick={stat.tab ? () => { setActiveTab(stat.tab!); setCurrentPage(1); } : undefined}
+          >
+            <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
+            <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">{stat.label}</div>
+          </Card>
+        ))}
       </div>
 
       {/* Order Tabs */}

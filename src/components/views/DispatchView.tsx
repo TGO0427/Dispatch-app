@@ -156,6 +156,26 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
       inRoute: orderJobs.filter((j) => j.status === "en-route").length,
       delivered: orderJobs.filter((j) => j.status === "delivered").length,
       exceptions: orderJobs.filter((j) => j.status === "exception").length,
+      alertCount: (() => {
+        const now = new Date(); now.setHours(0, 0, 0, 0);
+        const refSeen = new Set<string>();
+        let count = 0;
+        orderJobs.forEach((j) => {
+          if (refSeen.has(j.ref)) return;
+          refSeen.add(j.ref);
+          if (j.status === "exception") count++;
+          if (j.eta && j.status !== "delivered" && j.status !== "cancelled") {
+            const eta = new Date(j.eta); eta.setHours(0, 0, 0, 0);
+            if (eta < now) count++;
+          }
+          if (j.etd && j.status !== "delivered" && j.status !== "cancelled" && j.status !== "en-route") {
+            const etd = new Date(j.etd); etd.setHours(0, 0, 0, 0);
+            if (Math.floor((etd.getTime() - now.getTime()) / 86400000) <= 1) count++;
+          }
+          if ((j.priority === "urgent" || j.priority === "high") && j.status === "pending") count++;
+        });
+        return count;
+      })(),
       picked: orderJobs.filter((j) => j.orderPicked && (j.status === "pending" || j.status === "assigned" || j.status === "exception")).length,
       outstandingCoa: orderJobs.filter((j) => j.orderPicked && !j.coaAvailable && (j.status === "pending" || j.status === "assigned" || j.status === "exception")).length,
       delivery: orderJobs.filter((j) => j.serviceType === "delivery" || !j.serviceType).length,
@@ -364,9 +384,9 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
             >
               <Bell className="w-4 h-4" />
               Alerts
-              {stats.exceptions > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {stats.exceptions}
+              {stats.alertCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {stats.alertCount}
                 </span>
               )}
             </button>

@@ -100,6 +100,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
       }
     });
 
+    // Alert count: overdue + exceptions + ETD due today/tomorrow + unassigned urgent/high
+    let alertCount = 0;
+    const alertRefSeen = new Set<string>();
+    orderJobs.forEach((j) => {
+      if (alertRefSeen.has(j.ref)) return;
+      alertRefSeen.add(j.ref);
+      if (j.status === "exception") alertCount++;
+      if (j.eta && j.status !== "delivered" && j.status !== "cancelled") {
+        const eta = new Date(j.eta); eta.setHours(0, 0, 0, 0);
+        if (eta < now) alertCount++;
+      }
+      if (j.etd && j.status !== "delivered" && j.status !== "cancelled" && j.status !== "en-route") {
+        const etd = new Date(j.etd); etd.setHours(0, 0, 0, 0);
+        if (Math.floor((etd.getTime() - now.getTime()) / 86400000) <= 1) alertCount++;
+      }
+      if ((j.priority === "urgent" || j.priority === "high") && j.status === "pending") alertCount++;
+    });
+
     return {
       total,
       pending,
@@ -113,6 +131,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
       departuresThisWeek: departuresThisWeek.size,
       palletsThisWeek,
       weightThisWeek,
+      alertCount,
     };
   }, [orderJobs, drivers]);
 
@@ -300,9 +319,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
             >
               <Bell className="w-4 h-4" />
               Alerts
-              {stats.exceptions > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {stats.exceptions}
+              {stats.alertCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {stats.alertCount}
                 </span>
               )}
             </button>

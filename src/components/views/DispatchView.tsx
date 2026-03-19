@@ -137,7 +137,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
       inRoute: orderJobs.filter((j) => j.status === "en-route").length,
       delivered: orderJobs.filter((j) => j.status === "delivered").length,
       exceptions: orderJobs.filter((j) => j.status === "exception").length,
-      picked: orderJobs.filter((j) => j.orderPicked).length,
+      picked: orderJobs.filter((j) => j.orderPicked && (j.status === "pending" || j.status === "assigned" || j.status === "exception")).length,
       availableDrivers: drivers.filter((d) => d.status === "available").length,
       busyDrivers: drivers.filter((d) => d.status === "busy").length,
     };

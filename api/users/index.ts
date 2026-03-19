@@ -1,6 +1,31 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { PrismaClient } from "@prisma/client";
+import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { prisma, setCors, requireAdmin } from "../../lib/api-helpers";
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const prisma = globalForPrisma.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+function setCors(res: VercelResponse, req: VercelRequest) {
+  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || req.headers.origin || "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+}
+
+interface JwtPayload { id: string; username: string; email: string; role: string }
+
+function requireAuth(authHeader: string | undefined): JwtPayload | null {
+  const secret = process.env.JWT_SECRET || "dev-only-fallback-key";
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  try { return jwt.verify(authHeader.slice(7), secret) as JwtPayload; } catch { return null; }
+}
+
+function requireAdmin(authHeader: string | undefined): JwtPayload | null {
+  const user = requireAuth(authHeader);
+  if (!user || user.role !== "admin") return null;
+  return user;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);

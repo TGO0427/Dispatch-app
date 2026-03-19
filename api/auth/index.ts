@@ -1,8 +1,50 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { prisma, setCors, checkRateLimit } from "../../lib/api-helpers";
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const prisma = globalForPrisma.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+function setCors(res: VercelResponse, req: VercelRequest) {
+  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || req.headers.origin || "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+}
+
+interface RateLimitEntry {
+  count: number;
+  expiresAt: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+function checkRateLimit(key: string, maxRequests: number, windowMs: number): boolean {
+  const now = Date.now();
+
+  // Clean up expired entries
+  for (const [k, entry] of rateLimitStore) {
+    if (entry.expiresAt <= now) {
+      rateLimitStore.delete(k);
+    }
+  }
+
+  const existing = rateLimitStore.get(key);
+
+  if (!existing || existing.expiresAt <= now) {
+    rateLimitStore.set(key, { count: 1, expiresAt: now + windowMs });
+    return true;
+  }
+
+  if (existing.count < maxRequests) {
+    existing.count += 1;
+    return true;
+  }
+
+  return false;
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-fallback-key";
 if (!process.env.JWT_SECRET) console.warn("WARNING: JWT_SECRET not set — using insecure fallback");

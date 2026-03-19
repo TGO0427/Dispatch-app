@@ -166,13 +166,16 @@ export function DispatchProvider({
   }, [useAPI]);
 
   // Fetch initial data on mount + silent auto-refresh every 15 seconds
+  // Use silent fetch if we already have cached data (prevents flash of empty state on reload)
   useEffect(() => {
     if (useAPI) {
-      refreshData();
+      const hasCachedData = state.jobs.length > 0 || state.drivers.length > 0;
+      refreshData(hasCachedData);
       const interval = setInterval(() => refreshData(true), 15000);
       return () => clearInterval(interval);
     }
-  }, [useAPI, refreshData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useAPI]);
 
   // Auto-save to localStorage (backup)
   useEffect(() => {

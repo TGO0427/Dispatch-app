@@ -461,16 +461,19 @@ export const IBTImport: React.FC = () => {
           || (existingLines.length === 1 ? existingLines[0] : null);
 
         if (match) {
-          await jobsAPI.update(match.id, {
-            customer: order.customer,
-            pickup: order.pickup,
-            dropoff: order.dropoff,
-            warehouse: order.warehouse,
-            pallets: order.pallets,
-            outstandingQty: order.outstandingQty,
-            eta: order.eta,
-            notes: order.notes,
-          });
+          const updates: Record<string, any> = {};
+          if (order.customer) updates.customer = order.customer;
+          if (order.pickup) updates.pickup = order.pickup;
+          if (order.dropoff) updates.dropoff = order.dropoff;
+          if (order.warehouse !== undefined) updates.warehouse = order.warehouse;
+          if (order.pallets !== undefined) updates.pallets = order.pallets;
+          if (order.outstandingQty !== undefined) updates.outstandingQty = order.outstandingQty;
+          if (order.eta !== undefined) updates.eta = order.eta;
+          if (order.notes !== undefined) updates.notes = order.notes;
+
+          if (Object.keys(updates).length > 0) {
+            await jobsAPI.update(match.id, updates as any);
+          }
           // Remove matched item so it's not matched again
           const list = existingByRef.get(order.ref)!;
           const matchIdx = list.indexOf(match);

@@ -42,10 +42,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         "exceptionReason", "driverId", "notes", "transporterBooked", "orderPicked",
         "coaAvailable", "serviceType", "jobType", "transportService", "etd",
       ];
+      // Required string fields that cannot be set to null
+      const requiredStringFields = new Set(["ref", "customer", "pickup", "dropoff", "priority", "status"]);
       const data: Record<string, any> = {};
       for (const field of allowedFields) {
         if (field in req.body) {
-          data[field] = req.body[field];
+          const value = req.body[field];
+          // Skip null/undefined for required string fields
+          if (requiredStringFields.has(field) && (value === null || value === undefined)) continue;
+          data[field] = value;
         }
       }
       const updatedJob = await prisma.job.update({

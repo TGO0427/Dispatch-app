@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import bcrypt from "bcryptjs";
-import { prisma, setCors, requireAdmin } from "../_lib";
+import { prisma, setCors, requireAdmin } from "../../lib/api-helpers";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);

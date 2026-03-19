@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { prisma, setCors, requireAuth } from "../_lib";
+import { prisma, setCors, requireAuth } from "../../lib/api-helpers";
 
 const formatJob = (job: Record<string, unknown>) => ({
   ...job,

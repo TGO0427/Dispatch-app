@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, Circle, Truck, Clock } from "lucide-react";
+import { CheckCircle2, Truck, Clock, PackageCheck, FileCheck2 } from "lucide-react";
 import { Job, TRANSPORT_SERVICES, TransportService } from "../types";
 
 interface JobWorkflowProps {
@@ -78,9 +78,9 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
   };
 
   const workflowItems = [
-    { id: "transporterBooked" as const, label: "Transporter Booked", checked: job.transporterBooked || false },
-    { id: "orderPicked" as const, label: "Order Picked", checked: job.orderPicked || false },
-    { id: "coaAvailable" as const, label: "COA Available", checked: job.coaAvailable || false },
+    { id: "transporterBooked" as const, label: "Transporter Booked", shortLabel: "TB", icon: Truck, checked: job.transporterBooked || false },
+    { id: "orderPicked" as const, label: "Order Picked", shortLabel: "OP", icon: PackageCheck, checked: job.orderPicked || false },
+    { id: "coaAvailable" as const, label: "COA Available", shortLabel: "COA", icon: FileCheck2, checked: job.coaAvailable || false },
   ];
 
   const allComplete = job.readyForDispatch || false;
@@ -89,22 +89,31 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2">
-        {workflowItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={(e) => { e.stopPropagation(); handleToggle(item.id); }}
-            disabled={isLocked}
-            className={`p-1 rounded-full transition-colors ${
-              isLocked
-                ? item.checked ? "text-green-600 opacity-60 cursor-default" : "text-gray-300 opacity-60 cursor-default"
-                : item.checked ? "text-green-600 hover:text-green-700" : "text-gray-300 hover:text-gray-400"
-            }`}
-            title={isLocked ? `${item.label} (locked)` : item.label}
-          >
-            {item.checked ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-          </button>
-        ))}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {workflowItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              onClick={(e) => { e.stopPropagation(); handleToggle(item.id); }}
+              disabled={isLocked}
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium transition-colors border ${
+                isLocked
+                  ? item.checked
+                    ? "bg-green-50 text-green-600 border-green-200 opacity-60 cursor-default"
+                    : "bg-gray-50 text-gray-400 border-gray-200 opacity-60 cursor-default"
+                  : item.checked
+                    ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                    : "bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100 hover:text-gray-500"
+              }`}
+              title={isLocked ? `${item.label} (locked)` : item.label}
+            >
+              <Icon className="w-3 h-3" />
+              <span>{item.shortLabel}</span>
+              {item.checked && <CheckCircle2 className="w-3 h-3 text-green-500" />}
+            </button>
+          );
+        })}
         {job.transportService && (
           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${serviceColors[job.transportService] || "bg-gray-100 text-gray-600"}`}>
             {serviceIcons[job.transportService]} {currentService?.label}

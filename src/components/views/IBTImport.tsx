@@ -457,6 +457,7 @@ export const IBTImport: React.FC = () => {
 
       // Update existing orders: match by ref + notes (product name) for line-item accuracy
       let updatedCount = 0;
+      let failedCount = 0;
       for (const order of existingOrders) {
         const existingLines = existingByRef.get(order.ref) || [];
         const match = existingLines.find((j) => j.notes === order.notes)
@@ -475,29 +476,39 @@ export const IBTImport: React.FC = () => {
           if (order.notes !== undefined) updates.notes = order.notes;
 
           if (Object.keys(updates).length > 0) {
-            await jobsAPI.update(match.id, updates as any);
+            try {
+              await jobsAPI.update(match.id, updates as any);
+              updatedCount++;
+            } catch (err) {
+              console.error(`Failed to update IBT ${order.ref}:`, err);
+              failedCount++;
+            }
           }
           // Remove matched item so it's not matched again
           const list = existingByRef.get(order.ref)!;
           const matchIdx = list.indexOf(match);
           if (matchIdx !== -1) list.splice(matchIdx, 1);
-          updatedCount++;
         }
       }
+
+      const skippedCount = existingOrders.length - updatedCount - failedCount;
 
       await refreshData();
 
       const parts = [];
       if (newOrders.length > 0) parts.push(`${newOrders.length} new IBT orders imported`);
       if (updatedCount > 0) parts.push(`${updatedCount} existing orders updated`);
+      if (skippedCount > 0) parts.push(`${skippedCount} duplicate orders skipped (no changes)`);
+      if (failedCount > 0) parts.push(`${failedCount} orders failed to update`);
       if (parts.length === 0) parts.push("No changes needed");
-      alert(`Import complete!\n\n${parts.join(".\n")}.`);
+      alert(`Import complete!\n\n${parts.join("\n")}`);
 
       setImportedOrders([]);
       setImportStatus("idle");
     } catch (error) {
       console.error("Error importing jobs to database:", error);
       setImportStatus("error");
+      alert("Import failed. Please try again.");
     } finally {
       setIsImporting(false);
     }

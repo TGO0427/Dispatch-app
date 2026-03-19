@@ -459,6 +459,7 @@ export const OrderImport: React.FC = () => {
 
       // Update existing orders: match by ref + notes (product name) for line-item accuracy
       let updatedCount = 0;
+      let failedCount = 0;
       for (const order of existingOrders) {
         const existingLines = existingByRef.get(order.ref) || [];
         // Match by ref + product name (notes) to find the exact line item
@@ -478,25 +479,35 @@ export const OrderImport: React.FC = () => {
           if (order.notes !== undefined) updates.notes = order.notes;
 
           if (Object.keys(updates).length > 0) {
-            await jobsAPI.update(match.id, updates as any);
-            updatedCount++;
+            try {
+              await jobsAPI.update(match.id, updates as any);
+              updatedCount++;
+            } catch (err) {
+              console.error(`Failed to update order ${order.ref}:`, err);
+              failedCount++;
+            }
           }
         }
       }
+
+      const skippedCount = existingOrders.length - updatedCount - failedCount;
 
       await refreshData();
 
       const parts = [];
       if (newOrders.length > 0) parts.push(`${newOrders.length} new orders imported`);
       if (updatedCount > 0) parts.push(`${updatedCount} existing orders updated`);
+      if (skippedCount > 0) parts.push(`${skippedCount} duplicate orders skipped (no changes)`);
+      if (failedCount > 0) parts.push(`${failedCount} orders failed to update`);
       if (parts.length === 0) parts.push("No changes needed");
-      alert(`Import complete!\n\n${parts.join(".\n")}.`);
+      alert(`Import complete!\n\n${parts.join("\n")}`);
 
       setImportedOrders([]);
       setImportStatus("idle");
     } catch (error) {
       console.error("Error importing jobs to database:", error);
       setImportStatus("error");
+      alert("Import failed. Please try again.");
     } finally {
       setIsImporting(false);
     }

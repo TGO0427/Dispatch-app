@@ -8,7 +8,7 @@ import {
   closestCenter,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Truck, Briefcase, Plus, X, Save, ChevronLeft, ChevronRight, AlertTriangle, Bell, PackageCheck } from "lucide-react";
+import { Truck, Briefcase, Plus, X, Save, ChevronLeft, ChevronRight, AlertTriangle, Bell, PackageCheck, FileCheck2 } from "lucide-react";
 
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
@@ -43,6 +43,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
   const [selectedAlertDate, setSelectedAlertDate] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"open" | "assigned" | "delivered">("open");
   const [showPickedOnly, setShowPickedOnly] = useState(false);
+  const [showOutstandingCoaOnly, setShowOutstandingCoaOnly] = useState(false);
   const [newJob, setNewJob] = useState({
     ref: "",
     customer: "",
@@ -107,9 +108,16 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
 
     // Apply tab filter
     return sorted.filter((job) => {
+      const isPendingOrAssigned = job.status === "pending" || job.status === "assigned" || job.status === "exception";
+
       // When "Orders Picked" card is active, show only picked orders that are pending/assigned
       if (showPickedOnly) {
-        return !!job.orderPicked && (job.status === "pending" || job.status === "assigned" || job.status === "exception");
+        return !!job.orderPicked && isPendingOrAssigned;
+      }
+
+      // When "Outstanding COA" card is active, show picked orders missing COA
+      if (showOutstandingCoaOnly) {
+        return !!job.orderPicked && !job.coaAvailable && isPendingOrAssigned;
       }
 
       switch (activeTab) {
@@ -123,7 +131,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
           return true;
       }
     });
-  }, [orderJobs, filters, sortOptions, activeTab, showPickedOnly]);
+  }, [orderJobs, filters, sortOptions, activeTab, showPickedOnly, showOutstandingCoaOnly]);
 
   // Tab counts (unfiltered by search/filters, so tabs always show totals)
   const tabCounts = useMemo(() => ({
@@ -140,6 +148,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
       delivered: orderJobs.filter((j) => j.status === "delivered").length,
       exceptions: orderJobs.filter((j) => j.status === "exception").length,
       picked: orderJobs.filter((j) => j.orderPicked && (j.status === "pending" || j.status === "assigned" || j.status === "exception")).length,
+      outstandingCoa: orderJobs.filter((j) => j.orderPicked && !j.coaAvailable && (j.status === "pending" || j.status === "assigned" || j.status === "exception")).length,
       availableDrivers: drivers.filter((d) => d.status === "available").length,
       busyDrivers: drivers.filter((d) => d.status === "busy").length,
     };
@@ -357,7 +366,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
       </Card>
 
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-8">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-9">
         {([
           { label: "Total Jobs", value: stats.total, color: "text-gray-900", tab: "open" as const, borderColor: "hover:border-gray-400" },
           { label: "Pending", value: stats.pending, color: "text-resilinc-warning", tab: "open" as const, borderColor: "hover:border-yellow-400" },
@@ -374,7 +383,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
                 ? `cursor-pointer ${stat.borderColor} hover:shadow-md active:scale-[0.97] ${activeTab === stat.tab ? "ring-2 ring-offset-1 ring-blue-200" : ""}`
                 : ""
             }`}
-            onClick={stat.tab ? () => { setShowPickedOnly(false); setActiveTab(stat.tab!); setCurrentPage(1); } : undefined}
+            onClick={stat.tab ? () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setActiveTab(stat.tab!); setCurrentPage(1); } : undefined}
           >
             <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
             <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">{stat.label}</div>
@@ -387,6 +396,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
             showPickedOnly ? "ring-2 ring-offset-1 ring-purple-300 border-purple-400" : ""
           }`}
           onClick={() => {
+            setShowOutstandingCoaOnly(false);
             setShowPickedOnly(!showPickedOnly);
             setCurrentPage(1);
           }}
@@ -400,6 +410,29 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
           </div>
           <div className="mt-2 text-[10px] text-gray-400">
             {stats.total > 0 ? Math.round((stats.picked / stats.total) * 100) : 0}% of total
+          </div>
+        </Card>
+
+        {/* Outstanding COA Card */}
+        <Card
+          className={`p-4 transition-all cursor-pointer hover:border-amber-400 hover:shadow-md active:scale-[0.97] ${
+            showOutstandingCoaOnly ? "ring-2 ring-offset-1 ring-amber-300 border-amber-400" : ""
+          }`}
+          onClick={() => {
+            setShowPickedOnly(false);
+            setShowOutstandingCoaOnly(!showOutstandingCoaOnly);
+            setCurrentPage(1);
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-3xl font-bold text-amber-600">{stats.outstandingCoa}</div>
+              <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Outstanding COA</div>
+            </div>
+            <FileCheck2 className={`w-6 h-6 ${showOutstandingCoaOnly ? "text-amber-600" : "text-amber-400"}`} />
+          </div>
+          <div className="mt-2 text-[10px] text-gray-400">
+            {stats.picked > 0 ? Math.round((stats.outstandingCoa / stats.picked) * 100) : 0}% of picked
           </div>
         </Card>
       </div>

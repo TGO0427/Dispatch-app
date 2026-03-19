@@ -4,8 +4,8 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma, setCors, checkRateLimit } from "../_middleware";
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is not set");
+const JWT_SECRET = process.env.JWT_SECRET || "dev-only-fallback-key";
+if (!process.env.JWT_SECRET) console.warn("WARNING: JWT_SECRET not set — using insecure fallback");
 
 // Fallback admin for initial setup (only works when DB has no admin users)
 const FALLBACK_ADMIN = {

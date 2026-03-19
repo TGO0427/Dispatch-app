@@ -243,6 +243,7 @@ export const IBTImport: React.FC = () => {
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importStatus, setImportStatus] = useState<"idle" | "success" | "error">("idle");
+  const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Manual IBT creation
@@ -415,6 +416,8 @@ export const IBTImport: React.FC = () => {
   };
 
   const importToDispatch = async () => {
+    if (isImporting) return;
+    setIsImporting(true);
     try {
       const { jobsAPI } = await import("../../services/api");
 
@@ -495,6 +498,8 @@ export const IBTImport: React.FC = () => {
     } catch (error) {
       console.error("Error importing jobs to database:", error);
       setImportStatus("error");
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -647,7 +652,16 @@ export const IBTImport: React.FC = () => {
                 >
                   <X className="mr-2 h-4 w-4" /> Cancel
                 </Button>
-                <Button onClick={importToDispatch}>Import to Dispatch System</Button>
+                <Button onClick={importToDispatch} disabled={isImporting}>
+                  {isImporting ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Importing... Please wait
+                    </span>
+                  ) : (
+                    "Import to Dispatch System"
+                  )}
+                </Button>
               </div>
             </div>
           </CardHeader>

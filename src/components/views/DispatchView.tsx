@@ -107,8 +107,10 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
 
     // Apply tab filter
     return sorted.filter((job) => {
-      // When "Orders Picked" card is active, show only picked orders across all tabs
-      if (showPickedOnly) return !!job.orderPicked;
+      // When "Orders Picked" card is active, show only picked orders that are pending/assigned
+      if (showPickedOnly) {
+        return !!job.orderPicked && (job.status === "pending" || job.status === "assigned" || job.status === "exception");
+      }
 
       switch (activeTab) {
         case "open":

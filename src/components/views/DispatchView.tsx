@@ -44,6 +44,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
   const [activeTab, setActiveTab] = useState<"open" | "assigned" | "delivered">("open");
   const [showPickedOnly, setShowPickedOnly] = useState(false);
   const [showOutstandingCoaOnly, setShowOutstandingCoaOnly] = useState(false);
+  const [serviceFilter, setServiceFilter] = useState<"delivery" | "collection" | null>(null);
   const [newJob, setNewJob] = useState({
     ref: "",
     customer: "",
@@ -120,6 +121,14 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
         return !!job.orderPicked && !job.coaAvailable && isPendingOrAssigned;
       }
 
+      // When service type filter is active
+      if (serviceFilter === "delivery") {
+        return job.serviceType === "delivery" || !job.serviceType;
+      }
+      if (serviceFilter === "collection") {
+        return job.serviceType === "collection";
+      }
+
       switch (activeTab) {
         case "open":
           return job.status === "pending" || job.status === "exception";
@@ -131,7 +140,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
           return true;
       }
     });
-  }, [orderJobs, filters, sortOptions, activeTab, showPickedOnly, showOutstandingCoaOnly]);
+  }, [orderJobs, filters, sortOptions, activeTab, showPickedOnly, showOutstandingCoaOnly, serviceFilter]);
 
   // Tab counts (unfiltered by search/filters, so tabs always show totals)
   const tabCounts = useMemo(() => ({
@@ -149,8 +158,8 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
       exceptions: orderJobs.filter((j) => j.status === "exception").length,
       picked: orderJobs.filter((j) => j.orderPicked && (j.status === "pending" || j.status === "assigned" || j.status === "exception")).length,
       outstandingCoa: orderJobs.filter((j) => j.orderPicked && !j.coaAvailable && (j.status === "pending" || j.status === "assigned" || j.status === "exception")).length,
-      availableDrivers: drivers.filter((d) => d.status === "available").length,
-      busyDrivers: drivers.filter((d) => d.status === "busy").length,
+      delivery: orderJobs.filter((j) => j.serviceType === "delivery" || !j.serviceType).length,
+      collection: orderJobs.filter((j) => j.serviceType === "collection").length,
     };
   }, [orderJobs, drivers]);
 
@@ -373,22 +382,50 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
           { label: "En Route", value: stats.inRoute, color: "text-resilinc-primary", tab: "assigned" as const, borderColor: "hover:border-blue-400" },
           { label: "Delivered", value: stats.delivered, color: "text-green-600", tab: "delivered" as const, borderColor: "hover:border-green-400" },
           { label: "Exceptions", value: stats.exceptions, color: "text-resilinc-alert", tab: "open" as const, borderColor: "hover:border-red-400" },
-          { label: "Available", value: stats.availableDrivers, color: "text-green-600", tab: null, borderColor: "hover:border-green-400" },
-          { label: "Busy", value: stats.busyDrivers, color: "text-resilinc-warning", tab: null, borderColor: "hover:border-yellow-400" },
         ] as const).map((stat) => (
           <Card
             key={stat.label}
-            className={`p-4 transition-all ${
-              stat.tab
-                ? `cursor-pointer ${stat.borderColor} hover:shadow-md active:scale-[0.97] ${activeTab === stat.tab ? "ring-2 ring-offset-1 ring-blue-200" : ""}`
-                : ""
+            className={`p-4 transition-all cursor-pointer ${stat.borderColor} hover:shadow-md active:scale-[0.97] ${
+              !showPickedOnly && !showOutstandingCoaOnly && !serviceFilter && activeTab === stat.tab ? "ring-2 ring-offset-1 ring-blue-200" : ""
             }`}
-            onClick={stat.tab ? () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setActiveTab(stat.tab!); setCurrentPage(1); } : undefined}
+            onClick={() => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab(stat.tab); setCurrentPage(1); }}
           >
             <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
             <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">{stat.label}</div>
           </Card>
         ))}
+
+        {/* Delivery Card */}
+        <Card
+          className={`p-4 transition-all cursor-pointer hover:border-blue-400 hover:shadow-md active:scale-[0.97] ${
+            serviceFilter === "delivery" ? "ring-2 ring-offset-1 ring-blue-300 border-blue-400" : ""
+          }`}
+          onClick={() => {
+            setShowPickedOnly(false);
+            setShowOutstandingCoaOnly(false);
+            setServiceFilter(serviceFilter === "delivery" ? null : "delivery");
+            setCurrentPage(1);
+          }}
+        >
+          <div className="text-3xl font-bold text-blue-600">{stats.delivery}</div>
+          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Delivery</div>
+        </Card>
+
+        {/* Collection (Ex Works) Card */}
+        <Card
+          className={`p-4 transition-all cursor-pointer hover:border-purple-400 hover:shadow-md active:scale-[0.97] ${
+            serviceFilter === "collection" ? "ring-2 ring-offset-1 ring-purple-300 border-purple-400" : ""
+          }`}
+          onClick={() => {
+            setShowPickedOnly(false);
+            setShowOutstandingCoaOnly(false);
+            setServiceFilter(serviceFilter === "collection" ? null : "collection");
+            setCurrentPage(1);
+          }}
+        >
+          <div className="text-3xl font-bold text-purple-700">{stats.collection}</div>
+          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Collection</div>
+        </Card>
 
         {/* Orders Picked Card */}
         <Card
@@ -397,6 +434,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
           }`}
           onClick={() => {
             setShowOutstandingCoaOnly(false);
+            setServiceFilter(null);
             setShowPickedOnly(!showPickedOnly);
             setCurrentPage(1);
           }}
@@ -420,6 +458,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
           }`}
           onClick={() => {
             setShowPickedOnly(false);
+            setServiceFilter(null);
             setShowOutstandingCoaOnly(!showOutstandingCoaOnly);
             setCurrentPage(1);
           }}

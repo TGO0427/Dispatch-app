@@ -30,6 +30,49 @@ interface NotificationContextType {
   confirm: (options: ConfirmOptions) => Promise<boolean>;
 }
 
+// ---------- Sound System (Web Audio API) ----------
+let audioCtx: AudioContext | null = null;
+
+function getAudioContext(): AudioContext {
+  if (!audioCtx) audioCtx = new AudioContext();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+function playTone(
+  frequencies: number[],
+  durations: number[],
+  waveType: OscillatorType = "sine",
+  gain: number = 0.1
+) {
+  const ctx = getAudioContext();
+  const gainNode = ctx.createGain();
+  gainNode.gain.setValueAtTime(gain, ctx.currentTime);
+  gainNode.connect(ctx.destination);
+
+  let offset = 0;
+  frequencies.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    osc.type = waveType;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + offset);
+    osc.connect(gainNode);
+    osc.start(ctx.currentTime + offset);
+    osc.stop(ctx.currentTime + offset + durations[i]);
+    offset += durations[i];
+  });
+
+  // Fade out at the end to avoid clicks
+  gainNode.gain.setValueAtTime(gain, ctx.currentTime + offset - 0.02);
+  gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + offset);
+}
+
+const notificationSounds: Record<NotificationType, () => void> = {
+  success: () => playTone([523.25, 659.25, 783.99], [0.12, 0.12, 0.16], "sine", 0.1),    // C5→E5→G5
+  error: () => playTone([220, 196], [0.2, 0.3], "triangle", 0.12),                         // A3→G3
+  warning: () => playTone([329.63, 349.23, 329.63], [0.12, 0.12, 0.12], "square", 0.07),  // E4→F4→E4
+  info: () => playTone([440, 523.25], [0.15, 0.2], "sine", 0.08),                          // A4→C5
+};
+
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const useNotification = () => {
@@ -202,6 +245,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const addNotification = useCallback((type: NotificationType, message: string) => {
     const id = `notif-${++idRef.current}`;
     setNotifications((prev) => [...prev, { id, type, message, createdAt: Date.now() }]);
+    try { notificationSounds[type](); } catch { /* audio not available */ }
   }, []);
 
   const removeNotification = useCallback((id: string) => {

@@ -8,6 +8,7 @@ export default defineConfig({
     strictPort: true, // Will fail if port is already in use instead of trying another port
     watch: {
       usePolling: true,
+      interval: 100,
     },
   },
 })

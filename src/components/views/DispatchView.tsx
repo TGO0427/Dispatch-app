@@ -545,8 +545,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
           </div>
 
           {/* Transporters List - sticky so it stays visible while scrolling jobs */}
-          <div className="lg:col-span-1">
-            <div className="lg:sticky lg:top-4" style={{ maxHeight: "calc(100vh - 2rem)", overflowY: "auto" }}>
+          <div className="lg:col-span-1 lg:sticky lg:top-8" style={{ maxHeight: "calc(100vh - 4rem)", overflowY: "auto" }}>
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -586,7 +585,6 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
                 </div>
               </CardContent>
             </Card>
-            </div>
           </div>
         </div>
 

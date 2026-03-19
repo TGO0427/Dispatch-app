@@ -7,6 +7,7 @@ import { priorityTone } from "../utils/helpers";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { useDispatch } from "../context/DispatchContext";
+import { useNotification } from "../context/NotificationContext";
 import { JobWorkflow } from "./JobWorkflow";
 
 interface JobCardProps {
@@ -26,6 +27,7 @@ const getWeekNumber = (dateString: string | undefined) => {
 
 export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const { drivers, updateJob, removeJob } = useDispatch();
+  const { confirm } = useNotification();
   const {
     attributes,
     listeners,
@@ -60,7 +62,8 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
 
   const handleRemove = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm(`Remove order ${job.ref}? This cannot be undone.`)) {
+    const ok = await confirm({ title: "Remove Order", message: `Remove order ${job.ref}? This cannot be undone.`, type: "danger", confirmText: "Remove" });
+    if (ok) {
       try {
         await removeJob(job.id);
       } catch (error) {

@@ -11,6 +11,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { Truck, Briefcase, Plus, ArrowRightLeft, X, Save } from "lucide-react";
 
 import { useDispatch } from "../../context/DispatchContext";
+import { useNotification } from "../../context/NotificationContext";
 import { filterJobs, sortJobs } from "../../utils/helpers";
 
 import { FilterBar } from "../FilterBar";
@@ -28,6 +29,7 @@ import type { Job, Driver, JobPriority, JobStatus } from "../../types";
 
 export const IBTDispatchView: React.FC = () => {
   const { jobs, drivers, updateJob, updateDriver, addDriver, refreshData, filters, sortOptions } = useDispatch();
+  const { showSuccess, showError, showWarning, confirm } = useNotification();
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
@@ -149,32 +151,28 @@ export const IBTDispatchView: React.FC = () => {
       const job = ibtJobs.find((j) => j.id === active.id);
 
       if (driver && job) {
-        const jobPallets = job.pallets || 0;
-        const currentLoad = palletsByDriver[driver.id] || 0;
-        const newLoad = currentLoad + jobPallets;
-        const capacity = driver.capacity || 0;
+        (async () => {
+          const jobPallets = job.pallets || 0;
+          const currentLoad = palletsByDriver[driver.id] || 0;
+          const newLoad = currentLoad + jobPallets;
+          const capacity = driver.capacity || 0;
 
-        if (capacity > 0 && newLoad > capacity) {
-          const proceed = window.confirm(
-            `⚠️ Capacity Warning!\n\n` +
-            `Transporter: ${driver.name}\n` +
-            `Current load: ${currentLoad} pallets\n` +
-            `This order: ${jobPallets} pallets\n` +
-            `New total: ${newLoad} pallets\n` +
-            `Capacity: ${capacity} pallets\n\n` +
-            `This will exceed capacity by ${newLoad - capacity} pallets.\n` +
-            `Do you want to assign anyway?`
-          );
-          if (!proceed) {
-            setActiveJob(null);
-            return;
+          if (capacity > 0 && newLoad > capacity) {
+            const proceed = await confirm({
+              title: "Capacity Warning",
+              message: `${driver.name}: ${currentLoad} + ${jobPallets} = ${newLoad} pallets (capacity: ${capacity}). Exceeds by ${newLoad - capacity} pallets. Assign anyway?`,
+              type: "warning",
+              confirmText: "Assign Anyway",
+            });
+            if (!proceed) return;
           }
-        }
 
-        updateJob(active.id as string, {
-          driverId: driver.id,
-          status: "assigned",
-        });
+          const allLineItems = jobs.filter((j) => j.ref === job.ref);
+          allLineItems.forEach((lineItem) => {
+            updateJob(lineItem.id, { driverId: driver.id, status: "assigned" });
+          });
+          showSuccess(`${job.ref} assigned to ${driver.name}`);
+        })();
       }
     }
 
@@ -207,7 +205,7 @@ export const IBTDispatchView: React.FC = () => {
 
   const handleAddJob = async () => {
     if (!newJob.ref || !newJob.customer) {
-      alert("Reference and Customer are required");
+      showWarning("Reference and Customer are required");
       return;
     }
 
@@ -245,7 +243,7 @@ export const IBTDispatchView: React.FC = () => {
       });
     } catch (error) {
       console.error("Error creating IBT job:", error);
-      alert("Failed to create IBT job");
+      showError("Failed to create IBT job");
     }
   };
 

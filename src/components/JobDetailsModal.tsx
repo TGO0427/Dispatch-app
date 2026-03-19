@@ -3,6 +3,7 @@ import { X, MapPin, User, Calendar, Package, AlertCircle, Edit2, Save, Undo2, Li
 import { Job, JobStatus, JobPriority, ServiceType, JOB_STATUSES, JOB_PRIORITIES } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { useDispatch } from "../context/DispatchContext";
+import { useNotification } from "../context/NotificationContext";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
@@ -20,6 +21,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   driverName,
 }) => {
   const { updateJob, jobs } = useDispatch();
+  const { showError, showWarning, confirm } = useNotification();
   const [isEditing, setIsEditing] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
 
@@ -51,7 +53,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   const handleSave = () => {
     // Validation: if status is "exception", require exception reason
     if (editedJob.status === "exception" && !editedJob.exceptionReason?.trim()) {
-      alert("Exception status requires an exception reason");
+      showError("Exception status requires an exception reason");
       return;
     }
 
@@ -59,7 +61,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
     if (editedJob.status === "en-route" && job.status !== "en-route") {
       const allWorkflowComplete = editedJob.transporterBooked && editedJob.orderPicked && editedJob.coaAvailable;
       if (!allWorkflowComplete) {
-        alert("Complete all dispatch workflow steps (Transporter Booked, Order Picked, COA Available) before moving to En Route.");
+        showWarning("Complete all dispatch workflow steps (Transporter Booked, Order Picked, COA Available) before moving to En Route.");
         return;
       }
     }
@@ -372,8 +374,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                     size="sm"
                     variant="outline"
                     className="text-red-600 border-red-200 hover:bg-red-50"
-                    onClick={() => {
-                      if (window.confirm("Unassign ALL line items for this order from the transporter?")) {
+                    onClick={async () => {
+                      const ok = await confirm({ title: "Unassign Order", message: "Unassign ALL line items for this order from the transporter?", type: "warning", confirmText: "Unassign All" });
+                      if (ok) {
                         updateAllLineItems({ driverId: undefined, status: "pending" });
                         onClose();
                       }
@@ -431,8 +434,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                           size="sm"
                           variant="ghost"
                           className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 ml-2 shrink-0"
-                          onClick={() => {
-                            if (window.confirm(`Unassign line item #${idx + 1} (${item.dropoff}) back to pending?`)) {
+                          onClick={async () => {
+                            const ok = await confirm({ title: "Unassign Line Item", message: `Unassign line item #${idx + 1} (${item.notes || item.dropoff}) back to pending?`, type: "warning", confirmText: "Unassign" });
+                            if (ok) {
                               handleUnassignLineItem(item.id);
                             }
                           }}

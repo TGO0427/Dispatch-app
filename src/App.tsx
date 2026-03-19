@@ -1,5 +1,6 @@
 import { useState, lazy, Suspense, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import { Sidebar } from "./components/Sidebar";
 import { AlertHub } from "./components/AlertHub";
 import { JobDetailsModal } from "./components/JobDetailsModal";
@@ -172,9 +173,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <NotificationProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </NotificationProvider>
   );
 }
 

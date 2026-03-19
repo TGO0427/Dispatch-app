@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { Select } from "../ui/Select";
 import { useDispatch } from "../../context/DispatchContext";
+import { useNotification } from "../../context/NotificationContext";
 import { JobPriority, JobStatus } from "../../types";
 
 /**
@@ -240,6 +241,7 @@ const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
 // ---------- Component ----------
 export const IBTImport: React.FC = () => {
   const { refreshData } = useDispatch();
+  const { showSuccess, showError } = useNotification();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importStatus, setImportStatus] = useState<"idle" | "success" | "error">("idle");
@@ -501,14 +503,14 @@ export const IBTImport: React.FC = () => {
       if (skippedCount > 0) parts.push(`${skippedCount} duplicate orders skipped (no changes)`);
       if (failedCount > 0) parts.push(`${failedCount} orders failed to update`);
       if (parts.length === 0) parts.push("No changes needed");
-      alert(`Import complete!\n\n${parts.join("\n")}`);
+      showSuccess(parts.join(". "));
 
       setImportedOrders([]);
       setImportStatus("idle");
     } catch (error) {
       console.error("Error importing jobs to database:", error);
       setImportStatus("error");
-      alert("Import failed. Please try again.");
+      showError("Import failed. Please try again.");
     } finally {
       setIsImporting(false);
     }

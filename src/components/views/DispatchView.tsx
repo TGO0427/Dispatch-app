@@ -11,6 +11,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { Truck, Briefcase, Plus, X, Save, ChevronLeft, ChevronRight, AlertTriangle, Bell } from "lucide-react";
 
 import { useDispatch } from "../../context/DispatchContext";
+import { useNotification } from "../../context/NotificationContext";
 import { filterJobs, sortJobs } from "../../utils/helpers";
 
 import { FilterBar } from "../FilterBar";
@@ -32,6 +33,7 @@ interface DispatchViewProps {
 
 export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
   const { jobs, drivers, updateJob, updateDriver, addDriver, refreshData, filters, sortOptions } = useDispatch();
+  const { showSuccess, showError, showWarning, confirm } = useNotification();
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
@@ -210,44 +212,41 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
     setActiveJob(job || null);
   };
 
+  const assignJobToDriver = async (job: Job, driver: Driver) => {
+    const jobPallets = job.pallets || 0;
+    const currentLoad = palletsByDriver[driver.id] || 0;
+    const newLoad = currentLoad + jobPallets;
+    const capacity = driver.capacity || 0;
+
+    if (capacity > 0 && newLoad > capacity) {
+      const proceed = await confirm({
+        title: "Capacity Warning",
+        message: `${driver.name}: ${currentLoad} + ${jobPallets} = ${newLoad} pallets (capacity: ${capacity}). Exceeds by ${newLoad - capacity} pallets. Assign anyway?`,
+        type: "warning",
+        confirmText: "Assign Anyway",
+      });
+      if (!proceed) return;
+    }
+
+    // Assign ALL line items sharing this ASO ref to the transporter
+    const allLineItems = jobs.filter((j) => j.ref === job.ref);
+    allLineItems.forEach((lineItem) => {
+      updateJob(lineItem.id, {
+        driverId: driver.id,
+        status: "assigned",
+      });
+    });
+    showSuccess(`${job.ref} assigned to ${driver.name}`);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
       const driver = drivers.find((d) => d.id === over.id);
       const job = orderJobs.find((j) => j.id === active.id);
-
       if (driver && job) {
-        const jobPallets = job.pallets || 0;
-        const currentLoad = palletsByDriver[driver.id] || 0;
-        const newLoad = currentLoad + jobPallets;
-        const capacity = driver.capacity || 0;
-
-        if (capacity > 0 && newLoad > capacity) {
-          const proceed = window.confirm(
-            `⚠️ Capacity Warning!\n\n` +
-            `Transporter: ${driver.name}\n` +
-            `Current load: ${currentLoad} pallets\n` +
-            `This order: ${jobPallets} pallets\n` +
-            `New total: ${newLoad} pallets\n` +
-            `Capacity: ${capacity} pallets\n\n` +
-            `This will exceed capacity by ${newLoad - capacity} pallets.\n` +
-            `Do you want to assign anyway?`
-          );
-          if (!proceed) {
-            setActiveJob(null);
-            return;
-          }
-        }
-
-        // Assign ALL line items sharing this ASO ref to the transporter
-        const allLineItems = jobs.filter((j) => j.ref === job.ref);
-        allLineItems.forEach((lineItem) => {
-          updateJob(lineItem.id, {
-            driverId: driver.id,
-            status: "assigned",
-          });
-        });
+        assignJobToDriver(job, driver);
       }
     }
 
@@ -280,7 +279,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
 
   const handleAddJob = async () => {
     if (!newJob.ref || !newJob.customer) {
-      alert("Reference and Customer are required");
+      showWarning("Reference and Customer are required");
       return;
     }
 
@@ -318,7 +317,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
       });
     } catch (error) {
       console.error("Error creating job:", error);
-      alert("Failed to create job");
+      showError("Failed to create job");
     }
   };
 

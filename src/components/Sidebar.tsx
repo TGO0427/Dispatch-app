@@ -126,11 +126,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       <button
         key={id}
         onClick={() => onItemChange(id)}
-        className={`w-full flex items-center rounded-xl transition-all duration-150 ${
-          collapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-3"
+        className={`w-full flex items-center items-center rounded-xl transition-all duration-150 ${
+          collapsed ? "justify-center px-2 py-3" : "gap-3 px-3.5 py-[11px]"
         } ${
           isActive
-            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30 ring-1 ring-white/10"
+            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_4px_16px_-2px_rgba(37,99,235,0.35)] ring-1 ring-white/10"
             : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.07]"
         }`}
         title={collapsed ? label : undefined}
@@ -211,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           const isExpanded = searchQuery ? true : expandedSections[section.key] !== false;
 
           return (
-            <div key={section.key} className="mt-6">
+            <div key={section.key} className="mt-7">
               {!collapsed ? (
                 <button
                   onClick={() => !searchQuery && toggleSection(section.key)}
@@ -337,7 +337,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-slate-100 truncate">{user?.username || "User"}</p>
-            <p className="text-[11px] text-slate-400 truncate capitalize">{user?.role || "user"}</p>
+            <p className="text-[11px] text-slate-300 truncate capitalize">{user?.role || "user"}</p>
           </div>
         </div>
       )}

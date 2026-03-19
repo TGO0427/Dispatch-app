@@ -100,10 +100,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
       }
     });
 
-    // Alert count: overdue + exceptions + ETD due today/tomorrow + unassigned urgent/high
+    // Alert count: use ALL jobs (not date-filtered) so overdue orders aren't missed
     let alertCount = 0;
     const alertRefSeen = new Set<string>();
-    orderJobs.forEach((j) => {
+    jobs.filter((j) => j.jobType === "order" || j.jobType === undefined).forEach((j) => {
       if (alertRefSeen.has(j.ref)) return;
       alertRefSeen.add(j.ref);
       if (j.status === "exception") alertCount++;
@@ -133,7 +133,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
       weightThisWeek,
       alertCount,
     };
-  }, [orderJobs, drivers]);
+  }, [orderJobs, jobs, drivers]);
 
   // Weekly trend data
   const weeklyData = useMemo(() => {

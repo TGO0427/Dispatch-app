@@ -160,7 +160,8 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
         const now = new Date(); now.setHours(0, 0, 0, 0);
         const refSeen = new Set<string>();
         let count = 0;
-        orderJobs.forEach((j) => {
+        // Use ALL jobs (not date-filtered orderJobs) so overdue orders aren't missed
+        jobs.filter((j) => j.jobType === "order" || j.jobType === undefined).forEach((j) => {
           if (refSeen.has(j.ref)) return;
           refSeen.add(j.ref);
           if (j.status === "exception") count++;

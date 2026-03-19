@@ -37,19 +37,19 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(to bottom right, #eff6ff, #ffffff, #eff6ff)" }}>
       <div className="w-full max-w-md">
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg">
             <Truck className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dispatch Management</h1>
-          <p className="text-gray-600">Sign in to your account to continue</p>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: "#0f172a" }}>Dispatch Management</h1>
+          <p style={{ color: "#4b5563" }}>Sign in to your account to continue</p>
         </div>
 
         {/* Login Card */}
-        <Card className="p-8 shadow-xl">
+        <Card className="p-8 shadow-xl" style={{ background: "#ffffff", borderColor: "#e5e7eb" }}>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Error Alert */}
             {error && (
@@ -61,7 +61,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
 
             {/* Username Field */}
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="username" className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
                 Username
               </label>
               <input
@@ -69,7 +69,8 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                style={{ background: "#ffffff", border: "1px solid #d1d5db", color: "#0f172a" }}
                 placeholder="Enter your username"
                 disabled={isLoading}
                 autoComplete="username"
@@ -78,7 +79,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
                 Password
               </label>
               <div className="relative">
@@ -87,7 +88,8 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 pr-12 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  style={{ background: "#ffffff", border: "1px solid #d1d5db", color: "#0f172a" }}
                   placeholder="Enter your password"
                   disabled={isLoading}
                   autoComplete="current-password"
@@ -114,7 +116,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
                   type="checkbox"
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
+                <span className="ml-2 text-sm" style={{ color: "#4b5563" }}>Remember me</span>
               </label>
               <button
                 type="button"
@@ -144,7 +146,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
         </Card>
 
         {/* Footer */}
-        <div className="mt-6 text-center text-sm text-gray-600">
+        <div className="mt-6 text-center text-sm" style={{ color: "#4b5563" }}>
           <p>
             Need an account?{" "}
             <button className="text-blue-600 hover:text-blue-700 font-medium">
@@ -154,10 +156,10 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
         </div>
 
         {/* Demo Credentials Info */}
-        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-900 font-medium mb-2">Demo Credentials:</p>
-          <p className="text-xs text-blue-800">Username: <span className="font-mono">admin</span></p>
-          <p className="text-xs text-blue-800">Password: <span className="font-mono">admin123</span></p>
+        <div className="mt-8 p-4 rounded-lg" style={{ background: "#eff6ff", border: "1px solid #bfdbfe" }}>
+          <p className="text-sm font-medium mb-2" style={{ color: "#1e3a5f" }}>Demo Credentials:</p>
+          <p className="text-xs" style={{ color: "#1e40af" }}>Username: <span className="font-mono">admin</span></p>
+          <p className="text-xs" style={{ color: "#1e40af" }}>Password: <span className="font-mono">admin123</span></p>
         </div>
       </div>
     </div>

@@ -126,23 +126,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       <button
         key={id}
         onClick={() => onItemChange(id)}
-        className={`w-full flex items-center items-center rounded-xl transition-all duration-150 ${
+        className={`w-full flex items-center rounded-xl transition-all duration-150 relative overflow-hidden ${
           collapsed ? "justify-center px-2 py-3" : "gap-3 px-3.5 py-[11px]"
         } ${
           isActive
-            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_4px_16px_-2px_rgba(37,99,235,0.35)] ring-1 ring-white/10"
+            ? "bg-blue-500/[0.12] shadow-[0_0_12px_-3px_rgba(59,130,246,0.25)]"
             : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.07]"
         }`}
         title={collapsed ? label : undefined}
       >
-        <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-white" : ""}`} />
+        {/* Left accent bar */}
+        {isActive && !collapsed && (
+          <span className="absolute left-0 top-[20%] bottom-[20%] w-[3px] rounded-r-full bg-blue-400" />
+        )}
+        <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-blue-400" : ""}`} />
         {!collapsed && (
           <>
-            <span className={`text-[14px] font-medium flex-1 text-left ${isActive ? "text-white" : ""}`}>{label}</span>
+            <span className={`text-[14px] font-medium flex-1 text-left ${isActive ? "text-white font-semibold" : ""}`}>{label}</span>
             {badge !== undefined && badge > 0 && (
               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                 isActive
-                  ? "bg-white/15 text-white"
+                  ? "bg-blue-500/20 text-blue-300"
                   : badgeType === "danger" ? "bg-red-500/20 text-red-400" : "bg-blue-500/15 text-blue-400"
               }`}>
                 {badge}
@@ -281,17 +285,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
             <button
               key={item.id}
               onClick={() => onItemChange(item.id)}
-              className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 ${
-                collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
+              className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 relative overflow-hidden ${
+                collapsed ? "justify-center px-2 py-2.5" : "px-3.5 py-2.5"
               } ${
                 activeItem === item.id
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/25"
+                  ? "bg-blue-500/[0.12] shadow-[0_0_12px_-3px_rgba(59,130,246,0.25)]"
                   : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.06]"
               }`}
               title={collapsed ? item.label : undefined}
             >
-              <Icon className="w-[17px] h-[17px] flex-shrink-0" />
-              {!collapsed && <span className="text-[13px] font-medium">{item.label}</span>}
+              {activeItem === item.id && !collapsed && (
+                <span className="absolute left-0 top-[20%] bottom-[20%] w-[3px] rounded-r-full bg-blue-400" />
+              )}
+              <Icon className={`w-[17px] h-[17px] flex-shrink-0 ${activeItem === item.id ? "text-blue-400" : ""}`} />
+              {!collapsed && <span className={`text-[13px] font-medium ${activeItem === item.id ? "text-white" : ""}`}>{item.label}</span>}
             </button>
           );
         })}

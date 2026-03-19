@@ -130,8 +130,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           collapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-3"
         } ${
           isActive
-            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/25"
-            : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30 ring-1 ring-white/10"
+            : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.07]"
         }`}
         title={collapsed ? label : undefined}
       >
@@ -189,8 +189,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
               placeholder="Search menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-slate-300 text-sm rounded-xl pl-10 pr-3 py-2.5 placeholder-slate-500 border border-white/[0.06] focus:outline-none focus:border-white/[0.12] focus:ring-1 focus:ring-white/[0.08]"
-              style={{ background: "#1a2744" }}
+              className="w-full text-slate-200 text-sm rounded-xl pl-10 pr-3 py-2.5 placeholder-slate-500 border border-white/[0.1] focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20"
+              style={{ background: "#1e293b" }}
             />
           </div>
         </div>
@@ -211,13 +211,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           const isExpanded = searchQuery ? true : expandedSections[section.key] !== false;
 
           return (
-            <div key={section.key} className="mt-5">
+            <div key={section.key} className="mt-6">
               {!collapsed ? (
                 <button
                   onClick={() => !searchQuery && toggleSection(section.key)}
-                  className="w-full flex items-center justify-between px-3 mb-2 group"
+                  className="w-full flex items-center justify-between px-3 mb-2.5 group"
                 >
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.12em]">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.14em]">
                     {section.title}
                   </span>
                   <ChevronDown
@@ -245,7 +245,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Quick Stats */}
       {!collapsed && (
         <div className="mx-4 mb-3 p-3 rounded-xl" style={{ background: "#1a2744" }}>
-          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.12em] mb-3">
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.14em] mb-3">
             Quick Stats
           </p>
           <div className="space-y-2.5">
@@ -274,7 +274,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       )}
 
       {/* Bottom Utilities */}
-      <div className="border-t border-white/[0.06] px-3 py-3 space-y-0.5">
+      <div className="border-t border-white/[0.06] px-3 pt-4 pb-3 space-y-0.5">
         {filteredBottomItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -331,13 +331,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Profile Card */}
       {!collapsed && (
-        <div className="mx-4 mb-4 p-3 rounded-xl border border-white/[0.06] flex items-center gap-3" style={{ background: "#1a2744" }}>
+        <div className="mx-4 mb-4 p-3.5 rounded-xl border border-white/[0.08] flex items-center gap-3" style={{ background: "#1e293b" }}>
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-sm">
             <User className="w-4 h-4 text-white" />
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-white truncate">{user?.username || "User"}</p>
-            <p className="text-[11px] text-slate-500 truncate capitalize">{user?.role || "user"}</p>
+            <p className="text-[13px] font-semibold text-slate-100 truncate">{user?.username || "User"}</p>
+            <p className="text-[11px] text-slate-400 truncate capitalize">{user?.role || "user"}</p>
           </div>
         </div>
       )}
@@ -345,17 +345,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Scrollbar Styles */}
       <style>{`
         .sidebar-scroll::-webkit-scrollbar {
-          width: 4px;
+          width: 3px;
         }
         .sidebar-scroll::-webkit-scrollbar-track {
           background: transparent;
         }
         .sidebar-scroll::-webkit-scrollbar-thumb {
-          background: rgba(100, 116, 139, 0.25);
-          border-radius: 4px;
+          background: rgba(100, 116, 139, 0.15);
+          border-radius: 3px;
         }
         .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-          background: rgba(100, 116, 139, 0.4);
+          background: rgba(100, 116, 139, 0.3);
         }
       `}</style>
     </div>

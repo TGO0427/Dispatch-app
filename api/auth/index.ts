@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { prisma, setCors, checkRateLimit } from "../_middleware";
+import { prisma, setCors, checkRateLimit } from "../_lib";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-fallback-key";
 if (!process.env.JWT_SECRET) console.warn("WARNING: JWT_SECRET not set — using insecure fallback");

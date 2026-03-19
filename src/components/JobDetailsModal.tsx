@@ -130,7 +130,11 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Job details for ${job.ref}`}
       onClick={onClose}
+      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
     >
       <Card
         className="w-full max-w-2xl max-h-[90vh] overflow-y-auto"

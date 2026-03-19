@@ -142,8 +142,8 @@ export function DispatchProvider({
       dispatch({ type: "SET_ERROR", error: null });
 
       const [fetchedJobs, fetchedDrivers] = await Promise.all([
-        jobsAPI.getAll().catch(() => []),
-        driversAPI.getAll().catch(() => []),
+        jobsAPI.getAll().catch((err) => { console.warn("Failed to fetch jobs:", err.message); return []; }),
+        driversAPI.getAll().catch((err) => { console.warn("Failed to fetch drivers:", err.message); return []; }),
       ]);
 
       dispatch({ type: "SET_JOBS", jobs: fetchedJobs });

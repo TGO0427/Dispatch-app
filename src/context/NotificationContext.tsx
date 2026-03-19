@@ -189,7 +189,7 @@ const ConfirmModal: React.FC<{ state: ConfirmState; onClose: () => void }> = ({ 
   const handleCancel = () => { state.resolve(false); onClose(); };
 
   return (
-    <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/50 p-4" onClick={handleCancel}>
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label={state.title} onClick={handleCancel} onKeyDown={(e) => { if (e.key === "Escape") handleCancel(); }}>
       <div
         className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}

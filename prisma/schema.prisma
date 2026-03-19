@@ -47,6 +47,9 @@ model Job {
   @@index([driverId])
   @@index([warehouse])
   @@index([jobType])
+  @@index([ref])
+  @@index([createdAt])
+  @@index([eta])
   @@map("jobs")
 }
 
@@ -64,6 +67,7 @@ model Driver {
   jobs         Job[]
 
   @@index([status])
+  @@index([name])
   @@map("drivers")
 }
 

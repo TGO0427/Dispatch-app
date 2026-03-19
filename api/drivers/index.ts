@@ -1,15 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { PrismaClient } from "@prisma/client";
-
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+import { prisma, setCors, requireAuth } from "../_middleware";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  setCors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  const user = requireAuth(req.headers.authorization);
+  if (!user) return res.status(401).json({ success: false, error: "Unauthorized" });
 
   if (req.method === "GET") {
     try {
@@ -37,8 +34,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       });
       return res.status(201).json({ success: true, data: newDriver });
-    } catch (error: any) {
-      if (error.code === "P2002") return res.status(409).json({ success: false, error: "Callsign already exists" });
+    } catch (error: unknown) {
+      const prismaError = error as { code?: string };
+      if (prismaError.code === "P2002") return res.status(409).json({ success: false, error: "Callsign already exists" });
       console.error("Error creating driver:", error);
       return res.status(500).json({ success: false, error: "Failed to create driver" });
     }

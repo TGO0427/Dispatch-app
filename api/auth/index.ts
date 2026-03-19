@@ -1,70 +1,57 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+import { prisma, setCors, checkRateLimit } from "../_middleware";
 
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) console.warn("WARNING: JWT_SECRET not set - using insecure fallback");
-const SECRET = JWT_SECRET || "dev-only-fallback-key";
-
-// Demo admin only - for initial setup (remove after creating real admin user)
-const DEMO_ADMIN = {
-  id: "1", username: "admin", password: "admin123",
-  email: "admin@dispatch.com", role: "admin",
-};
-
-function setCors(res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-}
+if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is not set");
 
 // POST /api/auth?action=login
 async function handleLogin(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ success: false, message: "Method not allowed" });
+
+  // Rate limit: 10 login attempts per minute per IP
+  const ip = (req.headers["x-forwarded-for"] as string) || "unknown";
+  if (!checkRateLimit(`login:${ip}`, 10, 60_000)) {
+    return res.status(429).json({ success: false, message: "Too many login attempts. Please try again later." });
+  }
 
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ success: false, message: "Username and password are required" });
   }
 
-  let user: any = null;
-
   try {
-    // Case-insensitive username lookup
     const dbUser = await prisma.user.findFirst({
       where: { username: { equals: username, mode: "insensitive" } },
     });
-    if (dbUser) {
-      const isMatch = dbUser.password.startsWith("$2")
-        ? await bcrypt.compare(password, dbUser.password)
-        : dbUser.password === password;
-      if (isMatch) user = dbUser;
+
+    if (!dbUser) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
-  } catch {
-    // DB not ready, fall through to demo
-  }
 
-  if (!user && username === DEMO_ADMIN.username && password === DEMO_ADMIN.password) {
-    user = DEMO_ADMIN;
-  }
+    // Only allow bcrypt-hashed passwords
+    if (!dbUser.password.startsWith("$2")) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
 
-  if (!user) {
-    return res.status(401).json({ success: false, message: "Invalid username or password" });
-  }
+    const isMatch = await bcrypt.compare(password, dbUser.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
 
-  const token = jwt.sign(
-    { id: user.id, username: user.username, email: user.email, role: user.role },
-    SECRET,
-    { expiresIn: "24h" }
-  );
-  const { password: _, ...userWithoutPassword } = user;
-  return res.json({ success: true, token, user: userWithoutPassword });
+    const token = jwt.sign(
+      { id: dbUser.id, username: dbUser.username, email: dbUser.email, role: dbUser.role },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+    const { password: _, ...userWithoutPassword } = dbUser;
+    return res.json({ success: true, token, user: userWithoutPassword });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
 }
 
 // GET/POST /api/auth?action=verify
@@ -73,12 +60,16 @@ async function handleVerify(req: VercelRequest, res: VercelResponse) {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ success: false, message: "No token provided" });
   }
-  const token = authHeader.substring(7);
-  const decoded = jwt.verify(token, SECRET) as any;
-  return res.json({
-    success: true,
-    user: { id: decoded.id, username: decoded.username, email: decoded.email, role: decoded.role },
-  });
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; username: string; email: string; role: string };
+    return res.json({
+      success: true,
+      user: { id: decoded.id, username: decoded.username, email: decoded.email, role: decoded.role },
+    });
+  } catch {
+    return res.status(401).json({ success: false, message: "Invalid or expired token" });
+  }
 }
 
 // POST /api/auth?action=logout
@@ -89,6 +80,12 @@ async function handleLogout(_req: VercelRequest, res: VercelResponse) {
 // POST /api/auth?action=forgot-password
 async function handleForgotPassword(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ success: false, message: "Method not allowed" });
+
+  // Rate limit: 5 forgot-password requests per 15 minutes per IP
+  const ip = (req.headers["x-forwarded-for"] as string) || "unknown";
+  if (!checkRateLimit(`forgot:${ip}`, 5, 15 * 60_000)) {
+    return res.status(429).json({ success: false, message: "Too many requests. Please try again later." });
+  }
 
   const { email } = req.body;
   if (!email) {
@@ -106,15 +103,18 @@ async function handleForgotPassword(req: VercelRequest, res: VercelResponse) {
   }
 
   const resetToken = crypto.randomBytes(32).toString("hex");
+  // Store hashed token in DB so a DB leak doesn't expose reset links
+  const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
   const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordResetToken: resetToken, passwordResetExpires: resetExpires },
+    data: { passwordResetToken: hashedToken, passwordResetExpires: resetExpires },
   });
 
-  const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || "http://localhost:5173";
+  const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || "http://localhost:3000";
   const resetUrl = `${frontendUrl}?reset-token=${resetToken}`;
+  // TODO: Send email with resetUrl instead of logging
   console.log(`[Password Reset] User: ${user.email}, Reset URL: ${resetUrl}`);
 
   return res.json(successResponse);
@@ -128,12 +128,15 @@ async function handleResetPassword(req: VercelRequest, res: VercelResponse) {
   if (!token || !password) {
     return res.status(400).json({ success: false, message: "Token and new password are required" });
   }
-  if (password.length < 8) {
-    return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+  if (password.length < 12) {
+    return res.status(400).json({ success: false, message: "Password must be at least 12 characters" });
   }
 
+  // Hash the incoming token to match what's stored in DB
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
   const user = await prisma.user.findFirst({
-    where: { passwordResetToken: token, passwordResetExpires: { gt: new Date() } },
+    where: { passwordResetToken: hashedToken, passwordResetExpires: { gt: new Date() } },
   });
 
   if (!user) {

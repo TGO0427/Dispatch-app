@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, useEffect } from "react";
+import { useState, lazy, Suspense, useEffect, useMemo } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { Sidebar } from "./components/Sidebar";
@@ -58,8 +58,8 @@ function AppContent() {
   }, []);
 
   // Find job by ID for the modal triggered from AlertHub
-  const alertJob = selectedJobFromAlert ? jobs.find(j => j.id === selectedJobFromAlert) : null;
-  const alertJobDriver = alertJob?.driverId ? drivers.find(d => d.id === alertJob.driverId)?.name : undefined;
+  const alertJob = useMemo(() => selectedJobFromAlert ? jobs.find(j => j.id === selectedJobFromAlert) ?? null : null, [selectedJobFromAlert, jobs]);
+  const alertJobDriver = useMemo(() => alertJob?.driverId ? drivers.find(d => d.id === alertJob.driverId)?.name : undefined, [alertJob, drivers]);
 
   const renderView = () => {
     let view;

@@ -1,21 +1,18 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { PrismaClient } from "@prisma/client";
+import { prisma, setCors, requireAuth } from "../_middleware";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-
-const formatJob = (job: any) => ({
+const formatJob = (job: Record<string, unknown>) => ({
   ...job,
   createdAt: job.createdAt instanceof Date ? job.createdAt.toISOString() : job.createdAt,
   updatedAt: job.updatedAt instanceof Date ? job.updatedAt.toISOString() : job.updatedAt,
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  setCors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  const user = requireAuth(req.headers.authorization);
+  if (!user) return res.status(401).json({ success: false, error: "Unauthorized" });
 
   const { id } = req.query;
   if (!id || typeof id !== "string") {
@@ -35,31 +32,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "PUT") {
     try {
-      // Only include fields that are actually present in the request body
       const allowedFields = [
         "ref", "customer", "pickup", "dropoff", "warehouse", "priority", "status",
         "pallets", "outstandingQty", "eta", "scheduledAt", "actualDeliveryAt",
         "exceptionReason", "driverId", "notes", "transporterBooked", "orderPicked",
         "coaAvailable", "serviceType", "jobType", "transportService", "etd",
       ];
-      // Required string fields that cannot be set to null
       const requiredStringFields = new Set(["ref", "customer", "pickup", "dropoff", "priority", "status"]);
-      const data: Record<string, any> = {};
+      const data: Record<string, unknown> = {};
       for (const field of allowedFields) {
         if (field in req.body) {
           const value = req.body[field];
-          // Skip null/undefined for required string fields
           if (requiredStringFields.has(field) && (value === null || value === undefined)) continue;
           data[field] = value;
         }
       }
-      const updatedJob = await prisma.job.update({
-        where: { id },
-        data,
-      });
+      const updatedJob = await prisma.job.update({ where: { id }, data });
       return res.json({ success: true, data: formatJob(updatedJob) });
-    } catch (error: any) {
-      if (error.code === "P2025") return res.status(404).json({ success: false, error: "Job not found" });
+    } catch (error: unknown) {
+      const prismaError = error as { code?: string };
+      if (prismaError.code === "P2025") return res.status(404).json({ success: false, error: "Job not found" });
       console.error("Error updating job:", error);
       return res.status(500).json({ success: false, error: "Failed to update job" });
     }
@@ -69,8 +61,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const deleted = await prisma.job.delete({ where: { id } });
       return res.json({ success: true, data: formatJob(deleted) });
-    } catch (error: any) {
-      if (error.code === "P2025") return res.status(404).json({ success: false, error: "Job not found" });
+    } catch (error: unknown) {
+      const prismaError = error as { code?: string };
+      if (prismaError.code === "P2025") return res.status(404).json({ success: false, error: "Job not found" });
       console.error("Error deleting job:", error);
       return res.status(500).json({ success: false, error: "Failed to delete job" });
     }

@@ -1,22 +1,22 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { PrismaClient } from "@prisma/client";
-
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+import { prisma, setCors, requireAuth } from "../_middleware";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  setCors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  const user = requireAuth(req.headers.authorization);
+  if (!user) return res.status(401).json({ success: false, error: "Unauthorized" });
 
   const { id } = req.query;
   if (!id || typeof id !== "string") return res.status(400).json({ success: false, error: "Driver ID required" });
 
   if (req.method === "GET") {
     try {
-      const driver = await prisma.driver.findUnique({ where: { id }, include: { jobs: true } });
+      const driver = await prisma.driver.findUnique({
+        where: { id },
+        include: { jobs: { where: { status: { notIn: ["delivered", "cancelled"] } } } },
+      });
       if (!driver) return res.status(404).json({ success: false, error: "Driver not found" });
       return res.json({ success: true, data: driver });
     } catch (error) {
@@ -27,18 +27,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "PUT") {
     try {
-      const updatedDriver = await prisma.driver.update({
-        where: { id },
-        data: {
-          name: req.body.name, callsign: req.body.callsign, location: req.body.location,
-          capacity: req.body.capacity, assignedJobs: req.body.assignedJobs,
-          status: req.body.status, phone: req.body.phone, email: req.body.email,
-        },
-      });
+      const allowedFields = ["name", "callsign", "location", "capacity", "assignedJobs", "status", "phone", "email"];
+      const data: Record<string, unknown> = {};
+      for (const field of allowedFields) {
+        if (field in req.body) data[field] = req.body[field];
+      }
+      const updatedDriver = await prisma.driver.update({ where: { id }, data });
       return res.json({ success: true, data: updatedDriver });
-    } catch (error: any) {
-      if (error.code === "P2025") return res.status(404).json({ success: false, error: "Driver not found" });
-      if (error.code === "P2002") return res.status(409).json({ success: false, error: "Callsign already exists" });
+    } catch (error: unknown) {
+      const prismaError = error as { code?: string };
+      if (prismaError.code === "P2025") return res.status(404).json({ success: false, error: "Driver not found" });
+      if (prismaError.code === "P2002") return res.status(409).json({ success: false, error: "Callsign already exists" });
       console.error("Error updating driver:", error);
       return res.status(500).json({ success: false, error: "Failed to update driver" });
     }
@@ -48,8 +47,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const deleted = await prisma.driver.delete({ where: { id } });
       return res.json({ success: true, data: deleted });
-    } catch (error: any) {
-      if (error.code === "P2025") return res.status(404).json({ success: false, error: "Driver not found" });
+    } catch (error: unknown) {
+      const prismaError = error as { code?: string };
+      if (prismaError.code === "P2025") return res.status(404).json({ success: false, error: "Driver not found" });
       console.error("Error deleting driver:", error);
       return res.status(500).json({ success: false, error: "Failed to delete driver" });
     }

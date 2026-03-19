@@ -1,29 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { PrismaClient } from "@prisma/client";
-import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-
-const SECRET = process.env.JWT_SECRET || "dev-only-fallback-key";
-
-function getUser(req: VercelRequest): any {
-  const auth = req.headers.authorization;
-  if (!auth?.startsWith("Bearer ")) return null;
-  try { return jwt.verify(auth.substring(7), SECRET); } catch { return null; }
-}
+import { prisma, setCors, requireAdmin } from "../_middleware";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  setCors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const caller = getUser(req);
-  if (!caller) return res.status(401).json({ success: false, message: "Unauthorized" });
-  if (caller.role !== "admin") return res.status(403).json({ success: false, message: "Admin access required" });
+  const caller = requireAdmin(req.headers.authorization);
+  if (!caller) return res.status(403).json({ success: false, message: "Admin access required" });
 
   if (req.method === "GET") {
     try {
@@ -47,20 +31,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!validRoles.includes(role)) {
         return res.status(400).json({ success: false, message: "Invalid role" });
       }
-      if (password.length < 6) {
-        return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+      if (password.length < 12) {
+        return res.status(400).json({ success: false, message: "Password must be at least 12 characters" });
       }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 12);
 
       const newUser = await prisma.user.create({
         data: { username, email, password: hashedPassword, role },
         select: { id: true, username: true, email: true, role: true },
       });
       return res.status(201).json({ success: true, user: newUser, message: "User created successfully" });
-    } catch (error: any) {
-      if (error.code === "P2002") return res.status(400).json({ success: false, message: "Username or email already exists" });
+    } catch (error: unknown) {
+      const prismaError = error as { code?: string };
+      if (prismaError.code === "P2002") return res.status(400).json({ success: false, message: "Username or email already exists" });
       console.error("Error creating user:", error);
       return res.status(500).json({ success: false, message: "Failed to create user" });
     }

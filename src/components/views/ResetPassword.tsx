@@ -19,7 +19,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onBack }) =
   const [success, setSuccess] = useState(false);
 
   const requirements = [
-    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "At least 12 characters", met: password.length >= 12 },
     { label: "One uppercase letter", met: /[A-Z]/.test(password) },
     { label: "One lowercase letter", met: /[a-z]/.test(password) },
     { label: "One number", met: /\d/.test(password) },

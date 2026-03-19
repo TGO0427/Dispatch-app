@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   LayoutDashboard,
   Home,
@@ -57,11 +57,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
   });
 
   // Compute live stats
-  const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
-  const totalJobs = orderJobs.length;
-  const inTransit = orderJobs.filter((j) => j.status === "en-route").length;
-  const exceptions = orderJobs.filter((j) => j.status === "exception").length;
-  const pendingCount = orderJobs.filter((j) => j.status === "pending").length;
+  const sidebarStats = useMemo(() => {
+    const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
+    return {
+      totalJobs: orderJobs.length,
+      inTransit: orderJobs.filter((j) => j.status === "en-route").length,
+      exceptions: orderJobs.filter((j) => j.status === "exception").length,
+      pendingCount: orderJobs.filter((j) => j.status === "pending").length,
+    };
+  }, [jobs]);
 
   const navSections: NavSection[] = [
     {
@@ -71,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         { id: "home", icon: Home, label: "Import Customer Orders" },
         { id: "ibt", icon: ArrowRightLeft, label: "IBT Import" },
         { id: "ibt-dispatch", icon: Truck, label: "IBT Dispatch" },
-        { id: "clipboard", icon: ClipboardList, label: "Order Management", badge: pendingCount, badgeType: "info" },
+        { id: "clipboard", icon: ClipboardList, label: "Order Management", badge: sidebarStats.pendingCount, badgeType: "info" },
       ],
     },
     {
@@ -241,16 +245,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           <div className="space-y-1.5">
             <div className="flex items-center justify-between px-2 py-1">
               <span className="text-sm text-gray-400">Total Jobs</span>
-              <span className="text-sm font-semibold text-white">{totalJobs}</span>
+              <span className="text-sm font-semibold text-white">{sidebarStats.totalJobs}</span>
             </div>
             <div className="flex items-center justify-between px-2 py-1">
               <span className="text-sm text-green-400">In Transit</span>
-              <span className="text-sm font-semibold text-white">{inTransit}</span>
+              <span className="text-sm font-semibold text-white">{sidebarStats.inTransit}</span>
             </div>
             <div className="flex items-center justify-between px-2 py-1">
               <span className="text-sm text-red-400">Exceptions</span>
-              <span className={`text-sm font-bold ${exceptions > 0 ? "text-red-400" : "text-white"}`}>
-                {exceptions}
+              <span className={`text-sm font-bold ${sidebarStats.exceptions > 0 ? "text-red-400" : "text-white"}`}>
+                {sidebarStats.exceptions}
               </span>
             </div>
           </div>

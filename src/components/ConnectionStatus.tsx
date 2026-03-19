@@ -31,7 +31,7 @@ export const ConnectionStatus: React.FC = () => {
   // Error banner
   if (error) {
     return (
-      <div className="fixed top-0 left-0 right-0 z-50 bg-red-500 text-white px-4 py-3 shadow-lg">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-red-500 text-white px-4 py-3 shadow-lg" role="alert">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
@@ -87,7 +87,7 @@ export const ConnectionStatus: React.FC = () => {
 
   // Connection status indicator (bottom right corner)
   return (
-    <div className="fixed bottom-4 right-4 z-40">
+    <div className="fixed bottom-4 right-4 z-40" role="status" aria-live="polite">
       <div
         className={`flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg text-xs font-medium ${
           apiStatus === "connected"

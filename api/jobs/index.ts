@@ -1,21 +1,18 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { PrismaClient } from "@prisma/client";
+import { prisma, setCors, requireAuth } from "../_middleware";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-
-const formatJob = (job: any) => ({
+const formatJob = (job: Record<string, unknown>) => ({
   ...job,
   createdAt: job.createdAt instanceof Date ? job.createdAt.toISOString() : job.createdAt,
   updatedAt: job.updatedAt instanceof Date ? job.updatedAt.toISOString() : job.updatedAt,
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  setCors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  const user = requireAuth(req.headers.authorization);
+  if (!user) return res.status(401).json({ success: false, error: "Unauthorized" });
 
   if (req.method === "GET") {
     try {
@@ -29,7 +26,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "POST") {
     try {
-      // Validate required fields
       if (!req.body.ref || !req.body.customer) {
         return res.status(400).json({ success: false, error: "Reference and customer are required" });
       }

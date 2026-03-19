@@ -145,7 +145,7 @@ function AppContent() {
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
 
-        <div className={`${sidebarCollapsed ? "ml-16" : "ml-60"} min-h-screen transition-all duration-300`}>
+        <div className={`${sidebarCollapsed ? "ml-16" : "ml-[280px]"} min-h-screen transition-all duration-300`}>
           <div className="mx-auto max-w-[1600px] p-8">
             {renderView()}
           </div>

@@ -56,7 +56,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
     operations: true,
   });
 
-  // Compute live stats
   const sidebarStats = useMemo(() => {
     const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
     return {
@@ -121,54 +120,60 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
     });
   };
 
-  const renderNavButton = ({ id, icon: Icon, label, badge, badgeType }: NavItem) => (
-    <button
-      key={id}
-      onClick={() => onItemChange(id)}
-      className={`w-full flex items-center gap-3 rounded-lg transition-all duration-150 ${
-        collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
-      } ${
-        activeItem === id
-          ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
-          : "text-gray-400 hover:text-white hover:bg-gray-800"
-      }`}
-      title={collapsed ? label : undefined}
-    >
-      <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-      {!collapsed && (
-        <>
-          <span className="text-sm font-medium truncate flex-1 text-left">{label}</span>
-          {badge !== undefined && badge > 0 && (
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-              badgeType === "danger" ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"
-            }`}>
-              {badge}
-            </span>
-          )}
-        </>
-      )}
-    </button>
-  );
+  const renderNavButton = ({ id, icon: Icon, label, badge, badgeType }: NavItem) => {
+    const isActive = activeItem === id;
+    return (
+      <button
+        key={id}
+        onClick={() => onItemChange(id)}
+        className={`w-full flex items-center rounded-xl transition-all duration-150 ${
+          collapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-3"
+        } ${
+          isActive
+            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/25"
+            : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+        }`}
+        title={collapsed ? label : undefined}
+      >
+        <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-white" : ""}`} />
+        {!collapsed && (
+          <>
+            <span className={`text-[14px] font-medium flex-1 text-left ${isActive ? "text-white" : ""}`}>{label}</span>
+            {badge !== undefined && badge > 0 && (
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                isActive
+                  ? "bg-white/15 text-white"
+                  : badgeType === "danger" ? "bg-red-500/20 text-red-400" : "bg-blue-500/15 text-blue-400"
+              }`}>
+                {badge}
+              </span>
+            )}
+          </>
+        )}
+      </button>
+    );
+  };
 
   return (
     <div
-      className={`theme-static-dark fixed left-0 top-0 h-screen bg-gray-900 flex flex-col z-30 transition-all duration-300 ${
-        collapsed ? "w-16" : "w-60"
+      className={`theme-static-dark fixed left-0 top-0 h-screen flex flex-col z-30 transition-all duration-300 ${
+        collapsed ? "w-16" : "w-[280px]"
       }`}
+      style={{ background: "#0f172a" }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800">
+      <div className={`flex items-center justify-between py-5 border-b border-white/[0.06] ${collapsed ? "px-3" : "px-5"}`}>
         {!collapsed && (
           <div>
-            <h1 className="text-white font-bold text-lg leading-tight">Dispatch</h1>
-            <p className="text-gray-400 text-[10px] uppercase tracking-wider">
+            <h1 className="text-white font-bold text-2xl tracking-tight leading-tight">Dispatch</h1>
+            <p className="text-slate-500 text-[11px] uppercase tracking-[0.14em] mt-0.5">
               K58 Dispatch
             </p>
           </div>
         )}
         <button
           onClick={onToggleCollapse}
-          className="w-7 h-7 rounded-md bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+          className="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.1] transition-colors"
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
@@ -176,28 +181,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Search */}
       {!collapsed && (
-        <div className="px-3 py-3">
+        <div className="px-4 pt-4 pb-2">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
               placeholder="Search menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-800 text-gray-300 text-sm rounded-md pl-8 pr-3 py-2 placeholder-gray-500 border border-gray-700 focus:outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-600"
+              className="w-full text-slate-300 text-sm rounded-xl pl-10 pr-3 py-2.5 placeholder-slate-500 border border-white/[0.06] focus:outline-none focus:border-white/[0.12] focus:ring-1 focus:ring-white/[0.08]"
+              style={{ background: "#1a2744" }}
             />
           </div>
         </div>
       )}
 
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-1">
-        {/* Dashboard - always visible */}
+      <div className="flex-1 overflow-y-auto px-3 pt-3 pb-2 sidebar-scroll">
+        {/* Dashboard */}
         {matchesSearch("Dashboard") && renderNavButton({
           id: "dashboard", icon: LayoutDashboard, label: "Dashboard",
         })}
 
-        {/* Collapsible Sections */}
+        {/* Sections */}
         {navSections.map((section) => {
           const items = filterItems(section.items);
           if (items.length === 0) return null;
@@ -205,28 +211,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           const isExpanded = searchQuery ? true : expandedSections[section.key] !== false;
 
           return (
-            <div key={section.key} className="mt-3">
+            <div key={section.key} className="mt-5">
               {!collapsed ? (
                 <button
                   onClick={() => !searchQuery && toggleSection(section.key)}
-                  className="w-full flex items-center justify-between px-3 mb-1.5 group"
+                  className="w-full flex items-center justify-between px-3 mb-2 group"
                 >
-                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.12em]">
                     {section.title}
                   </span>
                   <ChevronDown
-                    className={`w-3 h-3 text-gray-600 transition-transform duration-200 ${
+                    className={`w-3.5 h-3.5 text-slate-600 transition-transform duration-200 ${
                       isExpanded ? "" : "-rotate-90"
                     }`}
                   />
                 </button>
               ) : (
-                <div className="border-t border-gray-800 mx-2 my-2" />
+                <div className="border-t border-white/[0.06] mx-2 my-3" />
               )}
 
               <div
-                className={`space-y-0.5 overflow-hidden transition-all duration-200 ${
-                  isExpanded ? "max-h-96 opacity-100" : collapsed ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+                className={`space-y-1 overflow-hidden transition-all duration-200 ${
+                  isExpanded ? "max-h-[500px] opacity-100" : collapsed ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
                 }`}
               >
                 {items.map(renderNavButton)}
@@ -238,22 +244,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Quick Stats */}
       {!collapsed && (
-        <div className="px-3 py-3 border-t border-gray-800">
-          <p className="px-1 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+        <div className="mx-4 mb-3 p-3 rounded-xl" style={{ background: "#1a2744" }}>
+          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.12em] mb-3">
             Quick Stats
           </p>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-sm text-gray-400">Total Jobs</span>
-              <span className="text-sm font-semibold text-white">{sidebarStats.totalJobs}</span>
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-slate-400">Total Jobs</span>
+              <span className="text-[13px] font-bold text-white">{sidebarStats.totalJobs}</span>
             </div>
-            <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-sm text-green-400">In Transit</span>
-              <span className="text-sm font-semibold text-white">{sidebarStats.inTransit}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[13px] text-slate-400">In Transit</span>
+              </div>
+              <span className="text-[13px] font-bold text-emerald-400">{sidebarStats.inTransit}</span>
             </div>
-            <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-sm text-red-400">Exceptions</span>
-              <span className={`text-sm font-bold ${sidebarStats.exceptions > 0 ? "text-red-400" : "text-white"}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full ${sidebarStats.exceptions > 0 ? "bg-rose-400" : "bg-slate-600"}`} />
+                <span className="text-[13px] text-slate-400">Exceptions</span>
+              </div>
+              <span className={`text-[13px] font-bold ${sidebarStats.exceptions > 0 ? "text-rose-400" : "text-slate-500"}`}>
                 {sidebarStats.exceptions}
               </span>
             </div>
@@ -261,25 +273,44 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         </div>
       )}
 
-      {/* Bottom Section */}
-      <div className="border-t border-gray-800 px-2 py-2 space-y-0.5">
-        {filteredBottomItems.map(renderNavButton)}
+      {/* Bottom Utilities */}
+      <div className="border-t border-white/[0.06] px-3 py-3 space-y-0.5">
+        {filteredBottomItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onItemChange(item.id)}
+              className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 ${
+                collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
+              } ${
+                activeItem === item.id
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/25"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.06]"
+              }`}
+              title={collapsed ? item.label : undefined}
+            >
+              <Icon className="w-[17px] h-[17px] flex-shrink-0" />
+              {!collapsed && <span className="text-[13px] font-medium">{item.label}</span>}
+            </button>
+          );
+        })}
 
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
-          className={`w-full flex items-center gap-3 rounded-lg transition-all duration-150 text-gray-400 hover:text-yellow-400 hover:bg-gray-800 ${
-            collapsed ? "justify-center px-2 py-2" : "px-3 py-2"
+          className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-slate-500 hover:text-amber-400 hover:bg-white/[0.06] ${
+            collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
           }`}
           title={collapsed ? (theme === "dark" ? "Light Mode" : "Dark Mode") : undefined}
         >
           {theme === "dark" ? (
-            <Sun className="w-[18px] h-[18px] flex-shrink-0" />
+            <Sun className="w-[17px] h-[17px] flex-shrink-0" />
           ) : (
-            <Moon className="w-[18px] h-[18px] flex-shrink-0" />
+            <Moon className="w-[17px] h-[17px] flex-shrink-0" />
           )}
           {!collapsed && (
-            <span className="text-sm font-medium">
+            <span className="text-[13px] font-medium">
               {theme === "dark" ? "Light Mode" : "Dark Mode"}
             </span>
           )}
@@ -288,28 +319,45 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         {/* Logout */}
         <button
           onClick={handleLogout}
-          className={`w-full flex items-center gap-3 rounded-lg transition-all duration-150 text-gray-400 hover:text-red-400 hover:bg-gray-800 ${
-            collapsed ? "justify-center px-2 py-2" : "px-3 py-2"
+          className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-slate-500 hover:text-rose-400 hover:bg-white/[0.06] ${
+            collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
           }`}
           title={collapsed ? "Logout" : undefined}
         >
-          <LogOut className="w-[18px] h-[18px] flex-shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">Logout</span>}
+          <LogOut className="w-[17px] h-[17px] flex-shrink-0" />
+          {!collapsed && <span className="text-[13px] font-medium">Logout</span>}
         </button>
       </div>
 
-      {/* User Info */}
+      {/* Profile Card */}
       {!collapsed && (
-        <div className="px-3 py-3 border-t border-gray-800 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+        <div className="mx-4 mb-4 p-3 rounded-xl border border-white/[0.06] flex items-center gap-3" style={{ background: "#1a2744" }}>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-sm">
             <User className="w-4 h-4 text-white" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user?.username || "User"}</p>
-            <p className="text-xs text-gray-500 truncate">{user?.role || "user"}</p>
+            <p className="text-[13px] font-semibold text-white truncate">{user?.username || "User"}</p>
+            <p className="text-[11px] text-slate-500 truncate capitalize">{user?.role || "user"}</p>
           </div>
         </div>
       )}
+
+      {/* Scrollbar Styles */}
+      <style>{`
+        .sidebar-scroll::-webkit-scrollbar {
+          width: 4px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+          background: rgba(100, 116, 139, 0.25);
+          border-radius: 4px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(100, 116, 139, 0.4);
+        }
+      `}</style>
     </div>
   );
 };

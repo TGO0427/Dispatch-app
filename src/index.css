@@ -1,4 +1,70 @@
 @tailwind base;
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --color-surface: 255 255 255;
+    --color-surface-secondary: 249 250 251;
+    --color-surface-tertiary: 243 244 246;
+
+    /* Text */
+    --color-text-primary: 15 23 42;
+    --color-text-secondary: 75 85 99;
+    --color-text-tertiary: 107 114 128;
+    --color-text-muted: 156 163 175;
+
+    /* Borders */
+    --color-border: 229 231 235;
+    --color-border-strong: 209 213 219;
+
+    /* Accent subtle backgrounds */
+    --color-blue-subtle: 239 246 255;
+    --color-red-subtle: 254 242 242;
+    --color-green-subtle: 240 253 244;
+    --color-yellow-subtle: 254 252 232;
+    --color-purple-subtle: 250 245 255;
+    --color-amber-subtle: 255 251 235;
+  }
+
+  [data-theme="dark"] {
+    /* Surfaces */
+    --color-surface: 30 41 59;
+    --color-surface-secondary: 15 23 42;
+    --color-surface-tertiary: 51 65 85;
+
+    /* Text */
+    --color-text-primary: 241 245 249;
+    --color-text-secondary: 203 213 225;
+    --color-text-tertiary: 148 163 184;
+    --color-text-muted: 100 116 139;
+
+    /* Borders */
+    --color-border: 51 65 85;
+    --color-border-strong: 71 85 105;
+
+    /* Accent subtle backgrounds (darker versions) */
+    --color-blue-subtle: 23 37 84;
+    --color-red-subtle: 69 10 10;
+    --color-green-subtle: 5 46 22;
+    --color-yellow-subtle: 66 32 6;
+    --color-purple-subtle: 46 16 101;
+    --color-amber-subtle: 69 26 3;
+  }
+
+  /* Lock sidebar to always-dark regardless of theme */
+  .theme-static-dark {
+    --color-surface: 17 24 39;
+    --color-surface-secondary: 31 41 55;
+    --color-surface-tertiary: 55 65 81;
+    --color-text-primary: 255 255 255;
+    --color-text-secondary: 156 163 175;
+    --color-text-tertiary: 107 114 128;
+    --color-text-muted: 156 163 175;
+    --color-border: 31 41 55;
+    --color-border-strong: 55 65 81;
+  }
+}
+
 @tailwind components;
 @tailwind utilities;
 

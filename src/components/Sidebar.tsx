@@ -17,9 +17,12 @@ import {
   ChevronDown,
   Users,
   Search,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useDispatch } from "../context/DispatchContext";
+import { useTheme } from "../hooks/useTheme";
 
 interface SidebarProps {
   activeItem: string;
@@ -46,6 +49,7 @@ interface NavSection {
 export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, collapsed, onToggleCollapse }) => {
   const { user, logout } = useAuth();
   const { jobs } = useDispatch();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     dispatch: true,
@@ -144,7 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
   return (
     <div
-      className={`fixed left-0 top-0 h-screen bg-gray-900 flex flex-col z-30 transition-all duration-300 ${
+      className={`theme-static-dark fixed left-0 top-0 h-screen bg-gray-900 flex flex-col z-30 transition-all duration-300 ${
         collapsed ? "w-16" : "w-60"
       }`}
     >
@@ -256,6 +260,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Bottom Section */}
       <div className="border-t border-gray-800 px-2 py-2 space-y-0.5">
         {filteredBottomItems.map(renderNavButton)}
+
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          className={`w-full flex items-center gap-3 rounded-lg transition-all duration-150 text-gray-400 hover:text-yellow-400 hover:bg-gray-800 ${
+            collapsed ? "justify-center px-2 py-2" : "px-3 py-2"
+          }`}
+          title={collapsed ? (theme === "dark" ? "Light Mode" : "Dark Mode") : undefined}
+        >
+          {theme === "dark" ? (
+            <Sun className="w-[18px] h-[18px] flex-shrink-0" />
+          ) : (
+            <Moon className="w-[18px] h-[18px] flex-shrink-0" />
+          )}
+          {!collapsed && (
+            <span className="text-sm font-medium">
+              {theme === "dark" ? "Light Mode" : "Dark Mode"}
+            </span>
+          )}
+        </button>
 
         {/* Logout */}
         <button

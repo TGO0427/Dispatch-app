@@ -277,10 +277,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Synercore</h1>
-            <p className="text-xs text-gray-500 uppercase tracking-wider">
-              Dispatch & Receiving
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900">K58 Dispatch</h1>
           </div>
         </div>
 
@@ -321,32 +318,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
             width: `${stats.total > 0 ? (stats.delivered / stats.total) * 100 : 0}%`,
           }}
         />
-      </div>
-
-      {/* Supply Chain Banner */}
-      <div className="bg-gray-900 rounded-xl px-6 py-3 flex items-center gap-4 overflow-hidden">
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xl">📦</span>
-          <span className="text-white font-bold text-sm uppercase tracking-wide">
-            Supply Chain
-          </span>
-        </div>
-        <div className="flex items-center gap-4 overflow-hidden text-sm">
-          <span className="px-2 py-0.5 bg-green-600 text-white rounded text-xs font-semibold flex-shrink-0">
-            Dispatch News
-          </span>
-          <span className="text-gray-300 truncate">
-            {stats.pending > 0
-              ? `${stats.pending} orders pending dispatch • ${stats.inTransit} shipments in transit`
-              : "All orders processed - system running smoothly"}
-          </span>
-          <span className="px-2 py-0.5 bg-red-600 text-white rounded text-xs font-semibold flex-shrink-0">
-            Live Status
-          </span>
-          <span className="text-gray-300 truncate">
-            {stats.availableDrivers} drivers available • {stats.busyDrivers} drivers on route
-          </span>
-        </div>
       </div>
 
       {/* Performance Metrics Expandable */}

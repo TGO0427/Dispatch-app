@@ -154,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           <div>
             <h1 className="text-white font-bold text-lg leading-tight">Dispatch</h1>
             <p className="text-gray-400 text-[10px] uppercase tracking-wider">
-              Dispatch & Receiving
+              K58 Dispatch
             </p>
           </div>
         )}

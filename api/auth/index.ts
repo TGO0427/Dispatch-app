@@ -36,7 +36,10 @@ async function handleLogin(req: VercelRequest, res: VercelResponse) {
   let user: any = null;
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { username } });
+    // Case-insensitive username lookup
+    const dbUser = await prisma.user.findFirst({
+      where: { username: { equals: username, mode: "insensitive" } },
+    });
     if (dbUser) {
       const isMatch = dbUser.password.startsWith("$2")
         ? await bcrypt.compare(password, dbUser.password)

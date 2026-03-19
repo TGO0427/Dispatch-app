@@ -8,7 +8,7 @@ const formatJob = (job: Record<string, unknown>) => ({
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCors(res);
+  setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ success: false, error: "Method not allowed" });
 

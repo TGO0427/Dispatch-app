@@ -27,8 +27,8 @@ export interface JwtPayload {
 // ---------------------------------------------------------------------------
 // CORS helper
 // ---------------------------------------------------------------------------
-export function setCors(res: VercelResponse): void {
-  const origin = process.env.FRONTEND_URL || "";
+export function setCors(res: VercelResponse, req?: { headers: { origin?: string } }): void {
+  const origin = process.env.FRONTEND_URL || req?.headers?.origin || "*";
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader(
     "Access-Control-Allow-Methods",

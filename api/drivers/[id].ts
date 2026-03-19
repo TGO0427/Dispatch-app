@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { prisma, setCors, requireAuth } from "../_middleware";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCors(res);
+  setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const user = requireAuth(req.headers.authorization);

@@ -247,64 +247,41 @@ export const IBTDispatchView: React.FC = () => {
     }
   };
 
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <Card className="p-6">
+    <div className="space-y-4">
+      {/* Header — compact */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <ArrowRightLeft className="h-8 w-8 text-blue-600" />
+          <ArrowRightLeft className="h-6 w-6 text-blue-600" />
           <div>
-            <h1 className="mb-2 text-3xl font-bold text-gray-900">IBT Dispatch Dashboard</h1>
-            <p className="text-gray-600">
-              Manage Internal Branch Transfer jobs, assign transporters, and track deliveries
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900">IBT Dispatch</h1>
+            <p className="text-sm text-gray-500">Manage Internal Branch Transfers and track deliveries</p>
           </div>
         </div>
-      </Card>
-
-      {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-7">
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Total IBT Jobs</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-resilinc-warning">{stats.pending}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Pending</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-resilinc-primary">{stats.inRoute}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">En Route</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-green-600">{stats.delivered}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Delivered</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-resilinc-alert">{stats.exceptions}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Exceptions</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-green-600">{stats.availableDrivers}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Available</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-3xl font-bold text-resilinc-warning">{stats.busyDrivers}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Busy</div>
-        </Card>
       </div>
 
-      {/* Warehouse Selector */}
-      <WarehouseSelector />
+      {/* Statistics — compact */}
+      <div className="grid gap-3 grid-cols-3 lg:grid-cols-7">
+        {([
+          { label: "Total", value: stats.total, color: "text-gray-900" },
+          { label: "Pending", value: stats.pending, color: "text-resilinc-warning" },
+          { label: "En Route", value: stats.inRoute, color: "text-resilinc-primary" },
+          { label: "Delivered", value: stats.delivered, color: "text-green-600" },
+          { label: "Exceptions", value: stats.exceptions, color: "text-resilinc-alert" },
+          { label: "Available", value: stats.availableDrivers, color: "text-green-600" },
+          { label: "Busy", value: stats.busyDrivers, color: "text-resilinc-warning" },
+        ]).map((s) => (
+          <Card key={s.label} className="p-3">
+            <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+            <div className="text-[10px] uppercase tracking-wide text-gray-500">{s.label}</div>
+          </Card>
+        ))}
+      </div>
 
-      {/* IBT Tabs */}
-      <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1.5">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1">
         {([
           { key: "open" as const, label: "Open", count: tabCounts.open, dotColor: "bg-yellow-500" },
           { key: "assigned" as const, label: "Assigned / In Transit", count: tabCounts.assigned, dotColor: "bg-blue-500" },
@@ -313,7 +290,7 @@ export const IBTDispatchView: React.FC = () => {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.key
                 ? "bg-gray-900 text-white shadow-sm"
                 : "text-gray-600 hover:bg-gray-100"
@@ -328,13 +305,18 @@ export const IBTDispatchView: React.FC = () => {
         ))}
       </div>
 
-      {/* Filter and Sort Controls */}
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <FilterBar />
-          <SortBar />
-        </CardContent>
-      </Card>
+      {/* Compact Inline Filters */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <WarehouseSelector />
+        <FilterBar showMore={showMoreFilters} />
+        <SortBar />
+        <button
+          onClick={() => setShowMoreFilters(!showMoreFilters)}
+          className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+        >
+          {showMoreFilters ? "Less filters" : "More filters"}
+        </button>
+      </div>
 
       {/* Main Content Grid */}
       <DndContext

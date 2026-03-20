@@ -141,8 +141,24 @@ export const HistoryView: React.FC = () => {
       });
     }
 
+    // Deduplicate by ref — keep first occurrence, aggregate pallets/qty
+    const refMap = new Map<string, typeof filtered[0]>();
+    filtered.forEach((job) => {
+      const existing = refMap.get(job.ref);
+      if (!existing) {
+        refMap.set(job.ref, { ...job });
+      } else {
+        // Aggregate: sum pallets and qty from duplicate line items
+        if (job.pallets) existing.pallets = (existing.pallets || 0) + job.pallets;
+        if (job.outstandingQty) existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
+        // Keep the most recent notes if current one is empty
+        if (job.notes && !existing.notes) existing.notes = job.notes;
+      }
+    });
+    const deduped = Array.from(refMap.values());
+
     // Sort by completion date (most recent first)
-    return filtered.sort((a, b) => {
+    return deduped.sort((a, b) => {
       const dateA = new Date(a.actualDeliveryAt || a.updatedAt).getTime();
       const dateB = new Date(b.actualDeliveryAt || b.updatedAt).getTime();
       return dateB - dateA;

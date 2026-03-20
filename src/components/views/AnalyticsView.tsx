@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FileText, Filter, BarChart3, FileSpreadsheet, FileDown, TrendingUp, Package, Truck, AlertCircle, Search } from "lucide-react";
+import { FileSpreadsheet, FileDown, TrendingUp, Package, Truck, AlertCircle, Search } from "lucide-react";
 import { useDispatch } from "../../context/DispatchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Badge } from "../ui/Badge";
@@ -833,276 +833,166 @@ export const AnalyticsView: React.FC = () => {
     }
   };
 
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  const reportLabels: Record<ReportType, string> = {
+    "job-summary": "Job Summary",
+    "driver-performance": "Driver Performance",
+    "customer-analysis": "Customer Analysis",
+    "exception-report": "Exception Report",
+    "delivery-performance": "Delivery Performance",
+    "warehouse-utilization": "Warehouse Utilization",
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6 bg-gradient-to-r from-resilinc-primary to-blue-600">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Advanced Reports</h1>
-            <p className="text-blue-100">Generate detailed analytics and export data reports</p>
+    <div className="space-y-4">
+      {/* Header — compact */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Order Reports</h1>
+          <p className="text-sm text-gray-500">
+            {reportLabels[selectedReport]} — {filteredJobs.length} records
+            {dateRange !== "all" && ` (${dateRange === "custom" ? "custom range" : `last ${dateRange === "today" ? "today" : dateRange === "week" ? "7 days" : dateRange === "month" ? "30 days" : dateRange === "quarter" ? "90 days" : "year"}`})`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={exportToCSV} variant="outline" className="gap-2 text-sm">
+            <FileDown className="h-4 w-4" />
+            CSV
+          </Button>
+          <Button onClick={exportToExcel} className="gap-2 text-sm">
+            <FileSpreadsheet className="h-4 w-4" />
+            Excel
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters — compact 4-column grid */}
+      <Card className="p-4">
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <Select value={selectedReport} onChange={(e) => setSelectedReport(e.target.value as ReportType)} className="w-full text-sm">
+            <option value="job-summary">Job Summary</option>
+            <option value="driver-performance">Driver Performance</option>
+            <option value="customer-analysis">Customer Analysis</option>
+            <option value="exception-report">Exception Report</option>
+            <option value="delivery-performance">Delivery Performance</option>
+            <option value="warehouse-utilization">Warehouse Utilization</option>
+          </Select>
+
+          <Select value={dateRange} onChange={(e) => setDateRange(e.target.value as DateRange)} className="w-full text-sm">
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">Last 7 Days</option>
+            <option value="month">Last 30 Days</option>
+            <option value="quarter">Last 90 Days</option>
+            <option value="year">Last Year</option>
+            <option value="custom">Custom Range</option>
+          </Select>
+
+          <Select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)} className="w-full text-sm">
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="assigned">Assigned</option>
+            <option value="en-route">En Route</option>
+            <option value="delivered">Delivered</option>
+            <option value="exception">Exception</option>
+            <option value="cancelled">Cancelled</option>
+          </Select>
+
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search customer..."
+              value={customerSearch}
+              onChange={(e) => setCustomerSearch(e.target.value)}
+              className="w-full pl-8 text-sm h-9"
+            />
           </div>
-          <BarChart3 className="h-12 w-12 text-white opacity-80" />
+        </div>
+
+        {/* Row 2 — more filters */}
+        {showMoreFilters && (
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 mt-3">
+            <Select value={selectedPriority} onChange={(e) => setSelectedPriority(e.target.value)} className="w-full text-sm">
+              <option value="all">All Priorities</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="normal">Normal</option>
+              <option value="low">Low</option>
+            </Select>
+
+            <Select value={selectedWarehouse} onChange={(e) => setSelectedWarehouse(e.target.value)} className="w-full text-sm">
+              <option value="all">All Warehouses</option>
+              {warehouses.map(wh => <option key={wh} value={wh}>{wh}</option>)}
+            </Select>
+
+            <Select value={selectedTransporter} onChange={(e) => setSelectedTransporter(e.target.value)} className="w-full text-sm">
+              <option value="all">All Transporters</option>
+              {transporters.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </Select>
+
+            <Select value={etaWeekFilter} onChange={(e) => setEtaWeekFilter(e.target.value)} className="w-full text-sm">
+              <option value="all">All ETA Weeks</option>
+              {etaWeeks.map(w => { const [y, wn] = w.split("-W"); return <option key={w} value={w}>W{wn}, {y}</option>; })}
+            </Select>
+          </div>
+        )}
+
+        {/* Custom date range */}
+        {dateRange === "custom" && (
+          <div className="grid gap-3 grid-cols-2 mt-3">
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="text-sm" />
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="text-sm" />
+          </div>
+        )}
+
+        <div className="mt-2 text-right">
+          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+            {showMoreFilters ? "Less filters" : "More filters (priority, warehouse, transporter, week)"}
+          </button>
         </div>
       </Card>
 
-      {/* Filters Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-resilinc-primary" />
-            <CardTitle>Report Configuration</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {/* Report Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Report Type
-              </label>
-              <Select
-                value={selectedReport}
-                onChange={(e) => setSelectedReport(e.target.value as ReportType)}
-                className="w-full"
-              >
-                <option value="job-summary">Job Summary</option>
-                <option value="driver-performance">Driver Performance</option>
-                <option value="customer-analysis">Customer Analysis</option>
-                <option value="exception-report">Exception Report</option>
-                <option value="delivery-performance">Delivery Performance</option>
-                <option value="warehouse-utilization">Warehouse Utilization</option>
-              </Select>
-            </div>
-
-            {/* Date Range */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date Range
-              </label>
-              <Select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value as DateRange)}
-                className="w-full"
-              >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="week">Last 7 Days</option>
-                <option value="month">Last 30 Days</option>
-                <option value="quarter">Last 90 Days</option>
-                <option value="year">Last Year</option>
-                <option value="custom">Custom Range</option>
-              </Select>
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status Filter
-              </label>
-              <Select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full"
-              >
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="assigned">Assigned</option>
-                <option value="en-route">En Route</option>
-                <option value="delivered">Delivered</option>
-                <option value="exception">Exception</option>
-                <option value="cancelled">Cancelled</option>
-              </Select>
-            </div>
-
-            {/* Priority Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Priority Filter
-              </label>
-              <Select
-                value={selectedPriority}
-                onChange={(e) => setSelectedPriority(e.target.value)}
-                className="w-full"
-              >
-                <option value="all">All Priorities</option>
-                <option value="urgent">Urgent</option>
-                <option value="high">High</option>
-                <option value="normal">Normal</option>
-                <option value="low">Low</option>
-              </Select>
-            </div>
-
-            {/* Warehouse Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Warehouse Filter
-              </label>
-              <Select
-                value={selectedWarehouse}
-                onChange={(e) => setSelectedWarehouse(e.target.value)}
-                className="w-full"
-              >
-                <option value="all">All Warehouses</option>
-                {warehouses.map(wh => (
-                  <option key={wh} value={wh}>{wh}</option>
-                ))}
-              </Select>
-            </div>
-
-            {/* Transporter Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Transporter Filter
-              </label>
-              <Select
-                value={selectedTransporter}
-                onChange={(e) => setSelectedTransporter(e.target.value)}
-                className="w-full"
-              >
-                <option value="all">All Transporters</option>
-                {transporters.map(transporter => (
-                  <option key={transporter.id} value={transporter.id}>
-                    {transporter.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            {/* ETA Week Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ETA Week Filter
-              </label>
-              <Select
-                value={etaWeekFilter}
-                onChange={(e) => setEtaWeekFilter(e.target.value)}
-                className="w-full"
-              >
-                <option value="all">All Weeks</option>
-                {etaWeeks.map(week => {
-                  const [year, weekNum] = week.split('-W');
-                  return (
-                    <option key={week} value={week}>
-                      Week {weekNum}, {year}
-                    </option>
-                  );
-                })}
-              </Select>
-            </div>
-
-            {/* Customer Search */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Customer Search
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Search by customer name..."
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  className="w-full pl-9"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Custom Date Range */}
-          {dateRange === "custom" && (
-            <div className="grid gap-4 md:grid-cols-2 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Date
-                </label>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Date
-                </label>
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Summary Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="p-4 bg-gradient-to-br from-blue-50 to-white">
+      {/* KPI Strip — tighter */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <Card className="p-3">
           <div className="flex items-center gap-3">
-            <Package className="h-8 w-8 text-resilinc-primary" />
+            <Package className="h-6 w-6 text-blue-600" />
             <div>
-              <div className="text-2xl font-bold text-gray-900">{metrics.total}</div>
-              <div className="text-xs uppercase tracking-wide text-gray-600">Total Jobs</div>
+              <div className="text-xl font-bold text-gray-900">{metrics.total}</div>
+              <div className="text-[10px] uppercase tracking-wide text-gray-500">Total Jobs</div>
             </div>
           </div>
         </Card>
-
-        <Card className="p-4 bg-gradient-to-br from-green-50 to-white">
+        <Card className="p-3">
           <div className="flex items-center gap-3">
-            <TrendingUp className="h-8 w-8 text-green-600" />
+            <TrendingUp className="h-6 w-6 text-green-600" />
             <div>
-              <div className="text-2xl font-bold text-green-600">{metrics.completionRate}%</div>
-              <div className="text-xs uppercase tracking-wide text-gray-600">Completion Rate</div>
+              <div className="text-xl font-bold text-green-600">{metrics.completionRate}%</div>
+              <div className="text-[10px] uppercase tracking-wide text-gray-500">Completion Rate</div>
             </div>
           </div>
         </Card>
-
-        <Card className="p-4 bg-gradient-to-br from-orange-50 to-white">
+        <Card className="p-3">
           <div className="flex items-center gap-3">
-            <Truck className="h-8 w-8 text-orange-600" />
+            <Truck className="h-6 w-6 text-orange-600" />
             <div>
-              <div className="text-2xl font-bold text-orange-600">{metrics.inProgress}</div>
-              <div className="text-xs uppercase tracking-wide text-gray-600">In Progress</div>
+              <div className="text-xl font-bold text-orange-600">{metrics.inProgress}</div>
+              <div className="text-[10px] uppercase tracking-wide text-gray-500">In Progress</div>
             </div>
           </div>
         </Card>
-
-        <Card className="p-4 bg-gradient-to-br from-red-50 to-white">
+        <Card className="p-3">
           <div className="flex items-center gap-3">
-            <AlertCircle className="h-8 w-8 text-red-600" />
+            <AlertCircle className="h-6 w-6 text-red-600" />
             <div>
-              <div className="text-2xl font-bold text-red-600">{metrics.exceptions}</div>
-              <div className="text-xs uppercase tracking-wide text-gray-600">Exceptions</div>
+              <div className="text-xl font-bold text-red-600">{metrics.exceptions}</div>
+              <div className="text-[10px] uppercase tracking-wide text-gray-500">Exceptions</div>
             </div>
           </div>
         </Card>
       </div>
-
-      {/* Export Actions */}
-      <Card className="p-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <FileText className="h-4 w-4" />
-            <span>
-              Showing <span className="font-semibold text-gray-900">{filteredJobs.length}</span> records
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={exportToCSV} variant="outline" className="gap-2">
-              <FileDown className="h-4 w-4" />
-              Export CSV
-            </Button>
-            <Button onClick={exportToExcel} className="gap-2">
-              <FileSpreadsheet className="h-4 w-4" />
-              Export Excel
-            </Button>
-          </div>
-        </div>
-      </Card>
 
       {/* Report Content */}
       {renderReportContent()}

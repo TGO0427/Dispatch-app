@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, Truck, Clock, PackageCheck, FileCheck2 } from "lucide-react";
+import { CheckCircle2, Truck, Clock, PackageCheck, FileCheck2, AlertTriangle } from "lucide-react";
 import { Job, TRANSPORT_SERVICES, TransportService } from "../types";
 
 interface JobWorkflowProps {
@@ -175,6 +175,9 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
         <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
           <Clock className="w-4 h-4" />
           Transport Lead Time
+          <span className="text-red-500 text-xs" title="Required for dispatch">
+            <AlertTriangle className="w-3 h-3 inline" />
+          </span>
         </h4>
         <div className="grid grid-cols-3 gap-2">
           {TRANSPORT_SERVICES.map((service) => (

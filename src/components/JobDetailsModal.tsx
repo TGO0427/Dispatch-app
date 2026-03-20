@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { X, MapPin, User, Calendar, Package, AlertCircle, Edit2, Save, Undo2, List } from "lucide-react";
+import { X, MapPin, User, Calendar, Package, AlertCircle, Edit2, Save, Undo2, List, Maximize2, Minimize2, AlertTriangle } from "lucide-react";
 import { Job, JobStatus, JobPriority, ServiceType, TruckSize, JOB_STATUSES, JOB_PRIORITIES, TRUCK_SIZES } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { useDispatch } from "../context/DispatchContext";
@@ -23,6 +23,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   const { updateJob, jobs } = useDispatch();
   const { showError, showWarning, confirm } = useNotification();
   const [isEditing, setIsEditing] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
 
   // All line items sharing this ASO ref
@@ -57,11 +58,17 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
       return;
     }
 
-    // Validation: require all workflow steps before moving to en-route
+    // Validation: require all mandatory fields before moving to en-route
     if (editedJob.status === "en-route" && job.status !== "en-route") {
-      const allWorkflowComplete = editedJob.transporterBooked && editedJob.orderPicked && editedJob.coaAvailable;
-      if (!allWorkflowComplete) {
-        showWarning("Complete all dispatch workflow steps (Transporter Booked, Order Picked, COA Available) before moving to En Route.");
+      const missing: string[] = [];
+      if (!editedJob.transporterBooked) missing.push("Transporter Booked");
+      if (!editedJob.orderPicked) missing.push("Order Picked");
+      if (!editedJob.coaAvailable) missing.push("COA Available");
+      if (!editedJob.transportService) missing.push("Transport Lead Time");
+      if (!editedJob.truckSize) missing.push("Truck Size");
+      if (!editedJob.pallets && editedJob.pallets !== 0) missing.push("Pallets");
+      if (missing.length > 0) {
+        showWarning(`Complete the following before moving to En Route:\n${missing.join(", ")}`);
         return;
       }
     }
@@ -138,10 +145,14 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
       onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
     >
       <Card
-        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        className={`overflow-y-auto transition-all duration-300 ${
+          isFullscreen
+            ? "w-full h-full max-w-none max-h-none rounded-none"
+            : "w-full max-w-2xl max-h-[90vh]"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 sticky top-0 bg-white z-10 border-b border-gray-100">
           <div>
             <CardTitle>Job Details</CardTitle>
             <p className="text-sm text-zinc-500 mt-1">Reference: {job.ref}</p>
@@ -163,6 +174,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                 Edit
               </Button>
             )}
+            <Button variant="ghost" size="icon" onClick={() => setIsFullscreen(!isFullscreen)} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>
@@ -261,6 +275,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
               Truck Size
+              <span className="text-red-500 text-xs" title="Required for dispatch">
+                <AlertTriangle className="w-3 h-3 inline" />
+              </span>
             </div>
             {isEditing ? (
               <select
@@ -313,6 +330,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 mb-1">
                 <Package className="h-4 w-4" />
                 Pallets
+                <span className="text-red-500 text-xs" title="Required for dispatch">
+                  <AlertTriangle className="w-3 h-3 inline" />
+                </span>
               </div>
               {isEditing ? (
                 <input

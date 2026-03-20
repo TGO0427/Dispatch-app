@@ -245,9 +245,9 @@ export const HistoryView: React.FC = () => {
     // --- Header bar ---
     doc.setFillColor(15, 23, 42);
     doc.rect(0, 0, pw, 24, "F");
-    // Thin accent line below header
+    // Thin accent line below header (subtle)
     doc.setFillColor(37, 99, 235);
-    doc.rect(0, 24, pw, 1, "F");
+    doc.rect(0, 24, pw, 0.4, "F");
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
@@ -265,8 +265,8 @@ export const HistoryView: React.FC = () => {
     doc.text(`Generated: ${reportDate}`, pw - 14, 16, { align: "right" });
 
     // --- KPI Cards ---
-    const cardY = 29;
-    const cardH = 18;
+    const cardY = 28;
+    const cardH = 15;
     const gap = 4;
     const cardW = (pw - 28 - gap * 6) / 7;
     const cards: { label: string; value: string; color: number[] }[] = [
@@ -289,14 +289,14 @@ export const HistoryView: React.FC = () => {
       doc.roundedRect(x, cardY, cardW, cardH, 1.5, 1.5, "S");
       // Value
       doc.setTextColor(card.color[0], card.color[1], card.color[2]);
-      doc.setFontSize(14);
+      doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
-      doc.text(card.value, x + cardW / 2, cardY + 8.5, { align: "center" });
-      // Label — darker and bolder
-      doc.setTextColor(71, 85, 105); // slate-600
-      doc.setFontSize(6.5);
+      doc.text(card.value, x + cardW / 2, cardY + 7, { align: "center" });
+      // Label
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(5.5);
       doc.setFont("helvetica", "bold");
-      doc.text(card.label.toUpperCase(), x + cardW / 2, cardY + 14.5, { align: "center" });
+      doc.text(card.label.toUpperCase(), x + cardW / 2, cardY + 12, { align: "center" });
     });
 
     // --- Table ---
@@ -305,8 +305,8 @@ export const HistoryView: React.FC = () => {
       return [
         job.ref,
         job.customer,
-        job.status === "delivered" ? "DELIVERED" : "CANCELLED",
-        `${job.pickup}  →  ${job.dropoff}`,
+        job.status === "delivered" ? "Delivered" : "Cancelled",
+        `${job.pickup} > ${job.dropoff}`,
         job.warehouse || "—",
         job.driverId ? drivers.find((d) => d.id === job.driverId)?.name || "Unknown" : "Unassigned",
         getTruckSizeLabel(job.truckSize),
@@ -342,9 +342,8 @@ export const HistoryView: React.FC = () => {
       columnStyles: {
         0: { cellWidth: 20 },                          // Ref
         1: { cellWidth: 35 },                          // Customer
-        2: { cellWidth: 16, halign: "center",          // Status
-             fontStyle: "bold" },
-        3: { cellWidth: 50 },                          // Route (wide)
+        2: { cellWidth: 18, halign: "center" },          // Status
+        3: { cellWidth: 48 },                          // Route
         4: { cellWidth: 22 },                          // Warehouse
         5: { cellWidth: 28 },                          // Transporter
         6: { cellWidth: 18 },                          // Truck
@@ -360,21 +359,22 @@ export const HistoryView: React.FC = () => {
       },
       margin: { left: 14, right: 14 },
       didParseCell: (data) => {
-        // Status badges: green/red text color
+        // Status badges: green/red tint backgrounds
         if (data.section === "body" && data.column.index === 2) {
           const val = String(data.cell.raw);
-          if (val === "DELIVERED") {
+          if (val === "Delivered") {
             data.cell.styles.textColor = [22, 163, 74];
+            data.cell.styles.fontStyle = "bold";
             data.cell.styles.fillColor = data.row.index % 2 === 0 ? [240, 253, 244] : [236, 253, 245];
-          } else if (val === "CANCELLED") {
+          } else if (val === "Cancelled") {
             data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fontStyle = "bold";
             data.cell.styles.fillColor = data.row.index % 2 === 0 ? [254, 242, 242] : [254, 236, 236];
           }
         }
-        // Week column bold
+        // Week column — standard dark text, not blue
         if (data.section === "body" && data.column.index === 9) {
-          data.cell.styles.fontStyle = "bold";
-          data.cell.styles.textColor = [37, 99, 235];
+          data.cell.styles.textColor = [51, 65, 85]; // slate-700
         }
       },
       didDrawPage: () => {

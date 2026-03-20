@@ -1,6 +1,6 @@
 // src/components/views/HistoryView.tsx
 import React, { useMemo, useState } from "react";
-import { Clock, Search, Filter, Download, Calendar as CalendarIcon, CheckCircle2, XCircle, FileText, Package } from "lucide-react";
+import { Clock, Search, Download, Calendar as CalendarIcon, CheckCircle2, XCircle, FileText, Package } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useDispatch } from "../../context/DispatchContext";
@@ -291,7 +291,7 @@ export const HistoryView: React.FC = () => {
       { label: "Cancelled", value: String(stats.cancelled), color: [220, 38, 38] },
       { label: "Success Rate", value: `${stats.successRate}%`, color: [15, 23, 42] },
       { label: "Total Pallets", value: String(stats.totalPallets), color: [15, 23, 42] },
-      { label: "Qty Picked (Items)", value: stats.qtyPicked.toLocaleString(), color: [13, 148, 136] },
+      { label: "Items Picked", value: stats.qtyPicked.toLocaleString(), color: [15, 23, 42] },
       { label: "Avg Delivery Time", value: `${stats.avgDeliveryTime}h`, color: [15, 23, 42] },
     ];
 
@@ -491,239 +491,81 @@ export const HistoryView: React.FC = () => {
         </Card>
       )}
 
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-blue-100 p-2">
-              <Clock className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-              <div className="text-xs text-gray-600">Total Jobs</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-green-100 p-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-green-600">{stats.delivered}</div>
-              <div className="text-xs text-gray-600">Delivered</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-red-100 p-2">
-              <XCircle className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-red-600">{stats.cancelled}</div>
-              <div className="text-xs text-gray-600">Cancelled</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-purple-100 p-2">
-              <CalendarIcon className="h-5 w-5 text-purple-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-purple-600">{stats.successRate}%</div>
-              <div className="text-xs text-gray-600">Success Rate</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-orange-100 p-2">
-              <svg className="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-orange-600">{stats.totalPallets}</div>
-              <div className="text-xs text-gray-600">Total Pallets</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-teal-100 p-2">
-              <Package className="h-5 w-5 text-teal-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-teal-600">{stats.qtyPicked.toLocaleString()}</div>
-              <div className="text-xs text-gray-600">Qty Picked</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-indigo-100 p-2">
-              <Clock className="h-5 w-5 text-indigo-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-indigo-600">{stats.avgDeliveryTime}h</div>
-              <div className="text-xs text-gray-600">Avg Delivery</div>
-            </div>
-          </div>
-        </Card>
+      {/* Statistics Cards — intentional color system */}
+      <div className="grid gap-3 grid-cols-3 lg:grid-cols-7">
+        {([
+          { icon: Clock, label: "Total Jobs", value: String(stats.total), color: "text-gray-900", iconColor: "text-blue-600", bg: "bg-blue-50" },
+          { icon: CheckCircle2, label: "Delivered", value: String(stats.delivered), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
+          { icon: XCircle, label: "Cancelled", value: String(stats.cancelled), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },
+          { icon: CalendarIcon, label: "Success Rate", value: `${stats.successRate}%`, color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
+          { icon: Package, label: "Total Pallets", value: String(stats.totalPallets), color: "text-gray-900", iconColor: "text-orange-600", bg: "bg-orange-50" },
+          { icon: Package, label: "Items Picked", value: stats.qtyPicked.toLocaleString(), color: "text-gray-900", iconColor: "text-gray-600", bg: "bg-gray-100" },
+          { icon: Clock, label: "Avg Delivery Time", value: `${stats.avgDeliveryTime}h`, color: "text-gray-900", iconColor: "text-purple-600", bg: "bg-purple-50" },
+        ] as const).map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <Card key={kpi.label} className="p-3">
+              <div className="flex items-center gap-2.5">
+                <div className={`rounded-lg p-1.5 ${kpi.bg}`}>
+                  <Icon className={`h-4 w-4 ${kpi.iconColor}`} />
+                </div>
+                <div>
+                  <div className={`text-xl font-bold leading-tight ${kpi.color}`}>{kpi.value}</div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{kpi.label}</div>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-gray-600" />
-            <CardTitle>Filters</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Search Bar */}
-          <div className="mb-4">
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <Search className="h-5 w-5 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search by reference, customer, location..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 bg-transparent border-none outline-none text-sm text-gray-900 placeholder-gray-500"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
+      {/* Filters — compact inline */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search ref, customer, location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-3 h-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as HistoryFilter)} className="w-auto text-sm">
+          <option value="all">All Status</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </Select>
+        <Select value={selectedTransporter} onChange={(e) => setSelectedTransporter(e.target.value)} className="w-auto text-sm">
+          <option value="all">All Transporters</option>
+          {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </Select>
+        <Select value={selectedWarehouse} onChange={(e) => setSelectedWarehouse(e.target.value)} className="w-auto text-sm">
+          <option value="all">All Warehouses</option>
+          {warehouses.map((wh) => <option key={wh} value={wh}>{wh}</option>)}
+        </Select>
+        <Select value={selectedWeek} onChange={(e) => setSelectedWeek(e.target.value)} className="w-auto text-sm">
+          <option value="all">All Weeks</option>
+          {availableWeeks.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
+        </Select>
+        <Select value={selectedWeek !== "all" ? "all" : dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-auto text-sm" disabled={selectedWeek !== "all"}>
+          <option value="7d">7 Days</option>
+          <option value="30d">30 Days</option>
+          <option value="90d">90 Days</option>
+          <option value="all">All Time</option>
+          <option value="custom">Custom</option>
+        </Select>
+        <span className="text-xs text-gray-500">{completedJobs.length} jobs</span>
+      </div>
 
-          {/* Filter Controls */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as HistoryFilter)}
-                className="w-full"
-              >
-                <option value="all">All</option>
-                <option value="delivered">Delivered</option>
-                <option value="cancelled">Cancelled</option>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Transporter</label>
-              <Select
-                value={selectedTransporter}
-                onChange={(e) => setSelectedTransporter(e.target.value)}
-                className="w-full"
-              >
-                <option value="all">All Transporters</option>
-                {drivers.map((driver) => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Warehouse</label>
-              <Select
-                value={selectedWarehouse}
-                onChange={(e) => setSelectedWarehouse(e.target.value)}
-                className="w-full"
-              >
-                <option value="all">All Warehouses</option>
-                {warehouses.map((warehouse) => (
-                  <option key={warehouse} value={warehouse}>
-                    {warehouse}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Week Number</label>
-              <Select
-                value={selectedWeek}
-                onChange={(e) => setSelectedWeek(e.target.value)}
-                className="w-full"
-              >
-                <option value="all">All Weeks</option>
-                {availableWeeks.map((w) => (
-                  <option key={w.value} value={w.value}>
-                    {w.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
-              <Select
-                value={selectedWeek !== "all" ? "all" : dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full"
-                disabled={selectedWeek !== "all"}
-              >
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-                <option value="90d">Last 90 Days</option>
-                <option value="all">All Time</option>
-                <option value="custom">Custom Range</option>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">&nbsp;</label>
-              <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200">
-                Showing <span className="font-semibold text-gray-900">{completedJobs.length}</span>{" "}
-                jobs
-              </div>
-            </div>
-          </div>
-
-          {/* Custom Date Range */}
-          {dateFilter === "custom" && selectedWeek === "all" && (
-            <div className="grid gap-4 md:grid-cols-2 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Custom Date Range */}
+      {dateFilter === "custom" && selectedWeek === "all" && (
+        <div className="flex items-center gap-2">
+          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-auto text-sm" />
+          <span className="text-gray-400">to</span>
+          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-auto text-sm" />
+        </div>
+      )}
 
       {/* History Table */}
       <Card>
@@ -791,7 +633,7 @@ export const HistoryView: React.FC = () => {
                         <td className="p-3 text-gray-700">
                           {job.pallets || 0}
                           {job.outstandingQty && (
-                            <div className="text-xs text-orange-600">Out: {job.outstandingQty}</div>
+                            <div className="text-[10px] text-orange-600">{job.outstandingQty?.toLocaleString()} qty</div>
                           )}
                         </td>
                         <td className="p-3 text-gray-700 text-xs max-w-[200px]">

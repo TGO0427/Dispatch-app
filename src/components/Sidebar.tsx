@@ -6,7 +6,6 @@ import {
   Calendar,
   Grid3x3,
   Clock,
-  Settings,
   BarChart3,
   ArrowRightLeft,
   Truck,
@@ -93,7 +92,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
   ];
 
   const bottomItems: NavItem[] = [
-    { id: "settings", icon: Settings, label: "Settings", adminOnly: true },
     { id: "user-management", icon: Users, label: "User Management", adminOnly: true },
   ];
 

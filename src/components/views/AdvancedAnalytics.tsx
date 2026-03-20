@@ -274,117 +274,63 @@ export const AdvancedAnalytics: React.FC = () => {
   }, [filteredJobs, drivers]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="mb-2 text-3xl font-bold text-gray-900">Advanced Analytics</h1>
-            <p className="text-gray-600">
-              Comprehensive insights into transporter performance, quantities, and trends
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Select value={selectedWarehouse} onChange={(e) => setSelectedWarehouse(e.target.value)}>
-              <option value="all">All Warehouses</option>
-              {warehouses.map((warehouse) => (
-                <option key={warehouse} value={warehouse}>
-                  {warehouse}
-                </option>
-              ))}
-            </Select>
-            <Select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)}>
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
-              <option value="90d">Last 90 Days</option>
-              <option value="all">All Time</option>
-            </Select>
-          </div>
+    <div className="space-y-4">
+      {/* Header — compact with filters inline */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+          <p className="text-sm text-gray-500">
+            Performance insights • {kpis.totalJobs} jobs • {timeRange === "all" ? "All time" : `Last ${timeRange === "7d" ? "7 days" : timeRange === "30d" ? "30 days" : "90 days"}`}
+          </p>
         </div>
-      </Card>
+        <div className="flex items-center gap-2">
+          <Select value={selectedWarehouse} onChange={(e) => setSelectedWarehouse(e.target.value)} className="w-auto text-sm">
+            <option value="all">All Warehouses</option>
+            {warehouses.map((wh) => <option key={wh} value={wh}>{wh}</option>)}
+          </Select>
+          <Select value={timeRange} onChange={(e) => setTimeRange(e.target.value as "7d" | "30d" | "90d" | "all")} className="w-auto text-sm">
+            <option value="7d">7 Days</option>
+            <option value="30d">30 Days</option>
+            <option value="90d">90 Days</option>
+            <option value="all">All Time</option>
+          </Select>
+        </div>
+      </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-blue-100 p-2">
-              <Package className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{kpis.totalJobs}</div>
-              <div className="text-xs text-gray-600">Total Jobs</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-green-100 p-2">
-              <TrendingUp className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{kpis.deliveredJobs}</div>
-              <div className="text-xs text-gray-600">Delivered</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-green-100 p-2">
-              <BarChart3 className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{kpis.deliveryRate}%</div>
-              <div className="text-xs text-gray-600">Delivery Rate</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-red-100 p-2">
-              <Calendar className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{kpis.exceptionsCount}</div>
-              <div className="text-xs text-gray-600">Exceptions</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-orange-100 p-2">
-              <PieChartIcon className="h-5 w-5 text-orange-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{kpis.exceptionRate}%</div>
-              <div className="text-xs text-gray-600">Exception Rate</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-purple-100 p-2">
-              <Truck className="h-5 w-5 text-purple-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{kpis.activeTransporters}</div>
-              <div className="text-xs text-gray-600">Active Transporters</div>
-            </div>
-          </div>
-        </Card>
+      {/* KPI Strip — tighter, stronger hierarchy */}
+      <div className="grid gap-3 grid-cols-3 lg:grid-cols-6">
+        {([
+          { icon: Package, label: "Total Jobs", value: String(kpis.totalJobs), color: "text-gray-900", iconColor: "text-blue-600", bg: "bg-blue-50" },
+          { icon: TrendingUp, label: "Delivered", value: String(kpis.deliveredJobs), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
+          { icon: BarChart3, label: "Delivery Rate", value: `${kpis.deliveryRate}%`, color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
+          { icon: Calendar, label: "Exceptions", value: String(kpis.exceptionsCount), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },
+          { icon: PieChartIcon, label: "Exception Rate", value: `${kpis.exceptionRate}%`, color: "text-amber-600", iconColor: "text-amber-600", bg: "bg-amber-50" },
+          { icon: Truck, label: "Transporters", value: String(kpis.activeTransporters), color: "text-gray-900", iconColor: "text-gray-600", bg: "bg-gray-100" },
+        ] as const).map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <Card key={kpi.label} className="p-3">
+              <div className="flex items-center gap-2.5">
+                <div className={`rounded-lg p-1.5 ${kpi.bg}`}>
+                  <Icon className={`h-4 w-4 ${kpi.iconColor}`} />
+                </div>
+                <div>
+                  <div className={`text-xl font-bold leading-tight ${kpi.color}`}>{kpi.value}</div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{kpi.label}</div>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Charts Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Transporter Performance */}
         <Card>
           <CardHeader>
             <CardTitle>Transporter Performance</CardTitle>
-            <p className="text-sm text-gray-600">Jobs completed and capacity utilization by transporter</p>
+            <p className="text-xs text-gray-400 mt-0.5">Jobs completed and capacity utilization by transporter</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -407,11 +353,11 @@ export const AdvancedAnalytics: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Jobs by Status */}
+        {/* Jobs by Status — donut with legend */}
         <Card>
           <CardHeader>
             <CardTitle>Jobs by Status</CardTitle>
-            <p className="text-sm text-gray-600">Distribution of job statuses</p>
+            <p className="text-sm text-gray-500">Distribution of job statuses</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -420,9 +366,9 @@ export const AdvancedAnalytics: React.FC = () => {
                   data={jobsByStatus}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={({ status, count }) => `${status}: ${count}`}
+                  innerRadius={60}
                   outerRadius={100}
+                  paddingAngle={2}
                   fill="#8884d8"
                   dataKey="count"
                 >
@@ -431,12 +377,9 @@ export const AdvancedAnalytics: React.FC = () => {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                  }}
+                  contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }}
                 />
+                <Legend verticalAlign="bottom" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "12px" }} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -446,7 +389,7 @@ export const AdvancedAnalytics: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle>Pallets Loaded by Transporter</CardTitle>
-            <p className="text-sm text-gray-600">Total pallets handled by each transporter</p>
+            <p className="text-xs text-gray-400 mt-0.5">Total pallets handled by each transporter</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -473,7 +416,7 @@ export const AdvancedAnalytics: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle>Quantity Analysis</CardTitle>
-            <p className="text-sm text-gray-600">Breakdown of pallets and outstanding quantities</p>
+            <p className="text-xs text-gray-400 mt-0.5">Breakdown of pallets and outstanding quantities</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -498,7 +441,7 @@ export const AdvancedAnalytics: React.FC = () => {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Jobs Frequency Timeline</CardTitle>
-            <p className="text-sm text-gray-600">Daily jobs created vs delivered</p>
+            <p className="text-xs text-gray-400 mt-0.5">Daily jobs created vs delivered</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -545,11 +488,11 @@ export const AdvancedAnalytics: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Warehouse Distribution */}
+        {/* Warehouse Distribution — donut with legend */}
         <Card>
           <CardHeader>
             <CardTitle>Warehouse Distribution</CardTitle>
-            <p className="text-sm text-gray-600">Jobs by warehouse location</p>
+            <p className="text-sm text-gray-500">Jobs by warehouse location</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -558,9 +501,9 @@ export const AdvancedAnalytics: React.FC = () => {
                   data={warehouseDistribution}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={({ warehouse, count }) => `${warehouse}: ${count}`}
+                  innerRadius={60}
                   outerRadius={100}
+                  paddingAngle={2}
                   fill="#8884d8"
                   dataKey="count"
                 >
@@ -569,12 +512,9 @@ export const AdvancedAnalytics: React.FC = () => {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                  }}
+                  contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }}
                 />
+                <Legend verticalAlign="bottom" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "12px" }} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -584,7 +524,7 @@ export const AdvancedAnalytics: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle>Priority Distribution</CardTitle>
-            <p className="text-sm text-gray-600">Jobs by priority level</p>
+            <p className="text-xs text-gray-400 mt-0.5">Jobs by priority level</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -609,7 +549,7 @@ export const AdvancedAnalytics: React.FC = () => {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Transporter Capacity Utilization</CardTitle>
-            <p className="text-sm text-gray-600">
+            <p className="text-xs text-gray-400 mt-0.5">
               Utilization rate by transporter (Pallets Loaded / Capacity)
             </p>
           </CardHeader>

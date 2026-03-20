@@ -20,6 +20,7 @@ model Job {
   jobType     String   @default("order") @db.VarChar(50)
   serviceType      String?  @db.VarChar(50)   // "delivery" or "collection"
   transportService String?  @db.VarChar(50)   // "express", "economy", "outline"
+  truckSize        String?  @db.VarChar(50)   // "1ton", "4ton", "8ton", "6m", "12m", "superlink"
   etd              String?  @db.VarChar(255)  // Estimated Time of Departure
 
   pallets          Int?

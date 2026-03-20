@@ -80,6 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           coaAvailable: req.body.coaAvailable,
           serviceType: req.body.serviceType,
           transportService: req.body.transportService,
+          truckSize: req.body.truckSize,
           etd: req.body.etd,
         },
       });

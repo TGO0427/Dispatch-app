@@ -19,6 +19,16 @@ export type JobType = "order" | "ibt";
 
 export type ServiceType = "delivery" | "collection";
 export type TransportService = "express" | "economy" | "outline";
+export type TruckSize = "1ton" | "4ton" | "8ton" | "6m" | "12m" | "superlink";
+
+export const TRUCK_SIZES: { value: TruckSize; label: string }[] = [
+  { value: "1ton", label: "1 Ton Bakkie" },
+  { value: "4ton", label: "4 Tonner" },
+  { value: "8ton", label: "8 Tonner" },
+  { value: "6m", label: "6m" },
+  { value: "12m", label: "12m" },
+  { value: "superlink", label: "SuperLink" },
+];
 
 export const SERVICE_TYPES: ServiceType[] = ["delivery", "collection"];
 export const TRANSPORT_SERVICES: { value: TransportService; label: string; hours: number; businessDays: number }[] = [
@@ -63,6 +73,7 @@ export interface Job {
   jobType?: JobType;       // "order" or "ibt" - distinguishes between customer orders and IBT jobs
   serviceType?: ServiceType; // "delivery" (we arrange transport) or "collection" (customer collects / ex works)
   transportService?: TransportService; // "express" (24h), "economy" (48h), "outline" (96h)
+  truckSize?: TruckSize; // "1ton", "4ton", "8ton", "6m", "12m", "superlink"
   etd?: string; // Estimated Time of Departure - calculated from ETA minus lead time
 
   pallets?: number;

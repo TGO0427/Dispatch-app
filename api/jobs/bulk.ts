@@ -67,6 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       coaAvailable: job.coaAvailable as boolean | undefined,
       serviceType: job.serviceType as string | undefined,
       transportService: job.transportService as string | undefined,
+      truckSize: job.truckSize as string | undefined,
       etd: job.etd as string | undefined,
     }));
 

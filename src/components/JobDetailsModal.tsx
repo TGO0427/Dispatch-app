@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { X, MapPin, User, Calendar, Package, AlertCircle, Edit2, Save, Undo2, List } from "lucide-react";
-import { Job, JobStatus, JobPriority, ServiceType, JOB_STATUSES, JOB_PRIORITIES } from "../types";
+import { Job, JobStatus, JobPriority, ServiceType, TruckSize, JOB_STATUSES, JOB_PRIORITIES, TRUCK_SIZES } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { useDispatch } from "../context/DispatchContext";
 import { useNotification } from "../context/NotificationContext";
@@ -86,6 +86,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
     if (editedJob.coaAvailable !== job.coaAvailable) sharedUpdates.coaAvailable = editedJob.coaAvailable;
     if (editedJob.readyForDispatch !== job.readyForDispatch) sharedUpdates.readyForDispatch = editedJob.readyForDispatch;
     if (editedJob.transportService !== job.transportService) sharedUpdates.transportService = editedJob.transportService;
+    if (editedJob.truckSize !== job.truckSize) sharedUpdates.truckSize = editedJob.truckSize;
     if (editedJob.etd !== job.etd) sharedUpdates.etd = editedJob.etd;
     if (updates.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
     if (updates.exceptionReason !== undefined) sharedUpdates.exceptionReason = updates.exceptionReason;
@@ -253,6 +254,29 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   </span>
                 )}
               </div>
+            )}
+          </div>
+
+          {/* Truck Size */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
+              Truck Size
+            </div>
+            {isEditing ? (
+              <select
+                value={editedJob.truckSize || ""}
+                onChange={(e) => updateField("truckSize", e.target.value as TruckSize || undefined)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select truck size...</option>
+                {TRUCK_SIZES.map((ts) => (
+                  <option key={ts.value} value={ts.value}>{ts.label}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="font-semibold">
+                {job.truckSize ? TRUCK_SIZES.find((ts) => ts.value === job.truckSize)?.label || job.truckSize : "—"}
+              </p>
             )}
           </div>
 

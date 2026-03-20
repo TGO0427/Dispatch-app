@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { Clock, Search, Filter, Download, Calendar as CalendarIcon, CheckCircle2, XCircle } from "lucide-react";
 import { useDispatch } from "../../context/DispatchContext";
+import { TRUCK_SIZES } from "../../types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -11,12 +12,22 @@ import * as XLSX from "xlsx";
 
 type HistoryFilter = "all" | "delivered" | "cancelled";
 
+// Helper: get ISO week number
+function getWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
 export const HistoryView: React.FC = () => {
   const { jobs, drivers } = useDispatch();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<HistoryFilter>("all");
   const [selectedTransporter, setSelectedTransporter] = useState<string>("all");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
+  const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("30d");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -28,6 +39,24 @@ export const HistoryView: React.FC = () => {
       if (job.warehouse) uniqueWarehouses.add(job.warehouse);
     });
     return Array.from(uniqueWarehouses).sort();
+  }, [jobs]);
+
+  // Get available weeks from completed jobs
+  const availableWeeks = useMemo(() => {
+    const weekSet = new Map<string, string>(); // value -> label
+    jobs
+      .filter((j) => j.status === "delivered" || j.status === "cancelled")
+      .forEach((job) => {
+        const date = new Date(job.actualDeliveryAt || job.updatedAt);
+        const weekNum = getWeekNumber(date);
+        const year = date.getFullYear();
+        const value = `${year}-W${String(weekNum).padStart(2, "0")}`;
+        const label = `Week ${weekNum}, ${year}`;
+        weekSet.set(value, label);
+      });
+    return Array.from(weekSet.entries())
+      .sort((a, b) => b[0].localeCompare(a[0])) // newest first
+      .map(([value, label]) => ({ value, label }));
   }, [jobs]);
 
   // Filter completed/cancelled jobs
@@ -53,27 +82,40 @@ export const HistoryView: React.FC = () => {
       filtered = filtered.filter((job) => job.warehouse === selectedWarehouse);
     }
 
-    // Date filter
-    const now = new Date();
-    if (dateFilter === "custom" && startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+    // Week filter
+    if (selectedWeek !== "all") {
       filtered = filtered.filter((job) => {
-        const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
-        return completedDate >= start && completedDate <= end;
+        const date = new Date(job.actualDeliveryAt || job.updatedAt);
+        const weekNum = getWeekNumber(date);
+        const year = date.getFullYear();
+        const jobWeek = `${year}-W${String(weekNum).padStart(2, "0")}`;
+        return jobWeek === selectedWeek;
       });
-    } else if (dateFilter !== "all") {
-      let daysBack = 0;
-      if (dateFilter === "7d") daysBack = 7;
-      else if (dateFilter === "30d") daysBack = 30;
-      else if (dateFilter === "90d") daysBack = 90;
+    }
 
-      if (daysBack > 0) {
-        const cutoffDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+    // Date filter (only when week filter is not active)
+    if (selectedWeek === "all") {
+      const now = new Date();
+      if (dateFilter === "custom" && startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
         filtered = filtered.filter((job) => {
           const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
-          return completedDate >= cutoffDate;
+          return completedDate >= start && completedDate <= end;
         });
+      } else if (dateFilter !== "all") {
+        let daysBack = 0;
+        if (dateFilter === "7d") daysBack = 7;
+        else if (dateFilter === "30d") daysBack = 30;
+        else if (dateFilter === "90d") daysBack = 90;
+
+        if (daysBack > 0) {
+          const cutoffDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+          filtered = filtered.filter((job) => {
+            const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
+            return completedDate >= cutoffDate;
+          });
+        }
       }
     }
 
@@ -106,6 +148,7 @@ export const HistoryView: React.FC = () => {
     statusFilter,
     selectedTransporter,
     selectedWarehouse,
+    selectedWeek,
     dateFilter,
     startDate,
     endDate,
@@ -121,7 +164,6 @@ export const HistoryView: React.FC = () => {
 
     const totalPallets = completedJobs.reduce((sum, job) => sum + (job.pallets || 0), 0);
 
-    // Calculate average delivery time (for delivered jobs)
     const deliveredWithDates = completedJobs.filter(
       (j) => j.status === "delivered" && j.actualDeliveryAt
     );
@@ -129,8 +171,8 @@ export const HistoryView: React.FC = () => {
     if (deliveredWithDates.length > 0) {
       const totalHours = deliveredWithDates.reduce((sum, job) => {
         const created = new Date(job.createdAt).getTime();
-        const delivered = new Date(job.actualDeliveryAt!).getTime();
-        return sum + (delivered - created) / (1000 * 60 * 60);
+        const deliveredAt = new Date(job.actualDeliveryAt!).getTime();
+        return sum + (deliveredAt - created) / (1000 * 60 * 60);
       }, 0);
       avgDeliveryTime = Math.round(totalHours / deliveredWithDates.length);
     }
@@ -145,33 +187,42 @@ export const HistoryView: React.FC = () => {
     };
   }, [completedJobs]);
 
+  const getTruckSizeLabel = (size?: string) => {
+    if (!size) return "—";
+    return TRUCK_SIZES.find((ts) => ts.value === size)?.label || size;
+  };
+
   // Export to Excel
   const exportToExcel = () => {
-    const data = completedJobs.map((job) => ({
-      Reference: job.ref,
-      Customer: job.customer,
-      Status: job.status,
-      Priority: job.priority,
-      Pickup: job.pickup,
-      Dropoff: job.dropoff,
-      Warehouse: job.warehouse || "N/A",
-      Transporter: job.driverId
-        ? drivers.find((d) => d.id === job.driverId)?.name || "Unknown"
-        : "Unassigned",
-      Pallets: job.pallets || 0,
-      "Outstanding Qty": job.outstandingQty || 0,
-      "Created Date": new Date(job.createdAt).toLocaleString(),
-      "Completed Date": job.actualDeliveryAt
-        ? new Date(job.actualDeliveryAt).toLocaleString()
-        : new Date(job.updatedAt).toLocaleString(),
-      ETA: job.eta || "N/A",
-      Notes: job.notes || "",
-    }));
+    const data = completedJobs.map((job) => {
+      const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
+      return {
+        Reference: job.ref,
+        Customer: job.customer,
+        Status: job.status,
+        Priority: job.priority,
+        Pickup: job.pickup,
+        Dropoff: job.dropoff,
+        Warehouse: job.warehouse || "N/A",
+        Transporter: job.driverId
+          ? drivers.find((d) => d.id === job.driverId)?.name || "Unknown"
+          : "Unassigned",
+        "Truck Size": getTruckSizeLabel(job.truckSize),
+        Pallets: job.pallets || 0,
+        "Outstanding Qty": job.outstandingQty || 0,
+        "Week Number": `W${getWeekNumber(completedDate)}`,
+        "Created Date": new Date(job.createdAt).toLocaleString(),
+        "Completed Date": completedDate.toLocaleString(),
+        ETA: job.eta || "N/A",
+        Notes: job.notes || "",
+      };
+    });
 
+    const weekSuffix = selectedWeek !== "all" ? `-${selectedWeek}` : "";
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "History");
-    XLSX.writeFile(workbook, `job-history-${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.writeFile(workbook, `job-history${weekSuffix}-${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const getDriverName = (driverId?: string) => {
@@ -262,18 +313,8 @@ export const HistoryView: React.FC = () => {
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-orange-100 p-2">
-              <svg
-                className="h-5 w-5 text-orange-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                />
+              <svg className="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
             </div>
             <div>
@@ -328,7 +369,7 @@ export const HistoryView: React.FC = () => {
           </div>
 
           {/* Filter Controls */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
               <Select
@@ -375,11 +416,28 @@ export const HistoryView: React.FC = () => {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Week Number</label>
+              <Select
+                value={selectedWeek}
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                className="w-full"
+              >
+                <option value="all">All Weeks</option>
+                {availableWeeks.map((w) => (
+                  <option key={w.value} value={w.value}>
+                    {w.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
               <Select
-                value={dateFilter}
+                value={selectedWeek !== "all" ? "all" : dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
                 className="w-full"
+                disabled={selectedWeek !== "all"}
               >
                 <option value="7d">Last 7 Days</option>
                 <option value="30d">Last 30 Days</option>
@@ -399,7 +457,7 @@ export const HistoryView: React.FC = () => {
           </div>
 
           {/* Custom Date Range */}
-          {dateFilter === "custom" && (
+          {dateFilter === "custom" && selectedWeek === "all" && (
             <div className="grid gap-4 md:grid-cols-2 mt-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
@@ -427,7 +485,14 @@ export const HistoryView: React.FC = () => {
       {/* History Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Completed Jobs History</CardTitle>
+          <CardTitle>
+            Completed Jobs History
+            {selectedWeek !== "all" && (
+              <span className="ml-2 text-sm font-normal text-blue-600">
+                — {availableWeeks.find((w) => w.value === selectedWeek)?.label}
+              </span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -440,46 +505,55 @@ export const HistoryView: React.FC = () => {
                   <th className="text-left p-3 font-semibold text-gray-700">Route</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Warehouse</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
+                  <th className="text-left p-3 font-semibold text-gray-700">Truck Size</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Pallets</th>
+                  <th className="text-left p-3 font-semibold text-gray-700">Week</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Completed</th>
                 </tr>
               </thead>
               <tbody>
                 {completedJobs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-12 text-gray-500">
+                    <td colSpan={10} className="text-center py-12 text-gray-500">
                       No completed jobs found matching your filters
                     </td>
                   </tr>
                 ) : (
-                  completedJobs.map((job) => (
-                    <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="p-3 font-medium text-gray-900">{job.ref}</td>
-                      <td className="p-3 text-gray-700">{job.customer}</td>
-                      <td className="p-3">
-                        <Badge
-                          variant={job.status === "delivered" ? "success" : "destructive"}
-                        >
-                          {job.status}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-gray-700 text-xs">
-                        <div>{job.pickup}</div>
-                        <div className="text-gray-400">→ {job.dropoff}</div>
-                      </td>
-                      <td className="p-3 text-gray-700 text-xs">{job.warehouse || "—"}</td>
-                      <td className="p-3 text-gray-700">{getDriverName(job.driverId)}</td>
-                      <td className="p-3 text-gray-700">
-                        {job.pallets || 0}
-                        {job.outstandingQty && (
-                          <div className="text-xs text-orange-600">Out: {job.outstandingQty}</div>
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-600 text-xs">
-                        {formatDate(job.actualDeliveryAt || job.updatedAt)}
-                      </td>
-                    </tr>
-                  ))
+                  completedJobs.map((job) => {
+                    const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
+                    return (
+                      <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="p-3 font-medium text-gray-900">{job.ref}</td>
+                        <td className="p-3 text-gray-700">{job.customer}</td>
+                        <td className="p-3">
+                          <Badge variant={job.status === "delivered" ? "success" : "destructive"}>
+                            {job.status}
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-gray-700 text-xs">
+                          <div>{job.pickup}</div>
+                          <div className="text-gray-400">→ {job.dropoff}</div>
+                        </td>
+                        <td className="p-3 text-gray-700 text-xs">{job.warehouse || "—"}</td>
+                        <td className="p-3 text-gray-700">{getDriverName(job.driverId)}</td>
+                        <td className="p-3 text-gray-700 text-xs">{getTruckSizeLabel(job.truckSize)}</td>
+                        <td className="p-3 text-gray-700">
+                          {job.pallets || 0}
+                          {job.outstandingQty && (
+                            <div className="text-xs text-orange-600">Out: {job.outstandingQty}</div>
+                          )}
+                        </td>
+                        <td className="p-3 text-gray-700">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                            W{getWeekNumber(completedDate)}
+                          </span>
+                        </td>
+                        <td className="p-3 text-gray-600 text-xs">
+                          {formatDate(job.actualDeliveryAt || job.updatedAt)}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

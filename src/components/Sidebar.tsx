@@ -19,6 +19,7 @@ import {
   Search,
   Sun,
   Moon,
+  HelpCircle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useDispatch } from "../context/DispatchContext";
@@ -29,6 +30,7 @@ interface SidebarProps {
   onItemChange: (item: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  onOpenHelp?: () => void;
 }
 
 interface NavItem {
@@ -46,7 +48,7 @@ interface NavSection {
   items: NavItem[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, collapsed, onToggleCollapse }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, collapsed, onToggleCollapse, onOpenHelp }) => {
   const { user, logout } = useAuth();
   const { jobs } = useDispatch();
   const { theme, toggle: toggleTheme } = useTheme();
@@ -302,6 +304,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
             </button>
           );
         })}
+
+        {/* Help Guide */}
+        {onOpenHelp && (
+          <button
+            onClick={onOpenHelp}
+            className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-slate-500 hover:text-blue-400 hover:bg-white/[0.06] ${
+              collapsed ? "justify-center px-2 py-2.5" : "px-3.5 py-2.5"
+            }`}
+            title={collapsed ? "Help Guide" : undefined}
+          >
+            <HelpCircle className="w-[17px] h-[17px] flex-shrink-0" />
+            {!collapsed && <span className="text-[13px] font-medium">Help Guide</span>}
+          </button>
+        )}
 
         {/* Theme Toggle */}
         <button

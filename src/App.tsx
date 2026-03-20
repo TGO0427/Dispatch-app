@@ -8,6 +8,7 @@ import { Login } from "./components/views/Login";
 import { ForgotPassword } from "./components/views/ForgotPassword";
 import { ResetPassword } from "./components/views/ResetPassword";
 import { ConnectionStatus } from "./components/ConnectionStatus";
+import { HelpGuide } from "./components/HelpGuide";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useDispatch } from "./context/DispatchContext";
@@ -43,6 +44,7 @@ function AppContent() {
   const [activeNavItem, setActiveNavItem] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [alertHubOpen, setAlertHubOpen] = useState(false);
+  const [helpGuideOpen, setHelpGuideOpen] = useState(false);
   const [selectedJobFromAlert, setSelectedJobFromAlert] = useState<string | null>(null);
   const [authView, setAuthView] = useState<AuthView>("login");
   const [resetToken, setResetToken] = useState<string | null>(null);
@@ -143,6 +145,7 @@ function AppContent() {
           onItemChange={setActiveNavItem}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onOpenHelp={() => setHelpGuideOpen(true)}
         />
 
         <div className={`${sidebarCollapsed ? "ml-16" : "ml-[280px]"} min-h-screen transition-all duration-300`}>
@@ -166,6 +169,13 @@ function AppContent() {
             driverName={alertJobDriver}
           />
         )}
+
+        {/* Help Guide */}
+        <HelpGuide
+          open={helpGuideOpen}
+          onClose={() => setHelpGuideOpen(false)}
+          onNavigateTo={(page) => setActiveNavItem(page)}
+        />
       </div>
     </ProtectedRoute>
   );

@@ -1,6 +1,6 @@
 // src/components/views/HistoryView.tsx
 import React, { useMemo, useState } from "react";
-import { Clock, Search, Filter, Download, Calendar as CalendarIcon, CheckCircle2, XCircle, FileText } from "lucide-react";
+import { Clock, Search, Filter, Download, Calendar as CalendarIcon, CheckCircle2, XCircle, FileText, Package } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useDispatch } from "../../context/DispatchContext";
@@ -166,6 +166,11 @@ export const HistoryView: React.FC = () => {
 
     const totalPallets = completedJobs.reduce((sum, job) => sum + (job.pallets || 0), 0);
 
+    // Qty picked: sum outstandingQty for delivered items, fallback to pallets
+    const qtyPicked = completedJobs
+      .filter((j) => j.status === "delivered")
+      .reduce((sum, job) => sum + (job.outstandingQty || job.pallets || 0), 0);
+
     const deliveredWithDates = completedJobs.filter(
       (j) => j.status === "delivered" && j.actualDeliveryAt
     );
@@ -185,6 +190,7 @@ export const HistoryView: React.FC = () => {
       cancelled,
       successRate,
       totalPallets,
+      qtyPicked,
       avgDeliveryTime,
     };
   }, [completedJobs]);
@@ -262,13 +268,14 @@ export const HistoryView: React.FC = () => {
     const cardY = 29;
     const cardH = 18;
     const gap = 4;
-    const cardW = (pw - 28 - gap * 5) / 6;
+    const cardW = (pw - 28 - gap * 6) / 7;
     const cards: { label: string; value: string; color: number[] }[] = [
       { label: "Total Jobs", value: String(stats.total), color: [15, 23, 42] },
       { label: "Delivered", value: String(stats.delivered), color: [22, 163, 74] },
       { label: "Cancelled", value: String(stats.cancelled), color: [220, 38, 38] },
       { label: "Success Rate", value: `${stats.successRate}%`, color: [15, 23, 42] },
       { label: "Total Pallets", value: String(stats.totalPallets), color: [15, 23, 42] },
+      { label: "Qty Picked", value: stats.qtyPicked.toLocaleString(), color: [13, 148, 136] },
       { label: "Avg Delivery Time", value: `${stats.avgDeliveryTime}h`, color: [15, 23, 42] },
     ];
 
@@ -469,7 +476,7 @@ export const HistoryView: React.FC = () => {
       )}
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-blue-100 p-2">
@@ -528,6 +535,18 @@ export const HistoryView: React.FC = () => {
             <div>
               <div className="text-2xl font-bold text-orange-600">{stats.totalPallets}</div>
               <div className="text-xs text-gray-600">Total Pallets</div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-teal-100 p-2">
+              <Package className="h-5 w-5 text-teal-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-teal-600">{stats.qtyPicked.toLocaleString()}</div>
+              <div className="text-xs text-gray-600">Qty Picked</div>
             </div>
           </div>
         </Card>

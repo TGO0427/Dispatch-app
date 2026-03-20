@@ -1,6 +1,8 @@
 // src/components/views/HistoryView.tsx
 import React, { useMemo, useState } from "react";
-import { Clock, Search, Filter, Download, Calendar as CalendarIcon, CheckCircle2, XCircle } from "lucide-react";
+import { Clock, Search, Filter, Download, Calendar as CalendarIcon, CheckCircle2, XCircle, FileText } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useDispatch } from "../../context/DispatchContext";
 import { TRUCK_SIZES } from "../../types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
@@ -225,6 +227,128 @@ export const HistoryView: React.FC = () => {
     XLSX.writeFile(workbook, `job-history${weekSuffix}-${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
+  // Export to PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const weekLabel = selectedWeek !== "all"
+      ? availableWeeks.find((w) => w.value === selectedWeek)?.label || selectedWeek
+      : "All Weeks";
+    const reportDate = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+
+    // --- Header ---
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, pageWidth, 28, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("K58 Dispatch — Job History Report", 14, 12);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${weekLabel}  |  Generated: ${reportDate}`, 14, 20);
+
+    // --- Summary Cards ---
+    const cardY = 34;
+    const cardW = (pageWidth - 28 - 25) / 6; // 6 cards with gaps
+    const cards = [
+      { label: "Total Jobs", value: String(stats.total), color: [37, 99, 235] },
+      { label: "Delivered", value: String(stats.delivered), color: [22, 163, 74] },
+      { label: "Cancelled", value: String(stats.cancelled), color: [220, 38, 38] },
+      { label: "Success Rate", value: `${stats.successRate}%`, color: [147, 51, 234] },
+      { label: "Total Pallets", value: String(stats.totalPallets), color: [234, 88, 12] },
+      { label: "Avg Delivery", value: `${stats.avgDeliveryTime}h`, color: [79, 70, 229] },
+    ];
+
+    cards.forEach((card, i) => {
+      const x = 14 + i * (cardW + 5);
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.roundedRect(x, cardY, cardW, 20, 2, 2, "F");
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.roundedRect(x, cardY, cardW, 20, 2, 2, "S");
+      doc.setTextColor(card.color[0], card.color[1], card.color[2]);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(card.value, x + cardW / 2, cardY + 10, { align: "center" });
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text(card.label.toUpperCase(), x + cardW / 2, cardY + 16, { align: "center" });
+    });
+
+    // --- Table ---
+    const tableData = completedJobs.map((job) => {
+      const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
+      return [
+        job.ref,
+        job.customer,
+        job.status === "delivered" ? "Delivered" : "Cancelled",
+        `${job.pickup} → ${job.dropoff}`,
+        job.warehouse || "—",
+        job.driverId ? drivers.find((d) => d.id === job.driverId)?.name || "Unknown" : "Unassigned",
+        getTruckSizeLabel(job.truckSize),
+        String(job.pallets || 0),
+        job.notes || "—",
+        `W${getWeekNumber(completedDate)}`,
+        completedDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      ];
+    });
+
+    autoTable(doc, {
+      startY: cardY + 28,
+      head: [["Reference", "Customer", "Status", "Route", "Warehouse", "Transporter", "Truck Size", "Pallets", "Line Items", "Week", "Completed"]],
+      body: tableData,
+      theme: "grid",
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 7,
+        cellPadding: 3,
+      },
+      bodyStyles: {
+        fontSize: 7,
+        cellPadding: 2.5,
+        textColor: [30, 41, 59],
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      columnStyles: {
+        0: { cellWidth: 22 },    // Reference
+        2: { cellWidth: 16 },    // Status
+        7: { cellWidth: 14 },    // Pallets
+        9: { cellWidth: 12 },    // Week
+        10: { cellWidth: 22 },   // Completed
+      },
+      styles: {
+        lineColor: [226, 232, 240],
+        lineWidth: 0.2,
+        overflow: "linebreak",
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: () => {
+        // Footer on each page
+        const pageH = doc.internal.pageSize.getHeight();
+        doc.setFillColor(248, 250, 252);
+        doc.rect(0, pageH - 10, pageWidth, 10, "F");
+        doc.setDrawColor(226, 232, 240);
+        doc.line(0, pageH - 10, pageWidth, pageH - 10);
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(7);
+        doc.text("K58 Dispatch — Confidential", 14, pageH - 4);
+        doc.text(
+          `Page ${(doc as any).internal.getCurrentPageInfo().pageNumber}`,
+          pageWidth - 14,
+          pageH - 4,
+          { align: "right" }
+        );
+      },
+    });
+
+    const weekSuffix = selectedWeek !== "all" ? `-${selectedWeek}` : "";
+    doc.save(`dispatch-report${weekSuffix}-${new Date().toISOString().split("T")[0]}.pdf`);
+  };
+
   const getDriverName = (driverId?: string) => {
     if (!driverId) return "Unassigned";
     return drivers.find((d) => d.id === driverId)?.name || "Unknown";
@@ -250,13 +374,24 @@ export const HistoryView: React.FC = () => {
             <div className="flex items-center gap-3 mb-2">
               <Clock className="h-8 w-8 text-blue-600" />
               <h1 className="text-3xl font-bold text-gray-900">Job History</h1>
+              {selectedWeek !== "all" && (
+                <span className="ml-2 inline-flex items-center px-3 py-1 rounded-lg bg-blue-100 text-blue-700 text-sm font-semibold">
+                  {availableWeeks.find((w) => w.value === selectedWeek)?.label}
+                </span>
+              )}
             </div>
             <p className="text-gray-600">View completed and cancelled jobs with detailed tracking</p>
           </div>
-          <Button onClick={exportToExcel} className="gap-2">
-            <Download className="h-4 w-4" />
-            Export to Excel
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={exportToPDF} className="gap-2 bg-slate-800 hover:bg-slate-900">
+              <FileText className="h-4 w-4" />
+              Export PDF
+            </Button>
+            <Button onClick={exportToExcel} className="gap-2">
+              <Download className="h-4 w-4" />
+              Export Excel
+            </Button>
+          </div>
         </div>
       </Card>
 

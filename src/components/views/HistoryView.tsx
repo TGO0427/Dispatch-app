@@ -166,8 +166,8 @@ export const HistoryView: React.FC = () => {
 
     const totalPallets = completedJobs.reduce((sum, job) => sum + (job.pallets || 0), 0);
 
-    // Qty picked: count of delivered line items
-    const qtyPicked = completedJobs.filter((j) => j.status === "delivered").length;
+    // Qty picked: count of line items with orderPicked checked (picked from warehouse)
+    const qtyPicked = completedJobs.filter((j) => j.orderPicked).length;
 
     const deliveredWithDates = completedJobs.filter(
       (j) => j.status === "delivered" && j.actualDeliveryAt

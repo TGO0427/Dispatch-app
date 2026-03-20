@@ -6,6 +6,7 @@ import {
   Calendar,
   Grid3x3,
   Clock,
+  Settings as SettingsIcon,
   BarChart3,
   ArrowRightLeft,
   Truck,
@@ -14,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  Users,
   Search,
   Sun,
   Moon,
@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
   ];
 
   const bottomItems: NavItem[] = [
-    { id: "user-management", icon: Users, label: "User Management", adminOnly: true },
+    { id: "settings", icon: SettingsIcon, label: "Settings" },
   ];
 
   const filteredBottomItems = bottomItems.filter(item => {

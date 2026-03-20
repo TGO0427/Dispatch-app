@@ -204,6 +204,53 @@ async function handleResetPassword(req: VercelRequest, res: VercelResponse) {
   return res.json({ success: true, message: "Password has been reset successfully." });
 }
 
+// POST /api/auth?action=change-password (authenticated)
+async function handleChangePassword(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "POST") return res.status(405).json({ success: false, message: "Method not allowed" });
+
+  // Verify JWT
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+  let decoded: { id: string };
+  try {
+    decoded = jwt.verify(authHeader.substring(7), JWT_SECRET) as { id: string };
+  } catch {
+    return res.status(401).json({ success: false, message: "Invalid or expired token" });
+  }
+
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ success: false, message: "Current and new password are required" });
+  }
+  if (newPassword.length < 12) {
+    return res.status(400).json({ success: false, message: "New password must be at least 12 characters" });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+  if (!user) {
+    return res.status(404).json({ success: false, message: "User not found" });
+  }
+
+  // Verify current password
+  if (!user.password.startsWith("$2")) {
+    return res.status(400).json({ success: false, message: "Please contact your administrator to reset your password" });
+  }
+  const isMatch = await bcrypt.compare(currentPassword, user.password);
+  if (!isMatch) {
+    return res.status(401).json({ success: false, message: "Current password is incorrect" });
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashedPassword },
+  });
+
+  return res.json({ success: true, message: "Password changed successfully" });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -217,6 +264,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case "logout": return await handleLogout(req, res);
       case "forgot-password": return await handleForgotPassword(req, res);
       case "reset-password": return await handleResetPassword(req, res);
+      case "change-password": return await handleChangePassword(req, res);
       default:
         return res.status(400).json({ success: false, message: `Unknown action: ${action}` });
     }

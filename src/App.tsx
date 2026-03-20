@@ -26,6 +26,7 @@ const AdvancedAnalytics = lazy(() => import("./components/views/AdvancedAnalytic
 const HistoryView = lazy(() => import("./components/views/HistoryView").then(m => ({ default: m.HistoryView })));
 const IBTReports = lazy(() => import("./components/views/IBTReports").then(m => ({ default: m.IBTReports })));
 const UserManagement = lazy(() => import("./components/views/UserManagement").then(m => ({ default: m.UserManagement })));
+const SettingsView = lazy(() => import("./components/views/SettingsView").then(m => ({ default: m.SettingsView })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[400px]">
@@ -87,6 +88,7 @@ function AppContent() {
       case "clock":
         view = <HistoryView />; break;
       case "settings":
+        view = <SettingsView />; break;
       case "user-management":
         if (user?.role === "admin") {
           view = <UserManagement />; break;

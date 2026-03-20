@@ -245,7 +245,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const addNotification = useCallback((type: NotificationType, message: string) => {
     const id = `notif-${++idRef.current}`;
     setNotifications((prev) => [...prev, { id, type, message, createdAt: Date.now() }]);
-    try { notificationSounds[type](); } catch { /* audio not available */ }
+    try { if (localStorage.getItem("synercore_sound") !== "off") notificationSounds[type](); } catch { /* audio not available */ }
   }, []);
 
   const removeNotification = useCallback((id: string) => {

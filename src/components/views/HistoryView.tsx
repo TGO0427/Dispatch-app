@@ -273,7 +273,7 @@ export const HistoryView: React.FC = () => {
       { label: "Cancelled", value: String(stats.cancelled), color: [220, 38, 38] },
       { label: "Success Rate", value: `${stats.successRate}%`, color: [15, 23, 42] },
       { label: "Total Pallets", value: String(stats.totalPallets), color: [15, 23, 42] },
-      { label: "Qty Picked", value: stats.qtyPicked.toLocaleString(), color: [13, 148, 136] },
+      { label: "Qty Picked (Items)", value: stats.qtyPicked.toLocaleString(), color: [13, 148, 136] },
       { label: "Avg Delivery Time", value: `${stats.avgDeliveryTime}h`, color: [15, 23, 42] },
     ];
 
@@ -339,16 +339,16 @@ export const HistoryView: React.FC = () => {
       },
       columnStyles: {
         0: { cellWidth: 20 },                          // Ref
-        1: { cellWidth: 35 },                          // Customer
-        2: { cellWidth: 18, halign: "center" },          // Status
-        3: { cellWidth: 48 },                          // Route
+        1: { cellWidth: 40 },                          // Customer (wider)
+        2: { cellWidth: 18, halign: "center" },        // Status
+        3: { cellWidth: 46 },                          // Route
         4: { cellWidth: 22 },                          // Warehouse
         5: { cellWidth: 28 },                          // Transporter
-        6: { cellWidth: 18 },                          // Truck
-        7: { cellWidth: 10, halign: "center" },        // Pallets
-        8: { cellWidth: 38 },                          // Line Items (wide)
-        9: { cellWidth: 10, halign: "center" },        // Week
-        10: { cellWidth: 22 },                         // Completed
+        6: { cellWidth: 16 },                          // Truck (narrower)
+        7: { cellWidth: 8, halign: "center" },         // Pallets (narrower)
+        8: { cellWidth: 38 },                          // Line Items
+        9: { cellWidth: 9, halign: "center" },         // Week (narrower)
+        10: { cellWidth: 24 },                         // Completed
       },
       styles: {
         lineColor: [226, 232, 240],
@@ -357,22 +357,22 @@ export const HistoryView: React.FC = () => {
       },
       margin: { left: 14, right: 14 },
       didParseCell: (data) => {
-        // Status badges: green/red tint backgrounds
+        // Status badges: strong tint background with darker text
         if (data.section === "body" && data.column.index === 2) {
           const val = String(data.cell.raw);
           if (val === "Delivered") {
-            data.cell.styles.textColor = [22, 163, 74];
+            data.cell.styles.textColor = [5, 122, 85];     // darker green
             data.cell.styles.fontStyle = "bold";
-            data.cell.styles.fillColor = data.row.index % 2 === 0 ? [240, 253, 244] : [236, 253, 245];
+            data.cell.styles.fillColor = [220, 252, 231];  // consistent green tint
           } else if (val === "Cancelled") {
-            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.textColor = [185, 28, 28];    // darker red
             data.cell.styles.fontStyle = "bold";
-            data.cell.styles.fillColor = data.row.index % 2 === 0 ? [254, 242, 242] : [254, 236, 236];
+            data.cell.styles.fillColor = [254, 226, 226];  // consistent red tint
           }
         }
-        // Week column — standard dark text, not blue
+        // Week column — standard dark text
         if (data.section === "body" && data.column.index === 9) {
-          data.cell.styles.textColor = [51, 65, 85]; // slate-700
+          data.cell.styles.textColor = [51, 65, 85];
         }
       },
       didDrawPage: () => {

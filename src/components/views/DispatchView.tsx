@@ -367,33 +367,31 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
     }
   };
 
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="mb-2 text-3xl font-bold text-gray-900">Order Management</h1>
-            <p className="text-gray-600">
-              Manage jobs, assign transporters, and track deliveries in real-time
-            </p>
-          </div>
-          {onOpenAlerts && (
-            <button
-              onClick={onOpenAlerts}
-              className="relative flex items-center gap-1.5 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
-            >
-              <Bell className="w-4 h-4" />
-              Alerts
-              {stats.alertCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {stats.alertCount}
-                </span>
-              )}
-            </button>
-          )}
+    <div className="space-y-4">
+      {/* Header — compact */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
+          <p className="text-sm text-gray-500">Manage jobs, assign transporters, and track deliveries</p>
         </div>
-      </Card>
+        {onOpenAlerts && (
+          <button
+            onClick={onOpenAlerts}
+            className="relative flex items-center gap-1.5 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+          >
+            <Bell className="w-4 h-4" />
+            Alerts
+            {stats.alertCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {stats.alertCount}
+              </span>
+            )}
+          </button>
+        )}
+      </div>
 
       {/* Statistics */}
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-9">
@@ -524,41 +522,38 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
         ))}
       </div>
 
-      {/* Busy Date Alerts */}
+      {/* Busy Date Alerts — compact inline */}
       {busyDateAlerts.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-5 h-5 text-amber-600" />
-            <span className="font-semibold text-amber-800">High Volume Dates</span>
-            <span className="text-xs text-amber-600">5+ orders due on the same day</span>
+        <div className="flex items-center gap-2 flex-wrap text-sm">
+          <div className="flex items-center gap-1.5 text-amber-700">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="font-semibold">High Volume:</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {busyDateAlerts.map((alert) => (
-              <button
-                key={alert.date}
-                onClick={() => setSelectedAlertDate(alert.date)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 rounded-lg text-sm cursor-pointer transition-colors border border-transparent hover:border-amber-300"
-              >
-                <span className="font-semibold text-amber-900">{alert.date}</span>
-                <span className="text-amber-700">
-                  {alert.total} total ({alert.orders} orders, {alert.ibts} IBT)
-                </span>
-              </button>
-            ))}
-          </div>
+          {busyDateAlerts.map((alert) => (
+            <button
+              key={alert.date}
+              onClick={() => setSelectedAlertDate(alert.date)}
+              className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 rounded-lg text-xs cursor-pointer transition-colors border border-amber-200 hover:border-amber-300"
+            >
+              <span className="font-semibold text-amber-900">{alert.date}</span>
+              <span className="text-amber-600">{alert.total}</span>
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Warehouse Selector */}
-      <WarehouseSelector />
-
-      {/* Filter and Sort Controls */}
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <FilterBar />
-          <SortBar />
-        </CardContent>
-      </Card>
+      {/* Compact Filter Bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <WarehouseSelector />
+        <FilterBar showMore={showMoreFilters} />
+        <SortBar />
+        <button
+          onClick={() => setShowMoreFilters(!showMoreFilters)}
+          className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+        >
+          {showMoreFilters ? "Less filters" : "More filters"}
+        </button>
+      </div>
 
       {/* Main Content Grid */}
       <DndContext

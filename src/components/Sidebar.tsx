@@ -137,12 +137,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       >
         {/* Left accent bar */}
         {isActive && !collapsed && (
-          <span className="absolute left-0 top-[20%] bottom-[20%] w-[3px] rounded-r-full bg-blue-400" />
+          <span className="absolute left-[3px] top-[25%] bottom-[25%] w-[3px] rounded-full bg-blue-400" />
         )}
         <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-blue-400" : ""}`} />
         {!collapsed && (
           <>
-            <span className={`text-[14px] font-medium flex-1 text-left ${isActive ? "text-white font-semibold" : ""}`}>{label}</span>
+            <span className={`text-[14px] flex-1 text-left ${isActive ? "text-slate-50 font-semibold" : "font-medium"}`}>{label}</span>
             {badge !== undefined && badge > 0 && (
               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                 isActive
@@ -193,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
               placeholder="Search menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-slate-200 text-sm rounded-xl pl-10 pr-3 py-2.5 placeholder-slate-500 border border-white/[0.1] focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20"
+              className="w-full text-slate-200 text-sm rounded-xl pl-10 pr-3 py-3 placeholder-slate-500 border border-white/[0.1] focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20"
               style={{ background: "#1e293b" }}
             />
           </div>
@@ -254,20 +254,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           </p>
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-slate-400">Total Jobs</span>
+              <span className="text-[13px] text-slate-300">Total Jobs</span>
               <span className="text-[13px] font-bold text-white">{sidebarStats.totalJobs}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[13px] text-slate-400">In Transit</span>
+                <span className="text-[13px] text-slate-300">In Transit</span>
               </div>
               <span className="text-[13px] font-bold text-emerald-400">{sidebarStats.inTransit}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className={`w-1.5 h-1.5 rounded-full ${sidebarStats.exceptions > 0 ? "bg-rose-400" : "bg-slate-600"}`} />
-                <span className="text-[13px] text-slate-400">Exceptions</span>
+                <span className="text-[13px] text-slate-300">Exceptions</span>
               </div>
               <span className={`text-[13px] font-bold ${sidebarStats.exceptions > 0 ? "text-rose-400" : "text-slate-500"}`}>
                 {sidebarStats.exceptions}
@@ -295,7 +295,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
               title={collapsed ? item.label : undefined}
             >
               {activeItem === item.id && !collapsed && (
-                <span className="absolute left-0 top-[20%] bottom-[20%] w-[3px] rounded-r-full bg-blue-400" />
+                <span className="absolute left-[3px] top-[25%] bottom-[25%] w-[3px] rounded-full bg-blue-400" />
               )}
               <Icon className={`w-[17px] h-[17px] flex-shrink-0 ${activeItem === item.id ? "text-blue-400" : ""}`} />
               {!collapsed && <span className={`text-[13px] font-medium ${activeItem === item.id ? "text-white" : ""}`}>{item.label}</span>}
@@ -352,17 +352,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Scrollbar Styles */}
       <style>{`
         .sidebar-scroll::-webkit-scrollbar {
-          width: 3px;
+          width: 2px;
         }
         .sidebar-scroll::-webkit-scrollbar-track {
           background: transparent;
         }
         .sidebar-scroll::-webkit-scrollbar-thumb {
-          background: rgba(100, 116, 139, 0.15);
-          border-radius: 3px;
+          background: rgba(100, 116, 139, 0.1);
+          border-radius: 2px;
         }
         .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-          background: rgba(100, 116, 139, 0.3);
+          background: rgba(100, 116, 139, 0.2);
         }
       `}</style>
     </div>

@@ -35,6 +35,11 @@ function calculateETD(eta: string | undefined, service: TransportService): strin
   const etaDate = new Date(eta);
   if (isNaN(etaDate.getTime())) return undefined;
 
+  // Local Sameday: ETD = same as ETA
+  if (serviceConfig.businessDays === 0) {
+    return `${etaDate.getFullYear()}-${String(etaDate.getMonth() + 1).padStart(2, "0")}-${String(etaDate.getDate()).padStart(2, "0")}`;
+  }
+
   // Convert hours to business days (24h = 1 day, 48h = 2 days, 96h = 4 days)
   const businessDays = Math.ceil(serviceConfig.hours / 24);
   const etdDate = subtractBusinessDays(etaDate, businessDays);
@@ -43,12 +48,14 @@ function calculateETD(eta: string | undefined, service: TransportService): strin
 }
 
 const serviceIcons: Record<string, string> = {
+  local: "📍",
   express: "⚡",
   economy: "🚛",
   outline: "📦",
 };
 
 const serviceColors: Record<string, string> = {
+  local: "bg-green-100 text-green-700 border-green-200",
   express: "bg-red-100 text-red-700 border-red-200",
   economy: "bg-blue-100 text-blue-700 border-blue-200",
   outline: "bg-gray-100 text-gray-700 border-gray-200",
@@ -179,7 +186,7 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
             <AlertTriangle className="w-3 h-3 inline" />
           </span>
         </h4>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {TRANSPORT_SERVICES.map((service) => (
             <button
               key={service.value}

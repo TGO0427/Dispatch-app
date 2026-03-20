@@ -18,7 +18,7 @@ export type DriverStatus = "available" | "busy" | "offline" | "break";
 export type JobType = "order" | "ibt";
 
 export type ServiceType = "delivery" | "collection";
-export type TransportService = "express" | "economy" | "outline";
+export type TransportService = "local" | "express" | "economy" | "outline";
 export type TruckSize = "1ton" | "4ton" | "8ton" | "6m" | "12m" | "superlink";
 
 export const TRUCK_SIZES: { value: TruckSize; label: string }[] = [
@@ -32,6 +32,7 @@ export const TRUCK_SIZES: { value: TruckSize; label: string }[] = [
 
 export const SERVICE_TYPES: ServiceType[] = ["delivery", "collection"];
 export const TRANSPORT_SERVICES: { value: TransportService; label: string; hours: number; businessDays: number }[] = [
+  { value: "local", label: "Local Sameday", hours: 0, businessDays: 0 },
   { value: "express", label: "Express Road", hours: 24, businessDays: 1 },
   { value: "economy", label: "Economy Road", hours: 48, businessDays: 2 },
   { value: "outline", label: "Outline", hours: 96, businessDays: 4 },

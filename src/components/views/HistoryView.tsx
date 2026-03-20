@@ -210,11 +210,11 @@ export const HistoryView: React.FC = () => {
         "Truck Size": getTruckSizeLabel(job.truckSize),
         Pallets: job.pallets || 0,
         "Outstanding Qty": job.outstandingQty || 0,
+        "Line Items": job.notes || "",
         "Week Number": `W${getWeekNumber(completedDate)}`,
         "Created Date": new Date(job.createdAt).toLocaleString(),
         "Completed Date": completedDate.toLocaleString(),
         ETA: job.eta || "N/A",
-        Notes: job.notes || "",
       };
     });
 
@@ -507,6 +507,7 @@ export const HistoryView: React.FC = () => {
                   <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Truck Size</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Pallets</th>
+                  <th className="text-left p-3 font-semibold text-gray-700">Line Items</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Week</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Completed</th>
                 </tr>
@@ -514,7 +515,7 @@ export const HistoryView: React.FC = () => {
               <tbody>
                 {completedJobs.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-12 text-gray-500">
+                    <td colSpan={11} className="text-center py-12 text-gray-500">
                       No completed jobs found matching your filters
                     </td>
                   </tr>
@@ -542,6 +543,9 @@ export const HistoryView: React.FC = () => {
                           {job.outstandingQty && (
                             <div className="text-xs text-orange-600">Out: {job.outstandingQty}</div>
                           )}
+                        </td>
+                        <td className="p-3 text-gray-700 text-xs max-w-[200px]">
+                          <span className="truncate block" title={job.notes || "—"}>{job.notes || "—"}</span>
                         </td>
                         <td className="p-3 text-gray-700">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">

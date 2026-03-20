@@ -230,49 +230,66 @@ export const HistoryView: React.FC = () => {
   // Export to PDF
   const exportToPDF = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    const pageWidth = doc.internal.pageSize.getWidth();
+    const pw = doc.internal.pageSize.getWidth();
     const weekLabel = selectedWeek !== "all"
       ? availableWeeks.find((w) => w.value === selectedWeek)?.label || selectedWeek
       : "All Weeks";
-    const reportDate = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+    const reportDate = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
-    // --- Header ---
-    doc.setFillColor(15, 23, 42); // slate-900
-    doc.rect(0, 0, pageWidth, 28, "F");
+    // --- Header bar ---
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pw, 24, "F");
+    // Thin accent line below header
+    doc.setFillColor(37, 99, 235);
+    doc.rect(0, 24, pw, 1, "F");
+
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("K58 Dispatch — Job History Report", 14, 12);
-    doc.setFontSize(10);
+    doc.text("K58 Dispatch", 14, 10);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`${weekLabel}  |  Generated: ${reportDate}`, 14, 20);
+    doc.setTextColor(148, 163, 184);
+    doc.text("Job History Report", 14, 17);
 
-    // --- Summary Cards ---
-    const cardY = 34;
-    const cardW = (pageWidth - 28 - 25) / 6; // 6 cards with gaps
-    const cards = [
-      { label: "Total Jobs", value: String(stats.total), color: [37, 99, 235] },
+    // Right side metadata
+    doc.setFontSize(8);
+    doc.setTextColor(203, 213, 225);
+    doc.text(`Period: ${weekLabel}`, pw - 14, 10, { align: "right" });
+    doc.text(`Generated: ${reportDate}`, pw - 14, 16, { align: "right" });
+
+    // --- KPI Cards ---
+    const cardY = 29;
+    const cardH = 18;
+    const gap = 4;
+    const cardW = (pw - 28 - gap * 5) / 6;
+    const cards: { label: string; value: string; color: number[] }[] = [
+      { label: "Total Jobs", value: String(stats.total), color: [15, 23, 42] },
       { label: "Delivered", value: String(stats.delivered), color: [22, 163, 74] },
       { label: "Cancelled", value: String(stats.cancelled), color: [220, 38, 38] },
-      { label: "Success Rate", value: `${stats.successRate}%`, color: [147, 51, 234] },
-      { label: "Total Pallets", value: String(stats.totalPallets), color: [234, 88, 12] },
-      { label: "Avg Delivery", value: `${stats.avgDeliveryTime}h`, color: [79, 70, 229] },
+      { label: "Success Rate", value: `${stats.successRate}%`, color: [15, 23, 42] },
+      { label: "Total Pallets", value: String(stats.totalPallets), color: [15, 23, 42] },
+      { label: "Avg Delivery Time", value: `${stats.avgDeliveryTime}h`, color: [15, 23, 42] },
     ];
 
     cards.forEach((card, i) => {
-      const x = 14 + i * (cardW + 5);
-      doc.setFillColor(248, 250, 252); // slate-50
-      doc.roundedRect(x, cardY, cardW, 20, 2, 2, "F");
-      doc.setDrawColor(226, 232, 240); // slate-200
-      doc.roundedRect(x, cardY, cardW, 20, 2, 2, "S");
+      const x = 14 + i * (cardW + gap);
+      // Card background
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x, cardY, cardW, cardH, 1.5, 1.5, "F");
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(x, cardY, cardW, cardH, 1.5, 1.5, "S");
+      // Value
       doc.setTextColor(card.color[0], card.color[1], card.color[2]);
-      doc.setFontSize(16);
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text(card.value, x + cardW / 2, cardY + 10, { align: "center" });
-      doc.setTextColor(100, 116, 139); // slate-500
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "normal");
-      doc.text(card.label.toUpperCase(), x + cardW / 2, cardY + 16, { align: "center" });
+      doc.text(card.value, x + cardW / 2, cardY + 8.5, { align: "center" });
+      // Label — darker and bolder
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "bold");
+      doc.text(card.label.toUpperCase(), x + cardW / 2, cardY + 14.5, { align: "center" });
     });
 
     // --- Table ---
@@ -281,8 +298,8 @@ export const HistoryView: React.FC = () => {
       return [
         job.ref,
         job.customer,
-        job.status === "delivered" ? "Delivered" : "Cancelled",
-        `${job.pickup} → ${job.dropoff}`,
+        job.status === "delivered" ? "DELIVERED" : "CANCELLED",
+        `${job.pickup}  →  ${job.dropoff}`,
         job.warehouse || "—",
         job.driverId ? drivers.find((d) => d.id === job.driverId)?.name || "Unknown" : "Unassigned",
         getTruckSizeLabel(job.truckSize),
@@ -294,53 +311,80 @@ export const HistoryView: React.FC = () => {
     });
 
     autoTable(doc, {
-      startY: cardY + 28,
-      head: [["Reference", "Customer", "Status", "Route", "Warehouse", "Transporter", "Truck Size", "Pallets", "Line Items", "Week", "Completed"]],
+      startY: cardY + cardH + 5,
+      head: [["Ref", "Customer", "Status", "Route", "Warehouse", "Transporter", "Truck", "Plt", "Line Items", "Wk", "Completed"]],
       body: tableData,
       theme: "grid",
       headStyles: {
         fillColor: [15, 23, 42],
         textColor: [255, 255, 255],
         fontStyle: "bold",
-        fontSize: 7,
-        cellPadding: 3,
+        fontSize: 6.5,
+        cellPadding: 2.5,
+        halign: "left",
       },
       bodyStyles: {
-        fontSize: 7,
-        cellPadding: 2.5,
+        fontSize: 6.5,
+        cellPadding: 2,
         textColor: [30, 41, 59],
+        valign: "middle",
       },
       alternateRowStyles: {
         fillColor: [248, 250, 252],
       },
       columnStyles: {
-        0: { cellWidth: 22 },    // Reference
-        2: { cellWidth: 16 },    // Status
-        7: { cellWidth: 14 },    // Pallets
-        9: { cellWidth: 12 },    // Week
-        10: { cellWidth: 22 },   // Completed
+        0: { cellWidth: 20 },                          // Ref
+        1: { cellWidth: 35 },                          // Customer
+        2: { cellWidth: 16, halign: "center",          // Status
+             fontStyle: "bold" },
+        3: { cellWidth: 50 },                          // Route (wide)
+        4: { cellWidth: 22 },                          // Warehouse
+        5: { cellWidth: 28 },                          // Transporter
+        6: { cellWidth: 18 },                          // Truck
+        7: { cellWidth: 10, halign: "center" },        // Pallets
+        8: { cellWidth: 38 },                          // Line Items (wide)
+        9: { cellWidth: 10, halign: "center" },        // Week
+        10: { cellWidth: 22 },                         // Completed
       },
       styles: {
         lineColor: [226, 232, 240],
-        lineWidth: 0.2,
+        lineWidth: 0.15,
         overflow: "linebreak",
       },
       margin: { left: 14, right: 14 },
+      didParseCell: (data) => {
+        // Status badges: green/red text color
+        if (data.section === "body" && data.column.index === 2) {
+          const val = String(data.cell.raw);
+          if (val === "DELIVERED") {
+            data.cell.styles.textColor = [22, 163, 74];
+            data.cell.styles.fillColor = data.row.index % 2 === 0 ? [240, 253, 244] : [236, 253, 245];
+          } else if (val === "CANCELLED") {
+            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fillColor = data.row.index % 2 === 0 ? [254, 242, 242] : [254, 236, 236];
+          }
+        }
+        // Week column bold
+        if (data.section === "body" && data.column.index === 9) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.textColor = [37, 99, 235];
+        }
+      },
       didDrawPage: () => {
-        // Footer on each page
         const pageH = doc.internal.pageSize.getHeight();
-        doc.setFillColor(248, 250, 252);
-        doc.rect(0, pageH - 10, pageWidth, 10, "F");
+        // Footer line
         doc.setDrawColor(226, 232, 240);
-        doc.line(0, pageH - 10, pageWidth, pageH - 10);
+        doc.setLineWidth(0.3);
+        doc.line(14, pageH - 10, pw - 14, pageH - 10);
+        // Footer text
         doc.setTextColor(148, 163, 184);
-        doc.setFontSize(7);
-        doc.text("K58 Dispatch — Confidential", 14, pageH - 4);
+        doc.setFontSize(6.5);
+        doc.setFont("helvetica", "normal");
+        doc.text("K58 Dispatch — Confidential", 14, pageH - 5);
+        doc.text(reportDate, pw / 2, pageH - 5, { align: "center" });
         doc.text(
           `Page ${(doc as any).internal.getCurrentPageInfo().pageNumber}`,
-          pageWidth - 14,
-          pageH - 4,
-          { align: "right" }
+          pw - 14, pageH - 5, { align: "right" }
         );
       },
     });

@@ -395,6 +395,35 @@ export const HistoryView: React.FC = () => {
         </div>
       </Card>
 
+      {/* Week Number Banner */}
+      {selectedWeek !== "all" && (
+        <Card className="p-5 border-l-4 border-l-blue-600">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center">
+                <span className="text-white font-bold text-xl">
+                  W{selectedWeek.split("-W")[1]}
+                </span>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {availableWeeks.find((w) => w.value === selectedWeek)?.label}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Viewing {stats.total} completed {stats.total === 1 ? "job" : "jobs"} for this week
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setSelectedWeek("all")}
+              className="text-sm text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              Clear filter
+            </button>
+          </div>
+        </Card>
+      )}
+
       {/* Statistics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <Card className="p-4">

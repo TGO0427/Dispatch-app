@@ -408,7 +408,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-900">{job.ref}</span>
+                  <span className="text-sm font-semibold text-blue-600">{job.ref}</span>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                     daysUntil(job.eta!) === "Today" ? "bg-red-100 text-red-700" :
                     daysUntil(job.eta!) === "Tomorrow" ? "bg-yellow-100 text-yellow-700" :

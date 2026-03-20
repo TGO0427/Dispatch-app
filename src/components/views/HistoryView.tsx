@@ -4,12 +4,13 @@ import { Clock, Search, Filter, Download, Calendar as CalendarIcon, CheckCircle2
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useDispatch } from "../../context/DispatchContext";
-import { TRUCK_SIZES } from "../../types";
+import { TRUCK_SIZES, Job } from "../../types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
+import { JobDetailsModal } from "../JobDetailsModal";
 import * as XLSX from "xlsx";
 
 type HistoryFilter = "all" | "delivered" | "cancelled";
@@ -33,6 +34,7 @@ export const HistoryView: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<string>("30d");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   // Get unique warehouses
   const warehouses = useMemo(() => {
@@ -749,7 +751,14 @@ export const HistoryView: React.FC = () => {
                     const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
                     return (
                       <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-3 font-medium text-gray-900">{job.ref}</td>
+                        <td className="p-3 font-medium">
+                          <button
+                            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                            onClick={() => setSelectedJob(job)}
+                          >
+                            {job.ref}
+                          </button>
+                        </td>
                         <td className="p-3 text-gray-700">{job.customer}</td>
                         <td className="p-3">
                           <Badge variant={job.status === "delivered" ? "success" : "destructive"}>
@@ -789,6 +798,15 @@ export const HistoryView: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Job Details Modal */}
+      {selectedJob && (
+        <JobDetailsModal
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+          driverName={selectedJob.driverId ? drivers.find((d) => d.id === selectedJob.driverId)?.name : undefined}
+        />
+      )}
     </div>
   );
 };

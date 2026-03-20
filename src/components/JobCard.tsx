@@ -89,7 +89,10 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
       </button>
 
       <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-        <p className="truncate font-semibold text-base text-gray-900">
+        <p
+          className="truncate font-semibold text-base text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+          onClick={(e) => { e.stopPropagation(); onSelect(); }}
+        >
           {job.ref}
         </p>
         <p className="truncate text-sm text-gray-600 mt-0.5">

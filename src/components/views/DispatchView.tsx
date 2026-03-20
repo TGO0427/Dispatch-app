@@ -767,7 +767,9 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
                       className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                       onClick={() => { setSelectedAlertDate(null); setSelectedJob(job); }}
                     >
-                      <td className="p-3 font-medium text-gray-900">{job.ref}</td>
+                      <td className="p-3 font-medium">
+                        <span className="text-blue-600 hover:text-blue-800 hover:underline">{job.ref}</span>
+                      </td>
                       <td className="p-3">
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
                           job.jobType === "ibt" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"

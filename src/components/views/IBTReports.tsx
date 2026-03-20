@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { ArrowRightLeft, Filter, FileSpreadsheet, Truck, Warehouse, MapPin } from "lucide-react";
 import { useDispatch } from "../../context/DispatchContext";
+import { Job } from "../../types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
+import { JobDetailsModal } from "../JobDetailsModal";
 import * as XLSX from "xlsx";
 
 type ReportType =
@@ -36,6 +38,7 @@ export const IBTReports: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
   const [selectedTransporter, setSelectedTransporter] = useState<string>("all");
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   // Deduplicate IBT jobs by ref and filter to current week + 4
   const dedupedJobs = useMemo(() => {
@@ -211,7 +214,7 @@ export const IBTReports: React.FC = () => {
                       const etaWeekInfo = getWeekInfo(job.eta);
                       return (
                         <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="p-3 font-medium text-gray-900">{job.ref}</td>
+                          <td className="p-3 font-medium"><button className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" onClick={() => setSelectedJob(job)}>{job.ref}</button></td>
                           <td className="p-3">
                             <Badge variant={
                               job.status === "delivered" ? "success" :
@@ -433,7 +436,7 @@ export const IBTReports: React.FC = () => {
                   <tbody>
                     {exceptionJobs.map((job) => (
                       <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-3 font-medium text-gray-900">{job.ref}</td>
+                        <td className="p-3 font-medium"><button className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" onClick={() => setSelectedJob(job)}>{job.ref}</button></td>
                         <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
                         <td className="p-3 text-gray-700">
                           {job.driverId ? drivers.find((d) => d.id === job.driverId)?.name : "Unassigned"}
@@ -544,6 +547,15 @@ export const IBTReports: React.FC = () => {
 
       {/* Report Content */}
       {renderReport()}
+
+      {/* Job Details Modal */}
+      {selectedJob && (
+        <JobDetailsModal
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+          driverName={selectedJob.driverId ? drivers.find((d) => d.id === selectedJob.driverId)?.name : undefined}
+        />
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowRightLeft, Filter, FileSpreadsheet, Truck, Warehouse, MapPin } from "lucide-react";
+import { FileSpreadsheet, Truck, Warehouse, MapPin } from "lucide-react";
 import { useDispatch } from "../../context/DispatchContext";
 import { Job } from "../../types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
@@ -457,93 +457,74 @@ export const IBTReports: React.FC = () => {
     }
   };
 
+  const reportLabels: Record<ReportType, string> = {
+    "ibt-summary": "Transfer Summary",
+    "transfer-routes": "Transfer Routes",
+    "branch-utilization": "Branch Utilization",
+    "transporter-performance": "Transporter Performance",
+    "exception-report": "Exception Report",
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4">
+      {/* Header — compact with context */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ArrowRightLeft className="w-7 h-7 text-purple-600" />
-            IBT Reports & Analytics
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Inter-Branch Transfer metrics • Current week + 4 weeks
+          <h1 className="text-2xl font-bold text-gray-900">IBT Reports</h1>
+          <p className="text-sm text-gray-500">
+            {reportLabels[selectedReport]} — {stats.total} transfers • Current week + 4 weeks
           </p>
         </div>
-        <Button onClick={exportToExcel} className="flex items-center gap-2">
+        <Button onClick={exportToExcel} variant="outline" className="flex items-center gap-2 text-sm">
           <FileSpreadsheet className="w-4 h-4" />
-          Export to Excel
+          Export Excel
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        {[
-          { label: "Total IBTs", value: stats.total, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Pending", value: stats.pending, color: "text-yellow-600", bg: "bg-yellow-50" },
-          { label: "In Transit", value: stats.inTransit, color: "text-indigo-600", bg: "bg-indigo-50" },
-          { label: "Delivered", value: stats.delivered, color: "text-green-600", bg: "bg-green-50" },
-          { label: "Exceptions", value: stats.exceptions, color: "text-red-600", bg: "bg-red-50" },
-          { label: "Total Pallets", value: stats.totalPallets, color: "text-purple-600", bg: "bg-purple-50" },
-          { label: "Total Weight", value: stats.totalWeight.toLocaleString(), color: "text-teal-600", bg: "bg-teal-50" },
-        ].map((stat, idx) => (
-          <div key={idx} className={`${stat.bg} rounded-xl p-4 border border-gray-100`}>
-            <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
-            <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">{stat.label}</div>
-          </div>
+      {/* Stats — intentional color palette */}
+      <div className="grid grid-cols-3 lg:grid-cols-7 gap-3">
+        {([
+          { label: "Total IBTs", value: stats.total, color: "text-gray-900" },
+          { label: "Pending", value: stats.pending, color: "text-amber-600" },
+          { label: "In Transit", value: stats.inTransit, color: "text-blue-600" },
+          { label: "Delivered", value: stats.delivered, color: "text-green-600" },
+          { label: "Exceptions", value: stats.exceptions, color: "text-red-600" },
+          { label: "Pallets", value: stats.totalPallets, color: "text-gray-700" },
+          { label: "Weight", value: stats.totalWeight.toLocaleString(), color: "text-gray-700" },
+        ] as const).map((stat) => (
+          <Card key={stat.label} className="p-3">
+            <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
+            <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{stat.label}</div>
+          </Card>
         ))}
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <span className="text-sm font-semibold text-gray-700">Filters</span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
-              <Select value={selectedReport} onChange={(e) => setSelectedReport(e.target.value as ReportType)} className="w-full">
-                <option value="ibt-summary">IBT Transfer Summary</option>
-                <option value="transfer-routes">Transfer Routes</option>
-                <option value="branch-utilization">Branch Utilization</option>
-                <option value="transporter-performance">Transporter Performance</option>
-                <option value="exception-report">Exception Report</option>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <Select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)} className="w-full">
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="assigned">Assigned</option>
-                <option value="en-route">In Transit</option>
-                <option value="delivered">Delivered</option>
-                <option value="exception">Exception</option>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Warehouse / Branch</label>
-              <Select value={selectedWarehouse} onChange={(e) => setSelectedWarehouse(e.target.value)} className="w-full">
-                <option value="all">All Warehouses</option>
-                {warehouses.map((wh) => (
-                  <option key={wh} value={wh}>{wh}</option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Transporter</label>
-              <Select value={selectedTransporter} onChange={(e) => setSelectedTransporter(e.target.value)} className="w-full">
-                <option value="all">All Transporters</option>
-                {drivers.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Filters — compact inline, no labels */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Select value={selectedReport} onChange={(e) => setSelectedReport(e.target.value as ReportType)} className="w-auto text-sm">
+          <option value="ibt-summary">Transfer Summary</option>
+          <option value="transfer-routes">Transfer Routes</option>
+          <option value="branch-utilization">Branch Utilization</option>
+          <option value="transporter-performance">Transporter Performance</option>
+          <option value="exception-report">Exception Report</option>
+        </Select>
+        <Select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)} className="w-auto text-sm">
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="assigned">Assigned</option>
+          <option value="en-route">In Transit</option>
+          <option value="delivered">Delivered</option>
+          <option value="exception">Exception</option>
+        </Select>
+        <Select value={selectedWarehouse} onChange={(e) => setSelectedWarehouse(e.target.value)} className="w-auto text-sm">
+          <option value="all">All Warehouses</option>
+          {warehouses.map((wh) => <option key={wh} value={wh}>{wh}</option>)}
+        </Select>
+        <Select value={selectedTransporter} onChange={(e) => setSelectedTransporter(e.target.value)} className="w-auto text-sm">
+          <option value="all">All Transporters</option>
+          {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </Select>
+      </div>
 
       {/* Report Content */}
       {renderReport()}

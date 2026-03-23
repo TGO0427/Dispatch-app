@@ -144,8 +144,14 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                 </Button>
               </>
             ) : (
-              <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="text-xs gap-1">
-                <Edit2 className="h-3.5 w-3.5" /> Edit
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditing(true)}
+                className={`text-xs gap-1 ${job.status === "delivered" || job.status === "cancelled" ? "text-amber-600 hover:text-amber-700" : ""}`}
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+                {job.status === "delivered" || job.status === "cancelled" ? "Amend" : "Edit"}
               </Button>
             )}
             <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100" title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
@@ -158,6 +164,14 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
         </div>
 
         <div className="px-5 py-4 space-y-4">
+          {/* Amend notice for delivered/cancelled orders */}
+          {isEditing && (job.status === "delivered" || job.status === "cancelled") && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Amending a {job.status} order — changes will be saved to the record (pallets, truck size, notes, etc.)</span>
+            </div>
+          )}
+
           {/* Status & Priority (edit mode) */}
           {isEditing && (
             <div className="grid grid-cols-2 gap-3">

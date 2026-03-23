@@ -385,6 +385,7 @@ export const AdvancedAnalytics: React.FC = () => {
                   paddingAngle={2}
                   fill="#8884d8"
                   dataKey="count"
+                  nameKey="status"
                 >
                   {jobsByStatus.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -520,6 +521,7 @@ export const AdvancedAnalytics: React.FC = () => {
                   paddingAngle={2}
                   fill="#8884d8"
                   dataKey="count"
+                  nameKey="warehouse"
                 >
                   {warehouseDistribution.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />

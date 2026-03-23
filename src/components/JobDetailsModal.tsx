@@ -82,6 +82,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.etd !== job.etd) sharedUpdates.etd = editedJob.etd;
     if (updates.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
     if (updates.exceptionReason !== undefined) sharedUpdates.exceptionReason = updates.exceptionReason;
+    if (editedJob.overdueReason !== job.overdueReason) sharedUpdates.overdueReason = editedJob.overdueReason;
 
     updateJob(job.id, updates);
 
@@ -308,6 +309,43 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
               )}
             </div>
           )}
+
+          {/* Overdue Reason — show when ETA has passed and not delivered/cancelled */}
+          {(() => {
+            const isOverdue = job.eta && job.status !== "delivered" && job.status !== "cancelled" && (() => {
+              const eta = new Date(job.eta!); eta.setHours(0, 0, 0, 0);
+              const now = new Date(); now.setHours(0, 0, 0, 0);
+              return now > eta;
+            })();
+            if (!isOverdue && !job.overdueReason) return null;
+            const eta = new Date(job.eta!); eta.setHours(0, 0, 0, 0);
+            const now = new Date(); now.setHours(0, 0, 0, 0);
+            const daysOverdue = Math.floor((now.getTime() - eta.getTime()) / 86400000);
+            return (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  <label className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+                    Overdue {daysOverdue > 0 ? `(${daysOverdue} day${daysOverdue > 1 ? "s" : ""})` : ""}
+                  </label>
+                </div>
+                {isEditing || isOverdue ? (
+                  <textarea
+                    value={editedJob.overdueReason ?? ""}
+                    onChange={(e) => updateField("overdueReason", e.target.value || undefined)}
+                    className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
+                    rows={2}
+                    placeholder="Please provide a reason for the delay..."
+                  />
+                ) : (
+                  <p className="text-sm text-amber-800">{job.overdueReason}</p>
+                )}
+                {isOverdue && !editedJob.overdueReason && (
+                  <p className="text-[10px] text-amber-600 mt-1">A reason is required for overdue orders</p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Line Items */}
           {hasMultipleLineItems && (

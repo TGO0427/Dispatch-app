@@ -60,6 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       scheduledAt: job.scheduledAt as string | undefined,
       actualDeliveryAt: job.actualDeliveryAt as string | undefined,
       exceptionReason: job.exceptionReason as string | undefined,
+      overdueReason: job.overdueReason as string | undefined,
       driverId: job.driverId as string | undefined,
       notes: job.notes as string | undefined,
       transporterBooked: job.transporterBooked as boolean | undefined,

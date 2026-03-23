@@ -71,10 +71,11 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
         eta.setHours(0, 0, 0, 0);
         const daysOverdue = Math.floor((now.getTime() - eta.getTime()) / 86400000);
         if (daysOverdue > 0) {
+          const reasonText = job.overdueReason ? ` — Reason: ${job.overdueReason}` : " — No reason provided";
           result.push({
             id: `overdue-${job.ref}`,
             title: `Overdue: ${job.ref}`,
-            description: `${job.customer} — ETA was ${job.eta} (${daysOverdue} day${daysOverdue > 1 ? "s" : ""} overdue)`,
+            description: `${job.customer} — ETA was ${job.eta} (${daysOverdue} day${daysOverdue > 1 ? "s" : ""} overdue)${reasonText}`,
             severity: daysOverdue > 3 ? "critical" : "warning",
             category: "Overdue",
             jobRef: job.ref,

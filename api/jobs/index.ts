@@ -73,6 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           scheduledAt: req.body.scheduledAt,
           actualDeliveryAt: req.body.actualDeliveryAt,
           exceptionReason: req.body.exceptionReason,
+          overdueReason: req.body.overdueReason,
           driverId: req.body.driverId,
           notes: req.body.notes,
           transporterBooked: req.body.transporterBooked,

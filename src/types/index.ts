@@ -91,6 +91,7 @@ export interface Job {
   scheduledAt?: string;         // planned pickup/delivery (ISO datetime)
   actualDeliveryAt?: string;    // set when delivered (ISO datetime)
   exceptionReason?: string;     // set when status === "exception"
+  overdueReason?: string;       // set when order is past ETA
 
   driverId?: string;
   notes?: string;

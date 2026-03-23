@@ -30,6 +30,7 @@ model Job {
   scheduledAt        String?   @db.VarChar(255)
   actualDeliveryAt   String?   @db.VarChar(255)
   exceptionReason    String?   @db.Text
+  overdueReason      String?   @db.Text
 
   transporterBooked  Boolean?  @default(false)
   orderPicked        Boolean?  @default(false)

@@ -326,60 +326,76 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
               </div>
             </div>
 
-            {/* Alert List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {/* Alert List — grouped by category */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-4">
               {filtered.length === 0 && (
                 <div className="text-center py-12 text-gray-400 text-sm">
                   No alerts — everything looks good
                 </div>
               )}
-              {filtered.map((alert) => (
-                <div
-                  key={alert.id}
-                  className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors cursor-pointer"
-                  style={{ borderLeftWidth: 4, borderLeftColor: colorFor(alert.severity) }}
-                  onClick={() => {
-                    if (alert.jobId && onSelectJob) {
-                      onSelectJob(alert.jobId);
-                      onClose();
-                    }
-                  }}
-                >
-                  <div className="flex items-start gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-                      style={{ background: colorFor(alert.severity) }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-900 truncate">{alert.title}</span>
-                        <span className="text-[10px] text-gray-400 flex-shrink-0">
-                          {alert.category}
-                        </span>
+              {(() => {
+                // Group alerts by category
+                const categoryOrder = ["Overdue", "Dispatch Due", "Exception", "Unassigned", "Capacity"];
+                const grouped = new Map<string, typeof filtered>();
+                filtered.forEach((a) => {
+                  const list = grouped.get(a.category) || [];
+                  list.push(a);
+                  grouped.set(a.category, list);
+                });
+
+                const categoryColors: Record<string, { bg: string; text: string; border: string }> = {
+                  "Overdue": { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
+                  "Dispatch Due": { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+                  "Exception": { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
+                  "Unassigned": { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
+                  "Capacity": { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
+                };
+
+                return categoryOrder
+                  .filter((cat) => grouped.has(cat))
+                  .map((category) => {
+                    const items = grouped.get(category)!;
+                    const colors = categoryColors[category] || { bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200" };
+                    return (
+                      <div key={category}>
+                        {/* Category header */}
+                        <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${colors.bg} ${colors.border} border mb-2`}>
+                          <span className={`text-xs font-bold uppercase tracking-wider ${colors.text}`}>{category}</span>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>{items.length}</span>
+                        </div>
+                        {/* Alerts in this category */}
+                        <div className="space-y-1.5">
+                          {items.map((alert) => (
+                            <div
+                              key={alert.id}
+                              className="border border-gray-100 rounded-lg p-2.5 hover:bg-gray-50 transition-colors cursor-pointer"
+                              style={{ borderLeftWidth: 3, borderLeftColor: colorFor(alert.severity) }}
+                              onClick={() => {
+                                if (alert.jobId && onSelectJob) { onSelectJob(alert.jobId); onClose(); }
+                              }}
+                            >
+                              <div className="flex items-start gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: colorFor(alert.severity) }} />
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-sm font-semibold text-gray-900 truncate block">{alert.title}</span>
+                                  {alert.description && (
+                                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{alert.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1.5 pl-3.5" onClick={(e) => e.stopPropagation()}>
+                                {alert.jobId && onSelectJob && (
+                                  <button onClick={() => { onSelectJob(alert.jobId!); onClose(); }} className="text-[10px] px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">View</button>
+                                )}
+                                <button onClick={() => dismiss(alert.id)} className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded hover:bg-gray-200 transition-colors">Dismiss</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      {alert.description && (
-                        <p className="text-xs text-gray-600 mt-0.5">{alert.description}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
-                    {alert.jobId && onSelectJob && (
-                      <button
-                        onClick={() => { onSelectJob(alert.jobId!); onClose(); }}
-                        className="text-[11px] px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                      >
-                        View Order
-                      </button>
-                    )}
-                    <button
-                      onClick={() => dismiss(alert.id)}
-                      className="text-[11px] px-2 py-1 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 transition-colors"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              ))}
+                    );
+                  });
+              })()}
             </div>
           </>
         )}

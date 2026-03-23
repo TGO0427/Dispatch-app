@@ -285,7 +285,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                 {!editedJob.pallets && editedJob.pallets !== 0 && <AlertTriangle className="w-3 h-3 text-amber-400" />}
               </div>
               {isEditing ? (
-                <input type="number" value={editedJob.pallets ?? ""} onChange={(e) => updateField("pallets", e.target.value ? Number(e.target.value) : undefined)} className={inputCls} placeholder="0" min="0" />
+                <input type="number" value={editedJob.pallets ?? ""} onChange={(e) => updateField("pallets", e.target.value !== "" ? Number(e.target.value) : undefined)} className={inputCls} placeholder="0" min="0" />
               ) : (
                 <p className="text-sm font-medium text-gray-900 mt-0.5">{job.pallets ?? "—"}</p>
               )}

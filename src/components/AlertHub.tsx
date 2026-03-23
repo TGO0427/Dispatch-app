@@ -255,7 +255,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
             </span>
           )}
           <span className="ml-auto text-xs text-gray-500">
-            {tab === "alerts" ? `${filtered.length} alerts` : `${upcoming.length} upcoming`}
+            {tab === "alerts" ? `${filtered.length} alerts` : `${upcoming.length} deliveries`}
           </span>
           <button
             onClick={onClose}
@@ -285,7 +285,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            Upcoming {upcoming.length > 0 && `(${upcoming.length})`}
+            Next ETA {upcoming.length > 0 && `(${upcoming.length})`}
           </button>
         </div>
 
@@ -405,7 +405,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {upcoming.length === 0 && (
               <div className="text-center py-12 text-gray-400 text-sm">
-                No deliveries due in the next 3 days
+                No upcoming deliveries in the next 3 days
               </div>
             )}
             {upcoming.map((job) => (

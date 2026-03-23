@@ -203,32 +203,34 @@ export const AdvancedAnalytics: React.FC = () => {
   }, [filteredJobs]);
 
   // 6. Items Picked This Week (daily breakdown using ALL jobs, not deduplicated)
+  // Picking Required vs Actually Picked per ETD/ETA date this week
   const itemsPickedThisWeek = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
     startOfWeek.setHours(0, 0, 0, 0);
 
-    const days: { day: string; picked: number; delivered: number }[] = [];
+    const days: { day: string; required: number; picked: number }[] = [];
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
 
     for (let i = 0; i < 7; i++) {
       const d = new Date(startOfWeek);
       d.setDate(d.getDate() + i);
       const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+      let required = 0;
       let picked = 0;
-      let delivered = 0;
-      // Use ALL order jobs (not deduplicated) — count each line item
-      jobs.filter((j) => j.jobType === "order" || j.jobType === undefined).forEach((j) => {
+      orderJobs.forEach((j) => {
         const jobDate = (j.etd || j.eta || "").split("T")[0];
-        if (jobDate === dateKey) {
+        if (jobDate === dateKey && j.status !== "cancelled") {
+          required++;
           if (j.orderPicked) picked++;
-          if (j.status === "delivered") delivered++;
         }
       });
 
-      days.push({ day: `${dayNames[i]} ${d.getDate()}`, picked, delivered });
+      days.push({ day: `${dayNames[i]} ${d.getDate()}`, required, picked });
     }
     return days;
   }, [jobs]);
@@ -362,11 +364,11 @@ export const AdvancedAnalytics: React.FC = () => {
 
       {/* Row 2: Supporting Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Items Picked This Week */}
+        {/* Picking Progress This Week */}
         <Card>
           <CardHeader>
-            <CardTitle>Items Picked This Week</CardTitle>
-            <p className="text-xs text-gray-400 mt-0.5">Line items picked and delivered per day</p>
+            <CardTitle>Picking Progress This Week</CardTitle>
+            <p className="text-xs text-gray-400 mt-0.5">Picking required vs actually picked per ETD/ETA date</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
@@ -376,8 +378,8 @@ export const AdvancedAnalytics: React.FC = () => {
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Bar dataKey="required" fill="#E5E7EB" name="Required" radius={[3, 3, 0, 0]} />
                 <Bar dataKey="picked" fill={COLORS.success} name="Picked" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="delivered" fill={COLORS.primary} name="Delivered" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

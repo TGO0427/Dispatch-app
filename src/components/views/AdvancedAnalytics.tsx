@@ -570,12 +570,12 @@ export const AdvancedAnalytics: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Capacity Utilization */}
+        {/* Peak Day Capacity Utilization */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Transporter Capacity Utilization</CardTitle>
+            <CardTitle>Peak Day Capacity Utilization</CardTitle>
             <p className="text-xs text-gray-400 mt-0.5">
-              Utilization rate by transporter (Pallets Loaded / Capacity)
+              Busiest day pallet load vs daily capacity per transporter
             </p>
           </CardHeader>
           <CardContent>
@@ -583,16 +583,18 @@ export const AdvancedAnalytics: React.FC = () => {
               <BarChart data={transporterMetrics}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} label={{ value: "Utilization %", angle: -90, position: "insideLeft" }} />
+                <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "#fff",
                     border: "1px solid #E5E7EB",
                     borderRadius: "8px",
                   }}
-                  formatter={(value: any) => `${value}%`}
+                  formatter={(value: number, name: string) => [name === "Daily Capacity" ? `${value} plt` : `${value} plt`, name]}
                 />
-                <Bar dataKey="utilizationRate" fill={COLORS.info} name="Utilization Rate (%)" />
+                <Legend />
+                <Bar dataKey="peakDayPallets" fill={COLORS.warning} name="Peak Day Load" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="capacity" fill={COLORS.primary} name="Daily Capacity" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

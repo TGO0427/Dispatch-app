@@ -179,34 +179,23 @@ export const AdvancedAnalytics: React.FC = () => {
       .filter((item) => item.count > 0);
   }, [filteredJobs]);
 
-  // 3. Quantity Analysis (Pallets & Outstanding)
+  // 3. Pallet Analysis (by status)
   const quantityAnalysis = useMemo(() => {
-    const totals = {
-      totalPallets: 0,
-      totalOutstanding: 0,
-      deliveredPallets: 0,
-      pendingPallets: 0,
-    };
+    let total = 0, delivered = 0, pending = 0, inTransit = 0;
 
     filteredJobs.forEach((job) => {
-      if (job.pallets) {
-        totals.totalPallets += job.pallets;
-        if (job.status === "delivered") {
-          totals.deliveredPallets += job.pallets;
-        } else if (job.status === "pending" || job.status === "assigned") {
-          totals.pendingPallets += job.pallets;
-        }
-      }
-      if (job.outstandingQty) {
-        totals.totalOutstanding += job.outstandingQty;
-      }
+      const p = job.pallets || 0;
+      total += p;
+      if (job.status === "delivered") delivered += p;
+      else if (job.status === "pending" || job.status === "assigned") pending += p;
+      else if (job.status === "en-route") inTransit += p;
     });
 
     return [
-      { category: "Total Pallets", value: totals.totalPallets },
-      { category: "Delivered", value: totals.deliveredPallets },
-      { category: "Pending", value: totals.pendingPallets },
-      { category: "Outstanding Qty", value: totals.totalOutstanding },
+      { category: "Total", value: total, fill: "#3B82F6" },
+      { category: "Delivered", value: delivered, fill: "#10B981" },
+      { category: "In Transit", value: inTransit, fill: "#F59E0B" },
+      { category: "Pending", value: pending, fill: "#8B5CF6" },
     ];
   }, [filteredJobs]);
 
@@ -427,11 +416,11 @@ export const AdvancedAnalytics: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Quantity Analysis */}
+        {/* Pallet Analysis */}
         <Card>
           <CardHeader>
-            <CardTitle>Quantity Analysis</CardTitle>
-            <p className="text-xs text-gray-400 mt-0.5">Breakdown of pallets and outstanding quantities</p>
+            <CardTitle>Pallet Analysis</CardTitle>
+            <p className="text-xs text-gray-400 mt-0.5">Pallets by delivery status</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -446,7 +435,11 @@ export const AdvancedAnalytics: React.FC = () => {
                     borderRadius: "8px",
                   }}
                 />
-                <Bar dataKey="value" fill={COLORS.secondary} name="Quantity" />
+                <Bar dataKey="value" name="Pallets">
+                  {quantityAnalysis.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

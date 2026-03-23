@@ -333,7 +333,7 @@ export const AdvancedAnalytics: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle>Transporter Performance</CardTitle>
-            <p className="text-xs text-gray-400 mt-0.5">Jobs completed and capacity utilization by transporter</p>
+            <p className="text-xs text-gray-400 mt-0.5">Delivered vs assigned/en-route orders per transporter</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -349,8 +349,8 @@ export const AdvancedAnalytics: React.FC = () => {
                   }}
                 />
                 <Legend />
-                <Bar dataKey="completedJobs" fill={COLORS.success} name="Completed Jobs" />
-                <Bar dataKey="inProgress" fill={COLORS.warning} name="In Progress" />
+                <Bar dataKey="completedJobs" fill={COLORS.success} name="Delivered" />
+                <Bar dataKey="inProgress" fill={COLORS.warning} name="Assigned / En Route" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -595,7 +595,7 @@ export const AdvancedAnalytics: React.FC = () => {
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Transporter</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Total Jobs</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Completed</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">In Progress</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Assigned / En Route</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Pallets Loaded</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Outstanding Qty</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Capacity</th>

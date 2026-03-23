@@ -36,9 +36,10 @@ function getWeekNumber(date: Date): number {
 
 interface DashboardProps {
   onOpenAlerts?: () => void;
+  onNavigate?: (page: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }) => {
   const { jobs, drivers } = useDispatch();
   const { user } = useAuth();
 
@@ -223,94 +224,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
 
   const statCards = [
     {
-      icon: Package,
-      value: stats.total,
-      label: "TOTAL JOBS",
-      change: stats.total > 0 ? `${stats.total} active` : "No jobs",
-      changeType: "neutral" as const,
-      sublabel: "",
-      color: "text-yellow-500",
-      bgColor: "bg-yellow-500/10",
+      icon: Package, value: stats.total, label: "TOTAL JOBS",
+      change: stats.total > 0 ? `${stats.total} active` : "No jobs", changeType: "neutral" as const, sublabel: "",
+      color: "text-yellow-500", bgColor: "bg-yellow-500/10", nav: "clipboard",
     },
     {
-      icon: Truck,
-      value: stats.inTransit,
-      label: "IN TRANSIT",
-      change: `${stats.busyDrivers} drivers busy`,
-      changeType: "neutral" as const,
-      sublabel: "Active",
-      color: "text-red-500",
-      bgColor: "bg-red-500/10",
+      icon: Truck, value: stats.inTransit, label: "IN TRANSIT",
+      change: `${stats.busyDrivers} drivers busy`, changeType: "neutral" as const, sublabel: "Active",
+      color: "text-red-500", bgColor: "bg-red-500/10", nav: "clipboard",
     },
     {
-      icon: Archive,
-      value: stats.delivered,
-      label: "DELIVERED",
-      change: `${stats.delivered} completed`,
-      changeType: "up" as const,
-      sublabel: "Completed",
-      color: "text-green-500",
-      bgColor: "bg-green-500/10",
+      icon: Archive, value: stats.delivered, label: "DELIVERED",
+      change: `${stats.delivered} completed`, changeType: "up" as const, sublabel: "Completed",
+      color: "text-green-500", bgColor: "bg-green-500/10", nav: "clock",
     },
     {
-      icon: AlertTriangle,
-      value: stats.exceptions,
-      label: "EXCEPTIONS",
+      icon: AlertTriangle, value: stats.exceptions, label: "EXCEPTIONS",
       change: stats.exceptions > 0 ? "Needs Attention" : "All clear",
       changeType: stats.exceptions > 0 ? ("down" as const) : ("up" as const),
       sublabel: stats.exceptions > 0 ? "Needs Attention" : "",
-      color: "text-orange-500",
-      bgColor: "bg-orange-500/10",
+      color: "text-orange-500", bgColor: "bg-orange-500/10", nav: "clipboard",
     },
     {
-      icon: ClipboardList,
-      value: stats.pending,
-      label: "PENDING",
-      change: `${stats.assigned} assigned`,
-      changeType: "neutral" as const,
-      sublabel: "",
-      color: "text-blue-500",
-      bgColor: "bg-blue-500/10",
+      icon: ClipboardList, value: stats.pending, label: "PENDING",
+      change: `${stats.assigned} assigned`, changeType: "neutral" as const, sublabel: "",
+      color: "text-blue-500", bgColor: "bg-blue-500/10", nav: "clipboard",
     },
     {
-      icon: Clock,
-      value: stats.departuresThisWeek,
-      label: "ETD THIS WEEK",
+      icon: Clock, value: stats.departuresThisWeek, label: "ETD THIS WEEK",
       change: "Departures scheduled",
       changeType: stats.departuresThisWeek > 0 ? "up" as const : "neutral" as const,
       sublabel: stats.departuresThisWeek > 5 ? "Busy Week" : "",
-      color: "text-purple-500",
-      bgColor: "bg-purple-500/10",
+      color: "text-purple-500", bgColor: "bg-purple-500/10", nav: "calendar",
     },
     {
-      icon: Truck,
-      value: stats.availableDrivers,
-      label: "AVAILABLE DRIVERS",
-      change: `${drivers.length} total`,
-      changeType: "neutral" as const,
-      sublabel: "",
-      color: "text-teal-500",
-      bgColor: "bg-teal-500/10",
+      icon: Truck, value: stats.availableDrivers, label: "AVAILABLE DRIVERS",
+      change: `${drivers.length} total`, changeType: "neutral" as const, sublabel: "",
+      color: "text-teal-500", bgColor: "bg-teal-500/10", nav: "clipboard",
     },
     {
-      icon: Package,
-      value: stats.palletsThisWeek,
-      label: "PALLETS THIS WEEK",
+      icon: Package, value: stats.palletsThisWeek, label: "PALLETS THIS WEEK",
       change: "To dispatch",
-      changeType: stats.palletsThisWeek > 0 ? "up" as const : "neutral" as const,
-      sublabel: "",
-      color: "text-indigo-500",
-      bgColor: "bg-indigo-500/10",
+      changeType: stats.palletsThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: "",
+      color: "text-indigo-500", bgColor: "bg-indigo-500/10", nav: "clipboard",
     },
     {
-      icon: Archive,
-      value: stats.weightThisWeek.toLocaleString(),
-      label: "WEIGHT THIS WEEK",
+      icon: Archive, value: stats.weightThisWeek.toLocaleString(), label: "WEIGHT THIS WEEK",
       change: "Qty to dispatch",
-      changeType: stats.weightThisWeek > 0 ? "up" as const : "neutral" as const,
-      sublabel: "",
-      color: "text-cyan-500",
-      bgColor: "bg-cyan-500/10",
+      changeType: stats.weightThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: "",
+      color: "text-cyan-500", bgColor: "bg-cyan-500/10", nav: "clipboard",
     },
   ];
 
@@ -383,7 +345,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
         {statCards.map((card, idx) => (
           <div
             key={idx}
-            className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow"
+            className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer active:scale-[0.97]"
+            onClick={() => onNavigate?.(card.nav)}
           >
             <div className={`inline-flex p-1.5 rounded-lg ${card.bgColor} mb-2`}>
               <card.icon className={`w-4 h-4 ${card.color}`} />

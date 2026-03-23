@@ -68,7 +68,7 @@ function AppContent() {
     let view;
     switch (activeNavItem) {
       case "dashboard":
-        view = <Dashboard onOpenAlerts={() => setAlertHubOpen(true)} />; break;
+        view = <Dashboard onOpenAlerts={() => setAlertHubOpen(true)} onNavigate={setActiveNavItem} />; break;
       case "home":
         view = <OrderImport />; break;
       case "ibt":
@@ -94,9 +94,9 @@ function AppContent() {
           view = <UserManagement />; break;
         }
         setActiveNavItem("dashboard");
-        view = <Dashboard />; break;
+        view = <Dashboard onNavigate={setActiveNavItem} />; break;
       default:
-        view = <Dashboard />; break;
+        view = <Dashboard onNavigate={setActiveNavItem} />; break;
     }
 
     return (

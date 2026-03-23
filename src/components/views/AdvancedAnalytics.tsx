@@ -255,26 +255,38 @@ export const AdvancedAnalytics: React.FC = () => {
     }));
   }, [filteredJobs]);
 
-  // 6. Priority Distribution
-  const priorityDistribution = useMemo(() => {
-    const distribution: Record<string, number> = {
-      urgent: 0,
-      high: 0,
-      normal: 0,
-      low: 0,
-    };
+  // 6. Items Picked This Week (daily breakdown using ALL jobs, not deduplicated)
+  const itemsPickedThisWeek = useMemo(() => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+    startOfWeek.setHours(0, 0, 0, 0);
 
-    filteredJobs.forEach((job) => {
-      distribution[job.priority]++;
-    });
+    const days: { day: string; picked: number; delivered: number }[] = [];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-    return Object.entries(distribution)
-      .map(([priority, count]) => ({
-        priority: priority.charAt(0).toUpperCase() + priority.slice(1),
-        count,
-      }))
-      .filter((item) => item.count > 0);
-  }, [filteredJobs]);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startOfWeek);
+      d.setDate(d.getDate() + i);
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+      let picked = 0;
+      let delivered = 0;
+      // Use ALL order jobs (not deduplicated) — count each line item
+      jobs.filter((j) => j.jobType === "order" || j.jobType === undefined).forEach((j) => {
+        const jobDate = (j.etd || j.eta || "").split("T")[0];
+        if (jobDate === dateKey) {
+          if (j.orderPicked) picked++;
+          if (j.status === "delivered") delivered++;
+        }
+      });
+
+      days.push({ day: `${dayNames[i]} ${d.getDate()}`, picked, delivered });
+    }
+    return days;
+  }, [jobs]);
+
+
 
   // Key Performance Indicators
   const kpis = useMemo(() => {
@@ -545,18 +557,18 @@ export const AdvancedAnalytics: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Priority Distribution */}
+        {/* Items Picked This Week */}
         <Card>
           <CardHeader>
-            <CardTitle>Priority Distribution</CardTitle>
-            <p className="text-xs text-gray-400 mt-0.5">Jobs by priority level</p>
+            <CardTitle>Items Picked This Week</CardTitle>
+            <p className="text-xs text-gray-400 mt-0.5">Line items picked and delivered per day (current week)</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={priorityDistribution}>
+              <BarChart data={itemsPickedThisWeek}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="priority" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "#fff",
@@ -564,7 +576,9 @@ export const AdvancedAnalytics: React.FC = () => {
                     borderRadius: "8px",
                   }}
                 />
-                <Bar dataKey="count" fill={COLORS.danger} name="Jobs" />
+                <Legend />
+                <Bar dataKey="picked" fill={COLORS.success} name="Picked" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="delivered" fill={COLORS.primary} name="Delivered" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

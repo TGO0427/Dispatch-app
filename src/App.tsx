@@ -46,6 +46,7 @@ function AppContent() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [alertHubOpen, setAlertHubOpen] = useState(false);
   const [helpGuideOpen, setHelpGuideOpen] = useState(false);
+  const [dispatchTab, setDispatchTab] = useState<string | undefined>(undefined);
   const [selectedJobFromAlert, setSelectedJobFromAlert] = useState<string | null>(null);
   const [authView, setAuthView] = useState<AuthView>("login");
   const [resetToken, setResetToken] = useState<string | null>(null);
@@ -68,7 +69,7 @@ function AppContent() {
     let view;
     switch (activeNavItem) {
       case "dashboard":
-        view = <Dashboard onOpenAlerts={() => setAlertHubOpen(true)} onNavigate={setActiveNavItem} />; break;
+        view = <Dashboard onOpenAlerts={() => setAlertHubOpen(true)} onNavigate={(page, tab) => { setActiveNavItem(page); setDispatchTab(tab); }} />; break;
       case "home":
         view = <OrderImport />; break;
       case "ibt":
@@ -76,7 +77,7 @@ function AppContent() {
       case "ibt-dispatch":
         view = <IBTDispatchView />; break;
       case "clipboard":
-        view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} />; break;
+        view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} initialTab={dispatchTab as any} />; break;
       case "calendar":
         view = <CalendarView />; break;
       case "grid":

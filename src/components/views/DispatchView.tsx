@@ -29,9 +29,10 @@ import type { Job, Driver, JobPriority, JobStatus } from "../../types";
 
 interface DispatchViewProps {
   onOpenAlerts?: () => void;
+  initialTab?: "open" | "assigned" | "delivered";
 }
 
-export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
+export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initialTab }) => {
   const { jobs, drivers, updateJob, updateDriver, addDriver, refreshData, filters, sortOptions } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
 
@@ -41,7 +42,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
   const [selectedAlertDate, setSelectedAlertDate] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"open" | "assigned" | "delivered">("open");
+  const [activeTab, setActiveTab] = useState<"open" | "assigned" | "delivered">(initialTab || "open");
   const [showPickedOnly, setShowPickedOnly] = useState(false);
   const [showOutstandingCoaOnly, setShowOutstandingCoaOnly] = useState(false);
   const [serviceFilter, setServiceFilter] = useState<"delivery" | "collection" | null>(null);

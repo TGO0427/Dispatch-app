@@ -80,6 +80,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.transportService !== job.transportService) sharedUpdates.transportService = editedJob.transportService;
     if (editedJob.truckSize !== job.truckSize) sharedUpdates.truckSize = editedJob.truckSize;
     if (editedJob.etd !== job.etd) sharedUpdates.etd = editedJob.etd;
+    if (editedJob.pallets !== job.pallets) sharedUpdates.pallets = editedJob.pallets;
     if (updates.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
     if (updates.exceptionReason !== undefined) sharedUpdates.exceptionReason = updates.exceptionReason;
     if (editedJob.overdueReason !== job.overdueReason) sharedUpdates.overdueReason = editedJob.overdueReason;

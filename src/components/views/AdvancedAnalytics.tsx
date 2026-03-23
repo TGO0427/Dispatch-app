@@ -3,9 +3,6 @@ import React, { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -31,16 +28,6 @@ const COLORS = {
   pink: "#EC4899",
 };
 
-const CHART_COLORS = [
-  COLORS.primary,
-  COLORS.secondary,
-  COLORS.success,
-  COLORS.warning,
-  COLORS.danger,
-  COLORS.info,
-  COLORS.purple,
-  COLORS.pink,
-];
 
 export const AdvancedAnalytics: React.FC = () => {
   const { jobs, drivers } = useDispatch();
@@ -174,48 +161,8 @@ export const AdvancedAnalytics: React.FC = () => {
     return Object.values(metrics).filter((m) => m.totalJobs > 0);
   }, [filteredJobs, drivers]);
 
-  // 2. Jobs by Status
-  const jobsByStatus = useMemo(() => {
-    const statusCount: Record<string, number> = {
-      pending: 0,
-      assigned: 0,
-      "en-route": 0,
-      delivered: 0,
-      exception: 0,
-      cancelled: 0,
-    };
+  // 2. (Removed — Jobs by Status donut replaced with trend chart)
 
-    filteredJobs.forEach((job) => {
-      statusCount[job.status]++;
-    });
-
-    return Object.entries(statusCount)
-      .map(([status, count]) => ({
-        status: status.charAt(0).toUpperCase() + status.slice(1).replace("-", " "),
-        count,
-      }))
-      .filter((item) => item.count > 0);
-  }, [filteredJobs]);
-
-  // 3. Pallet Analysis (by status)
-  const quantityAnalysis = useMemo(() => {
-    let total = 0, delivered = 0, pending = 0, inTransit = 0;
-
-    filteredJobs.forEach((job) => {
-      const p = job.pallets || 0;
-      total += p;
-      if (job.status === "delivered") delivered += p;
-      else if (job.status === "pending" || job.status === "assigned") pending += p;
-      else if (job.status === "en-route") inTransit += p;
-    });
-
-    return [
-      { category: "Total", value: total, fill: "#3B82F6" },
-      { category: "Delivered", value: delivered, fill: "#10B981" },
-      { category: "In Transit", value: inTransit, fill: "#F59E0B" },
-      { category: "Pending", value: pending, fill: "#8B5CF6" },
-    ];
-  }, [filteredJobs]);
 
   // 4. Jobs Frequency Timeline (Daily) — already deduplicated via filteredJobs
   const jobsTimeline = useMemo(() => {
@@ -357,130 +304,38 @@ export const AdvancedAnalytics: React.FC = () => {
         })}
       </div>
 
-      {/* Charts Grid */}
+      {/* Row 1: Hero Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Transporter Performance */}
+        {/* Transporter Workload & Delivery */}
         <Card>
           <CardHeader>
-            <CardTitle>Transporter Performance</CardTitle>
-            <p className="text-xs text-gray-400 mt-0.5">Delivered vs assigned/en-route orders per transporter</p>
+            <CardTitle>Transporter Workload</CardTitle>
+            <p className="text-xs text-gray-400 mt-0.5">Delivered vs assigned/en-route + pallet load per transporter</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={transporterMetrics}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="completedJobs" fill={COLORS.success} name="Delivered" />
-                <Bar dataKey="inProgress" fill={COLORS.warning} name="Assigned / En Route" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Bar dataKey="completedJobs" fill={COLORS.success} name="Delivered" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="inProgress" fill={COLORS.warning} name="Assigned / En Route" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="palletsLoaded" fill={COLORS.primary} name="Pallets" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Jobs by Status — donut with legend */}
+        {/* Job Status Trend */}
         <Card>
           <CardHeader>
-            <CardTitle>Jobs by Status</CardTitle>
-            <p className="text-sm text-gray-500">Distribution of job statuses</p>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={jobsByStatus}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  fill="#8884d8"
-                  dataKey="count"
-                  nameKey="status"
-                >
-                  {jobsByStatus.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }}
-                />
-                <Legend verticalAlign="bottom" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "12px" }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Pallets Loaded by Transporter */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Pallets Loaded by Transporter</CardTitle>
-            <p className="text-xs text-gray-400 mt-0.5">Total pallets handled by each transporter</p>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={transporterMetrics} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis type="number" tick={{ fontSize: 12 }} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 12 }} width={100} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Bar dataKey="palletsLoaded" fill={COLORS.primary} name="Pallets Loaded" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Pallet Analysis */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Pallet Analysis</CardTitle>
-            <p className="text-xs text-gray-400 mt-0.5">Pallets by delivery status</p>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={quantityAnalysis}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="category" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Bar dataKey="value" name="Pallets">
-                  {quantityAnalysis.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Jobs Timeline */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Jobs Frequency Timeline</CardTitle>
+            <CardTitle>Job Status Trend</CardTitle>
             <p className="text-xs text-gray-400 mt-0.5">Daily jobs created vs delivered</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={jobsTimeline}>
                 <defs>
                   <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
@@ -493,127 +348,113 @@ export const AdvancedAnalytics: React.FC = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="created"
-                  stroke={COLORS.primary}
-                  fillOpacity={1}
-                  fill="url(#colorCreated)"
-                  name="Jobs Created"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="delivered"
-                  stroke={COLORS.success}
-                  fillOpacity={1}
-                  fill="url(#colorDelivered)"
-                  name="Jobs Delivered"
-                />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Area type="monotone" dataKey="created" stroke={COLORS.primary} fillOpacity={1} fill="url(#colorCreated)" name="Created" />
+                <Area type="monotone" dataKey="delivered" stroke={COLORS.success} fillOpacity={1} fill="url(#colorDelivered)" name="Delivered" />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Warehouse Distribution — donut with legend */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Warehouse Distribution</CardTitle>
-            <p className="text-sm text-gray-500">Jobs by warehouse location</p>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={warehouseDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  fill="#8884d8"
-                  dataKey="count"
-                  nameKey="warehouse"
-                >
-                  {warehouseDistribution.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }}
-                />
-                <Legend verticalAlign="bottom" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "12px" }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
+      {/* Row 2: Supporting Charts */}
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Items Picked This Week */}
         <Card>
           <CardHeader>
             <CardTitle>Items Picked This Week</CardTitle>
-            <p className="text-xs text-gray-400 mt-0.5">Line items picked and delivered per day (current week)</p>
+            <p className="text-xs text-gray-400 mt-0.5">Line items picked and delivered per day</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={260}>
               <BarChart data={itemsPickedThisWeek}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="picked" fill={COLORS.success} name="Picked" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="delivered" fill={COLORS.primary} name="Delivered" radius={[4, 4, 0, 0]} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Bar dataKey="picked" fill={COLORS.success} name="Picked" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="delivered" fill={COLORS.primary} name="Delivered" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Peak Day Capacity Utilization */}
-        <Card className="lg:col-span-2">
+        {/* Warehouse Volume — bar chart instead of donut */}
+        <Card>
           <CardHeader>
-            <CardTitle>Peak Day Capacity Utilization</CardTitle>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Busiest day pallet load vs daily capacity per transporter
-            </p>
+            <CardTitle>Warehouse Volume</CardTitle>
+            <p className="text-xs text-gray-400 mt-0.5">Orders per warehouse location</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={transporterMetrics}>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={warehouseDistribution} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: number, name: string) => [name === "Daily Capacity" ? `${value} plt` : `${value} plt`, name]}
-                />
-                <Legend />
-                <Bar dataKey="peakDayPallets" fill={COLORS.warning} name="Peak Day Load" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="capacity" fill={COLORS.primary} name="Daily Capacity" radius={[4, 4, 0, 0]} />
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis dataKey="warehouse" type="category" tick={{ fontSize: 10 }} width={120} />
+                <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }} />
+                <Bar dataKey="count" fill={COLORS.primary} name="Orders" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
+
+      {/* Row 3: Exceptions & Bottlenecks */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Exceptions & Bottlenecks</CardTitle>
+          <p className="text-xs text-gray-400 mt-0.5">Orders that need attention right now</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+            {(() => {
+              const now = new Date(); now.setHours(0, 0, 0, 0);
+              const overdue = filteredJobs.filter(j => j.eta && j.status !== "delivered" && j.status !== "cancelled" && new Date(j.eta) < now).length;
+              const unassigned = filteredJobs.filter(j => !j.driverId && j.status === "pending").length;
+              const missingCoa = filteredJobs.filter(j => j.orderPicked && !j.coaAvailable && j.status !== "delivered" && j.status !== "cancelled").length;
+              const noTransporter = filteredJobs.filter(j => !j.transporterBooked && j.status !== "delivered" && j.status !== "cancelled" && j.status !== "pending").length;
+              const overCapacity = transporterMetrics.filter(m => m.peakUtilization > 100).length;
+              return [
+                { label: "Overdue Orders", value: overdue, color: "text-red-600", bg: "bg-red-50", border: "border-red-200" },
+                { label: "Unassigned Orders", value: unassigned, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
+                { label: "Missing COA", value: missingCoa, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" },
+                { label: "No Transporter Booked", value: noTransporter, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200" },
+                { label: "Over Capacity", value: overCapacity, color: "text-red-600", bg: "bg-red-50", border: "border-red-200" },
+              ].map((item) => (
+                <div key={item.label} className={`${item.bg} ${item.border} border rounded-xl p-4 text-center`}>
+                  <div className={`text-2xl font-bold ${item.color}`}>{item.value}</div>
+                  <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">{item.label}</div>
+                </div>
+              ));
+            })()}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Row 4: Capacity Planning */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Capacity Planning</CardTitle>
+          <p className="text-xs text-gray-400 mt-0.5">Peak day pallet load vs daily capacity per transporter</p>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={transporterMetrics}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }} formatter={(value: number) => [`${value} plt`]} />
+              <Legend wrapperStyle={{ fontSize: "11px" }} />
+              <Bar dataKey="peakDayPallets" fill={COLORS.warning} name="Peak Day Load" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="capacity" fill={COLORS.primary} name="Daily Capacity" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       {/* Detailed Transporter Table */}
       <Card>

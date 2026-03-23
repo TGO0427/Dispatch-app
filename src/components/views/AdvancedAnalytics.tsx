@@ -109,9 +109,10 @@ export const AdvancedAnalytics: React.FC = () => {
         completedJobs: number;
         inProgress: number;
         palletsLoaded: number;
-        outstandingQty: number;
         capacity: number;
-        utilizationRate: number;
+        peakDayPallets: number;
+        peakDayDate: string;
+        peakUtilization: number;
       }
     > = {};
 
@@ -122,11 +123,15 @@ export const AdvancedAnalytics: React.FC = () => {
         completedJobs: 0,
         inProgress: 0,
         palletsLoaded: 0,
-        outstandingQty: 0,
         capacity: driver.capacity,
-        utilizationRate: 0,
+        peakDayPallets: 0,
+        peakDayDate: "",
+        peakUtilization: 0,
       };
     });
+
+    // Track pallets per driver per ETD date for capacity planning
+    const dailyLoad: Record<string, Record<string, number>> = {}; // driverId -> { date -> pallets }
 
     filteredJobs.forEach((job) => {
       if (job.driverId && metrics[job.driverId]) {
@@ -139,17 +144,30 @@ export const AdvancedAnalytics: React.FC = () => {
         }
         if (job.pallets) {
           metrics[job.driverId].palletsLoaded += job.pallets;
-        }
-        if (job.outstandingQty) {
-          metrics[job.driverId].outstandingQty += job.outstandingQty;
+
+          // Track daily load by ETD date (or ETA if no ETD)
+          const dateKey = (job.etd || job.eta || job.createdAt).split("T")[0];
+          if (!dailyLoad[job.driverId]) dailyLoad[job.driverId] = {};
+          dailyLoad[job.driverId][dateKey] = (dailyLoad[job.driverId][dateKey] || 0) + job.pallets;
         }
       }
     });
 
-    // Calculate utilization rate
-    Object.values(metrics).forEach((metric) => {
-      if (metric.capacity > 0) {
-        metric.utilizationRate = Math.round((metric.palletsLoaded / metric.capacity) * 100);
+    // Calculate peak day utilization per transporter
+    Object.entries(dailyLoad).forEach(([driverId, dates]) => {
+      if (!metrics[driverId]) return;
+      let peakPallets = 0;
+      let peakDate = "";
+      Object.entries(dates).forEach(([date, pallets]) => {
+        if (pallets > peakPallets) {
+          peakPallets = pallets;
+          peakDate = date;
+        }
+      });
+      metrics[driverId].peakDayPallets = peakPallets;
+      metrics[driverId].peakDayDate = peakDate;
+      if (metrics[driverId].capacity > 0) {
+        metrics[driverId].peakUtilization = Math.round((peakPallets / metrics[driverId].capacity) * 100);
       }
     });
 
@@ -585,45 +603,51 @@ export const AdvancedAnalytics: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Detailed Transporter Metrics</CardTitle>
-          <p className="text-sm text-gray-600">Comprehensive performance breakdown by transporter</p>
+          <p className="text-xs text-gray-400 mt-0.5">Performance and daily capacity utilization by transporter</p>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Transporter</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Total Jobs</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Completed</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Assigned / En Route</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Pallets Loaded</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Outstanding Qty</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Capacity</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Utilization %</th>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Transporter</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Orders</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Delivered</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">In Transit</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Total Pallets</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Daily Capacity</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Peak Day</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Peak Utilization</th>
                 </tr>
               </thead>
               <tbody>
                 {transporterMetrics.map((metric, idx) => (
                   <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{metric.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{metric.totalJobs}</td>
-                    <td className="px-4 py-3 text-sm text-green-600 font-semibold">{metric.completedJobs}</td>
-                    <td className="px-4 py-3 text-sm text-orange-600">{metric.inProgress}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{metric.palletsLoaded}</td>
-                    <td className="px-4 py-3 text-sm text-orange-600">{metric.outstandingQty}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{metric.capacity}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span
-                        className={`font-semibold ${
-                          metric.utilizationRate >= 80
-                            ? "text-red-600"
-                            : metric.utilizationRate >= 50
-                            ? "text-orange-600"
-                            : "text-green-600"
-                        }`}
-                      >
-                        {metric.utilizationRate}%
+                    <td className="px-4 py-3 font-medium text-gray-900">{metric.name}</td>
+                    <td className="px-4 py-3 text-center text-gray-700">{metric.totalJobs}</td>
+                    <td className="px-4 py-3 text-center text-green-600 font-semibold">{metric.completedJobs}</td>
+                    <td className="px-4 py-3 text-center text-blue-600">{metric.inProgress}</td>
+                    <td className="px-4 py-3 text-center text-gray-700">{metric.palletsLoaded}</td>
+                    <td className="px-4 py-3 text-center text-gray-700">{metric.capacity} plt/day</td>
+                    <td className="px-4 py-3 text-center">
+                      {metric.peakDayDate ? (
+                        <div>
+                          <span className="font-medium text-gray-900">{metric.peakDayPallets} plt</span>
+                          <span className="text-[10px] text-gray-400 block">{metric.peakDayDate}</span>
+                        </div>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`font-bold ${
+                        metric.peakUtilization > 100 ? "text-red-600" :
+                        metric.peakUtilization >= 80 ? "text-amber-600" :
+                        "text-green-600"
+                      }`}>
+                        {metric.peakUtilization}%
                       </span>
+                      {metric.peakUtilization > 100 && (
+                        <span className="text-[10px] text-red-500 block">Over capacity</span>
+                      )}
                     </td>
                   </tr>
                 ))}

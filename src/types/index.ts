@@ -18,7 +18,7 @@ export type DriverStatus = "available" | "busy" | "offline" | "break";
 export type JobType = "order" | "ibt";
 
 export type ServiceType = "delivery" | "collection";
-export type TransportService = "local" | "express" | "economy" | "outline";
+export type TransportService = "local" | "express" | "economy" | "outline" | "airfreight" | "seafreight";
 export type TruckSize = "1ton" | "4ton" | "8ton" | "6m" | "12m" | "superlink";
 
 export const TRUCK_SIZES: { value: TruckSize; label: string }[] = [
@@ -36,6 +36,8 @@ export const TRANSPORT_SERVICES: { value: TransportService; label: string; hours
   { value: "express", label: "Express Road", hours: 24, businessDays: 1 },
   { value: "economy", label: "Economy Road", hours: 48, businessDays: 2 },
   { value: "outline", label: "Outline", hours: 96, businessDays: 4 },
+  { value: "airfreight", label: "Export Airfreight", hours: 168, businessDays: 7 },
+  { value: "seafreight", label: "Export Seafreight", hours: 504, businessDays: 21 },
 ];
 
 // Handy constants (useful for dropdowns and validation)

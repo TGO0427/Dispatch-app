@@ -52,6 +52,8 @@ const serviceIcons: Record<string, string> = {
   express: "⚡",
   economy: "🚛",
   outline: "📦",
+  airfreight: "✈️",
+  seafreight: "🚢",
 };
 
 const serviceColors: Record<string, string> = {
@@ -59,6 +61,8 @@ const serviceColors: Record<string, string> = {
   express: "bg-red-100 text-red-700 border-red-200",
   economy: "bg-blue-100 text-blue-700 border-blue-200",
   outline: "bg-gray-100 text-gray-700 border-gray-200",
+  airfreight: "bg-sky-100 text-sky-700 border-sky-200",
+  seafreight: "bg-indigo-100 text-indigo-700 border-indigo-200",
 };
 
 export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact = false }) => {
@@ -186,7 +190,7 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
             <AlertTriangle className="w-3 h-3 inline" />
           </span>
         </h4>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {TRANSPORT_SERVICES.map((service) => (
             <button
               key={service.value}

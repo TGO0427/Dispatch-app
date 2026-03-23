@@ -118,11 +118,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
       if ((j.priority === "urgent" || j.priority === "high") && j.status === "pending") alertCount++;
     });
 
-    // High volume date achievements: dates with 5+ orders where 95%+ are delivered or picked
+    // High volume date achievements: current month only
+    // Dates with 5+ orders where 95%+ are delivered or picked
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const dateCounts: Record<string, { total: number; completed: number }> = {};
     jobs.filter((j) => j.jobType === "order" || j.jobType === undefined).forEach((j) => {
       if (!j.eta) return;
       const dateKey = j.eta.split("T")[0];
+      const etaDate = new Date(dateKey);
+      // Only current month
+      if (etaDate < startOfMonth || etaDate > endOfMonth) return;
       if (!dateCounts[dateKey]) dateCounts[dateKey] = { total: 0, completed: 0 };
       dateCounts[dateKey].total++;
       if (j.status === "delivered" || j.orderPicked) dateCounts[dateKey].completed++;

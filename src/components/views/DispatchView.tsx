@@ -208,13 +208,19 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
   const prevFilterKey = useMemo(() => JSON.stringify(filters), [filters]);
   useMemo(() => { setCurrentPage(1); }, [prevFilterKey]);
 
-  // Alert: dates with 5+ orders (including IBT) due
+  // Alert: dates with 5+ orders (including IBT) due — current month + next 2 months only
   const busyDateAlerts = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfRange = new Date(now.getFullYear(), now.getMonth() + 3, 0); // end of month+2
+
     const dateCounts: { [date: string]: { orders: number; ibts: number } } = {};
-    // Count ALL jobs (orders + IBT) by ETA date
     jobs.forEach((job) => {
       if (!job.eta) return;
-      const dateKey = job.eta.split("T")[0]; // normalize to YYYY-MM-DD
+      const dateKey = job.eta.split("T")[0];
+      const etaDate = new Date(dateKey);
+      // Only include dates in current month + next 2 months
+      if (etaDate < startOfMonth || etaDate > endOfRange) return;
       if (!dateCounts[dateKey]) dateCounts[dateKey] = { orders: 0, ibts: 0 };
       if (job.jobType === "ibt") {
         dateCounts[dateKey].ibts++;
@@ -222,7 +228,6 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts }) => {
         dateCounts[dateKey].orders++;
       }
     });
-    // Return dates with 5+ total
     return Object.entries(dateCounts)
       .filter(([, counts]) => counts.orders + counts.ibts >= 5)
       .map(([date, counts]) => ({ date, total: counts.orders + counts.ibts, ...counts }))

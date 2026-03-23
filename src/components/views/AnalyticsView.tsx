@@ -16,7 +16,8 @@ type ReportType =
   | "customer-analysis"
   | "exception-report"
   | "delivery-performance"
-  | "warehouse-utilization";
+  | "warehouse-utilization"
+  | "overdue-report";
 
 type DateRange = "all" | "today" | "week" | "month" | "quarter" | "year" | "custom";
 
@@ -289,6 +290,32 @@ export const AnalyticsView: React.FC = () => {
         });
         data = Object.values(warehouseData);
         filename = "warehouse-utilization-report.xlsx";
+        break;
+
+      case "overdue-report":
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        data = filteredJobs
+          .filter(job => job.eta && job.status !== "delivered" && job.status !== "cancelled" && new Date(job.eta) < now)
+          .map(job => {
+            const eta = new Date(job.eta!);
+            eta.setHours(0, 0, 0, 0);
+            const daysOverdue = Math.floor((now.getTime() - eta.getTime()) / 86400000);
+            return {
+              Reference: job.ref,
+              Customer: job.customer,
+              Status: job.status,
+              ETA: job.eta,
+              "Days Overdue": daysOverdue,
+              "Overdue Reason": job.overdueReason || "No reason provided",
+              Warehouse: job.warehouse || "N/A",
+              Transporter: job.driverId ? drivers.find(d => d.id === job.driverId)?.name || "Unknown" : "Unassigned",
+              Pallets: job.pallets || 0,
+              Route: `${job.pickup} > ${job.dropoff}`,
+            };
+          })
+          .sort((a, b) => b["Days Overdue"] - a["Days Overdue"]);
+        filename = "overdue-analysis-report.xlsx";
         break;
     }
 
@@ -828,6 +855,81 @@ export const AnalyticsView: React.FC = () => {
           </Card>
         );
 
+      case "overdue-report":
+        const overdueNow = new Date();
+        overdueNow.setHours(0, 0, 0, 0);
+        const overdueJobs = filteredJobs
+          .filter(job => job.eta && job.status !== "delivered" && job.status !== "cancelled" && new Date(job.eta) < overdueNow)
+          .map(job => {
+            const eta = new Date(job.eta!); eta.setHours(0, 0, 0, 0);
+            return { ...job, daysOverdue: Math.floor((overdueNow.getTime() - eta.getTime()) / 86400000) };
+          })
+          .sort((a, b) => b.daysOverdue - a.daysOverdue);
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Overdue Analysis Report</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {overdueJobs.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">No overdue orders found</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="text-left p-3 font-semibold text-gray-700">Reference</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Customer</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Status</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">ETA</th>
+                        <th className="text-center p-3 font-semibold text-gray-700">Days Overdue</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Overdue Reason</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Warehouse</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overdueJobs.map((job) => (
+                        <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="p-3">
+                            <button className="font-medium text-blue-600 hover:text-blue-800 hover:underline" onClick={() => setSelectedJob(job)}>
+                              {job.ref}
+                            </button>
+                          </td>
+                          <td className="p-3 text-gray-700">{job.customer}</td>
+                          <td className="p-3">
+                            <Badge variant={job.status === "exception" ? "destructive" : "secondary"}>{job.status}</Badge>
+                          </td>
+                          <td className="p-3 text-gray-700 text-xs">{job.eta}</td>
+                          <td className="p-3 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                              job.daysOverdue > 3 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                            }`}>
+                              {job.daysOverdue}d
+                            </span>
+                          </td>
+                          <td className="p-3 text-sm max-w-[250px]">
+                            {job.overdueReason ? (
+                              <span className="text-gray-700">{job.overdueReason}</span>
+                            ) : (
+                              <span className="text-red-400 italic text-xs">No reason provided</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-gray-700 text-xs">{job.warehouse || "—"}</td>
+                          <td className="p-3 text-gray-700 text-xs">
+                            {job.driverId ? drivers.find(d => d.id === job.driverId)?.name || "Unknown" : "Unassigned"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+
       default:
         return null;
     }
@@ -842,6 +944,7 @@ export const AnalyticsView: React.FC = () => {
     "exception-report": "Exception Report",
     "delivery-performance": "Delivery Performance",
     "warehouse-utilization": "Warehouse Utilization",
+    "overdue-report": "Overdue Analysis",
   };
 
   return (
@@ -877,6 +980,7 @@ export const AnalyticsView: React.FC = () => {
             <option value="exception-report">Exception Report</option>
             <option value="delivery-performance">Delivery Performance</option>
             <option value="warehouse-utilization">Warehouse Utilization</option>
+            <option value="overdue-report">Overdue Analysis</option>
           </Select>
 
           <Select value={dateRange} onChange={(e) => setDateRange(e.target.value as DateRange)} className="w-full text-sm">

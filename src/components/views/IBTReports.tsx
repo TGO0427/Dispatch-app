@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { FileSpreadsheet, Truck, Warehouse, MapPin } from "lucide-react";
+import { FileSpreadsheet, Truck, Warehouse, MapPin, Package, TrendingUp, AlertCircle, Search } from "lucide-react";
 import { useDispatch } from "../../context/DispatchContext";
 import { Job } from "../../types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
+import { Input } from "../ui/Input";
 import { JobDetailsModal } from "../JobDetailsModal";
 import * as XLSX from "xlsx";
 
@@ -14,7 +15,10 @@ type ReportType =
   | "transfer-routes"
   | "branch-utilization"
   | "transporter-performance"
-  | "exception-report";
+  | "exception-report"
+  | "overdue-report";
+
+type DateRange = "all" | "today" | "week" | "month" | "quarter" | "year";
 
 // Helper to get week info
 const getWeekInfo = (dateString: string | undefined) => {
@@ -35,9 +39,12 @@ export const IBTReports: React.FC = () => {
   const { jobs, drivers } = useDispatch();
 
   const [selectedReport, setSelectedReport] = useState<ReportType>("ibt-summary");
+  const [dateRange, setDateRange] = useState<DateRange>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
   const [selectedTransporter, setSelectedTransporter] = useState<string>("all");
+  const [customerSearch, setCustomerSearch] = useState<string>("");
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   // Deduplicate IBT jobs by ref and filter to current week + 4
@@ -83,6 +90,7 @@ export const IBTReports: React.FC = () => {
 
   // Filtered jobs
   const filteredJobs = useMemo(() => {
+    const now = new Date();
     return dedupedJobs
       .filter((job) => {
         if (selectedStatus !== "all" && job.status !== selectedStatus) return false;
@@ -90,6 +98,20 @@ export const IBTReports: React.FC = () => {
           if (job.pickup !== selectedWarehouse && job.dropoff !== selectedWarehouse && job.warehouse !== selectedWarehouse) return false;
         }
         if (selectedTransporter !== "all" && job.driverId !== selectedTransporter) return false;
+        // Date range filter
+        if (dateRange !== "all") {
+          const jobDate = new Date(job.createdAt);
+          const daysMap: Record<string, number> = { today: 0, week: 7, month: 30, quarter: 90, year: 365 };
+          const daysBack = daysMap[dateRange] ?? 0;
+          const cutoff = new Date(now.getTime() - daysBack * 86400000);
+          if (dateRange === "today") { cutoff.setHours(0, 0, 0, 0); }
+          if (jobDate < cutoff) return false;
+        }
+        // Customer search
+        if (customerSearch) {
+          const q = customerSearch.toLowerCase();
+          if (!job.customer.toLowerCase().includes(q) && !job.ref.toLowerCase().includes(q)) return false;
+        }
         return true;
       })
       .sort((a, b) => {
@@ -97,7 +119,7 @@ export const IBTReports: React.FC = () => {
         const bEta = b.eta ? new Date(b.eta).getTime() : Infinity;
         return aEta - bEta;
       });
-  }, [dedupedJobs, selectedStatus, selectedWarehouse, selectedTransporter]);
+  }, [dedupedJobs, selectedStatus, selectedWarehouse, selectedTransporter, dateRange, customerSearch]);
 
   // Stats
   const stats = useMemo(() => {
@@ -454,6 +476,63 @@ export const IBTReports: React.FC = () => {
             </CardContent>
           </Card>
         );
+
+      case "overdue-report":
+        const overdueNow = new Date();
+        overdueNow.setHours(0, 0, 0, 0);
+        const overdueJobs = filteredJobs
+          .filter(job => job.eta && job.status !== "delivered" && job.status !== "cancelled" && new Date(job.eta) < overdueNow)
+          .map(job => {
+            const eta = new Date(job.eta!); eta.setHours(0, 0, 0, 0);
+            return { ...job, daysOverdue: Math.floor((overdueNow.getTime() - eta.getTime()) / 86400000) };
+          })
+          .sort((a, b) => b.daysOverdue - a.daysOverdue);
+
+        return (
+          <Card>
+            <CardHeader><CardTitle>Overdue Analysis Report</CardTitle></CardHeader>
+            <CardContent>
+              {overdueJobs.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">No overdue IBT transfers found</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="text-left p-3 font-semibold text-gray-700">Reference</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Customer</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Status</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">ETA</th>
+                        <th className="text-center p-3 font-semibold text-gray-700">Days Overdue</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Overdue Reason</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Route</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overdueJobs.map((job) => (
+                        <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="p-3"><button className="font-medium text-blue-600 hover:text-blue-800 hover:underline" onClick={() => setSelectedJob(job)}>{job.ref}</button></td>
+                          <td className="p-3 text-gray-700">{job.customer}</td>
+                          <td className="p-3"><Badge variant={job.status === "exception" ? "destructive" : "secondary"}>{job.status}</Badge></td>
+                          <td className="p-3 text-gray-700 text-xs">{job.eta}</td>
+                          <td className="p-3 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${job.daysOverdue > 3 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{job.daysOverdue}d</span>
+                          </td>
+                          <td className="p-3 text-sm max-w-[250px]">
+                            {job.overdueReason ? <span className="text-gray-700">{job.overdueReason}</span> : <span className="text-red-400 italic text-xs">No reason provided</span>}
+                          </td>
+                          <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
+                          <td className="p-3 text-gray-700 text-xs">{job.driverId ? drivers.find(d => d.id === job.driverId)?.name || "Unknown" : "Unassigned"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
     }
   };
 
@@ -463,67 +542,107 @@ export const IBTReports: React.FC = () => {
     "branch-utilization": "Branch Utilization",
     "transporter-performance": "Transporter Performance",
     "exception-report": "Exception Report",
+    "overdue-report": "Overdue Analysis",
   };
 
   return (
     <div className="space-y-4">
-      {/* Header — compact with context */}
+      {/* Header — identical to Order Reports */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">IBT Reports</h1>
           <p className="text-sm text-gray-500">
-            {reportLabels[selectedReport]} — {stats.total} transfers • Current week + 4 weeks
+            {reportLabels[selectedReport]} — {filteredJobs.length} records
+            {dateRange !== "all" && ` (last ${dateRange === "today" ? "today" : dateRange === "week" ? "7 days" : dateRange === "month" ? "30 days" : dateRange === "quarter" ? "90 days" : "year"})`}
           </p>
         </div>
-        <Button onClick={exportToExcel} variant="outline" className="flex items-center gap-2 text-sm">
-          <FileSpreadsheet className="w-4 h-4" />
-          Export Excel
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={exportToExcel} className="gap-2 text-sm">
+            <FileSpreadsheet className="h-4 w-4" />
+            Excel
+          </Button>
+        </div>
       </div>
 
-      {/* Stats — intentional color palette */}
-      <div className="grid grid-cols-3 lg:grid-cols-7 gap-3">
+      {/* Filters — compact 4-column grid in Card (matches Order Reports) */}
+      <Card className="p-4">
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <Select value={selectedReport} onChange={(e) => setSelectedReport(e.target.value as ReportType)} className="w-full text-sm">
+            <option value="ibt-summary">Transfer Summary</option>
+            <option value="transfer-routes">Transfer Routes</option>
+            <option value="branch-utilization">Branch Utilization</option>
+            <option value="transporter-performance">Transporter Performance</option>
+            <option value="exception-report">Exception Report</option>
+            <option value="overdue-report">Overdue Analysis</option>
+          </Select>
+
+          <Select value={dateRange} onChange={(e) => setDateRange(e.target.value as DateRange)} className="w-full text-sm">
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">Last 7 Days</option>
+            <option value="month">Last 30 Days</option>
+            <option value="quarter">Last 90 Days</option>
+            <option value="year">Last Year</option>
+          </Select>
+
+          <Select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)} className="w-full text-sm">
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="assigned">Assigned</option>
+            <option value="en-route">In Transit</option>
+            <option value="delivered">Delivered</option>
+            <option value="exception">Exception</option>
+          </Select>
+
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Input type="text" placeholder="Search customer..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="w-full pl-8 text-sm h-9" />
+          </div>
+        </div>
+
+        {showMoreFilters && (
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 mt-3">
+            <Select value={selectedWarehouse} onChange={(e) => setSelectedWarehouse(e.target.value)} className="w-full text-sm">
+              <option value="all">All Warehouses</option>
+              {warehouses.map((wh) => <option key={wh} value={wh}>{wh}</option>)}
+            </Select>
+            <Select value={selectedTransporter} onChange={(e) => setSelectedTransporter(e.target.value)} className="w-full text-sm">
+              <option value="all">All Transporters</option>
+              {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </Select>
+          </div>
+        )}
+
+        <div className="mt-2 text-right">
+          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+            {showMoreFilters ? "Less filters" : "More filters (warehouse, transporter)"}
+          </button>
+        </div>
+      </Card>
+
+      {/* KPI Strip — with icons, matches Order Reports */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {([
-          { label: "Total IBTs", value: stats.total, color: "text-gray-900" },
-          { label: "Pending", value: stats.pending, color: "text-amber-600" },
-          { label: "In Transit", value: stats.inTransit, color: "text-blue-600" },
-          { label: "Delivered", value: stats.delivered, color: "text-green-600" },
-          { label: "Exceptions", value: stats.exceptions, color: "text-red-600" },
-          { label: "Pallets", value: stats.totalPallets, color: "text-gray-700" },
-          { label: "Weight", value: stats.totalWeight.toLocaleString(), color: "text-gray-700" },
-        ] as const).map((stat) => (
-          <Card key={stat.label} className="p-3">
-            <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
-            <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{stat.label}</div>
-          </Card>
-        ))}
-      </div>
-
-      {/* Filters — compact inline, no labels */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Select value={selectedReport} onChange={(e) => setSelectedReport(e.target.value as ReportType)} className="w-auto text-sm">
-          <option value="ibt-summary">Transfer Summary</option>
-          <option value="transfer-routes">Transfer Routes</option>
-          <option value="branch-utilization">Branch Utilization</option>
-          <option value="transporter-performance">Transporter Performance</option>
-          <option value="exception-report">Exception Report</option>
-        </Select>
-        <Select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)} className="w-auto text-sm">
-          <option value="all">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="assigned">Assigned</option>
-          <option value="en-route">In Transit</option>
-          <option value="delivered">Delivered</option>
-          <option value="exception">Exception</option>
-        </Select>
-        <Select value={selectedWarehouse} onChange={(e) => setSelectedWarehouse(e.target.value)} className="w-auto text-sm">
-          <option value="all">All Warehouses</option>
-          {warehouses.map((wh) => <option key={wh} value={wh}>{wh}</option>)}
-        </Select>
-        <Select value={selectedTransporter} onChange={(e) => setSelectedTransporter(e.target.value)} className="w-auto text-sm">
-          <option value="all">All Transporters</option>
-          {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </Select>
+          { icon: Package, label: "Total IBTs", value: String(stats.total), color: "text-gray-900", iconColor: "text-blue-600", bg: "bg-blue-50" },
+          { icon: TrendingUp, label: "Delivered", value: String(stats.delivered), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
+          { icon: Truck, label: "In Transit", value: String(stats.inTransit), color: "text-blue-600", iconColor: "text-blue-600", bg: "bg-blue-50" },
+          { icon: AlertCircle, label: "Exceptions", value: String(stats.exceptions), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },
+        ] as const).map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <Card key={kpi.label} className="p-3">
+              <div className="flex items-center gap-2.5">
+                <div className={`rounded-lg p-1.5 ${kpi.bg}`}>
+                  <Icon className={`h-4 w-4 ${kpi.iconColor}`} />
+                </div>
+                <div>
+                  <div className={`text-xl font-bold leading-tight ${kpi.color}`}>{kpi.value}</div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{kpi.label}</div>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Report Content */}

@@ -195,13 +195,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
 
   // By warehouse
   const warehouseData = useMemo(() => {
-    const wh: { [key: string]: number } = {};
+    const wh: { [key: string]: Set<string> } = {};
     orderJobs.forEach((job) => {
-      const warehouse = job.warehouse || "Unassigned";
-      wh[warehouse] = (wh[warehouse] || 0) + 1;
+      if (!job.warehouse) return; // Skip orders with no warehouse
+      if (!wh[job.warehouse]) wh[job.warehouse] = new Set();
+      wh[job.warehouse].add(job.ref);
     });
     return Object.entries(wh)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, refs]) => ({ name, count: refs.size }))
       .sort((a, b) => b.count - a.count);
   }, [orderJobs]);
 

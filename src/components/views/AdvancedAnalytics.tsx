@@ -378,7 +378,7 @@ export const AdvancedAnalytics: React.FC = () => {
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Bar dataKey="required" fill="#E5E7EB" name="Required" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="required" fill="#94A3B8" name="Required" radius={[3, 3, 0, 0]} />
                 <Bar dataKey="picked" fill={COLORS.success} name="Picked" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

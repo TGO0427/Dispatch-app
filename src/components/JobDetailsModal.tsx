@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from "react";
-import { X, MapPin, User, Calendar, Package, AlertCircle, Edit2, Save, Undo2, List, Maximize2, Minimize2, AlertTriangle } from "lucide-react";
+import { X, Edit2, Save, Maximize2, Minimize2, AlertTriangle } from "lucide-react";
 import { Job, JobStatus, JobPriority, ServiceType, TruckSize, JOB_STATUSES, JOB_PRIORITIES, TRUCK_SIZES } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { useDispatch } from "../context/DispatchContext";
 import { useNotification } from "../context/NotificationContext";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
+import { Card } from "./ui/Card";
 import { JobWorkflow } from "./JobWorkflow";
 
 interface JobDetailsModalProps {
@@ -15,50 +15,41 @@ interface JobDetailsModalProps {
   driverName?: string;
 }
 
-export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
-  job,
-  onClose,
-  driverName,
-}) => {
+const formatHumanDate = (dateStr: string) => {
+  try {
+    return new Date(dateStr).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch { return dateStr; }
+};
+
+export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, driverName }) => {
   const { updateJob, jobs } = useDispatch();
   const { showError, showWarning, confirm } = useNotification();
   const [isEditing, setIsEditing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
 
-  // All line items sharing this ASO ref
-  const lineItems = useMemo(() => {
-    return jobs.filter((j) => j.ref === job.ref);
-  }, [jobs, job.ref]);
-
+  const lineItems = useMemo(() => jobs.filter((j) => j.ref === job.ref), [jobs, job.ref]);
   const hasMultipleLineItems = lineItems.length > 1;
 
-  // Update all line items sharing the same ASO ref
   const updateAllLineItems = (updates: Partial<Job>) => {
-    lineItems.forEach((lineItem) => {
-      updateJob(lineItem.id, updates);
-    });
+    lineItems.forEach((li) => updateJob(li.id, updates));
   };
 
-  // Workflow updates: propagate to all line items
   const handleWorkflowUpdate = (_jobId: string, updates: Partial<Job>) => {
     updateAllLineItems(updates);
     setEditedJob((prev) => ({ ...prev, ...updates }));
   };
 
-  // Unassign a single line item back to pending
   const handleUnassignLineItem = (lineItemId: string) => {
     updateJob(lineItemId, { driverId: undefined, status: "pending" });
   };
 
   const handleSave = () => {
-    // Validation: if status is "exception", require exception reason
     if (editedJob.status === "exception" && !editedJob.exceptionReason?.trim()) {
       showError("Exception status requires an exception reason");
       return;
     }
 
-    // Validation: require all mandatory fields before moving to en-route
     if (editedJob.status === "en-route" && job.status !== "en-route") {
       const missing: string[] = [];
       if (!editedJob.transporterBooked) missing.push("Transporter Booked");
@@ -73,18 +64,12 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
       }
     }
 
-    // Auto-set actualDeliveryAt when marking as delivered
     const updates: Partial<Job> = { ...editedJob };
     if (editedJob.status === "delivered" && !editedJob.actualDeliveryAt) {
       updates.actualDeliveryAt = new Date().toISOString();
     }
+    if (editedJob.status !== "exception") updates.exceptionReason = undefined;
 
-    // Clear exception reason if status is not "exception"
-    if (editedJob.status !== "exception") {
-      updates.exceptionReason = undefined;
-    }
-
-    // Build shared updates to propagate to all line items
     const sharedUpdates: Partial<Job> = {};
     if (editedJob.status !== job.status) sharedUpdates.status = editedJob.status;
     if (editedJob.driverId !== job.driverId) sharedUpdates.driverId = editedJob.driverId;
@@ -98,405 +83,252 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
     if (updates.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
     if (updates.exceptionReason !== undefined) sharedUpdates.exceptionReason = updates.exceptionReason;
 
-    // Update the primary job with all edits
     updateJob(job.id, updates);
 
-    // Propagate shared fields to sibling line items (only those still assigned)
     if (Object.keys(sharedUpdates).length > 0) {
-      const assignedSiblings = jobs.filter((j) => j.ref === job.ref && j.id !== job.id && j.status !== "pending");
-      assignedSiblings.forEach((sibling) => {
-        updateJob(sibling.id, sharedUpdates);
-      });
+      jobs.filter((j) => j.ref === job.ref && j.id !== job.id && j.status !== "pending")
+        .forEach((sibling) => updateJob(sibling.id, sharedUpdates));
     }
 
     setIsEditing(false);
     onClose();
   };
 
-  const handleCancel = () => {
-    setEditedJob(job); // Reset changes
-    setIsEditing(false);
-  };
+  const handleCancel = () => { setEditedJob(job); setIsEditing(false); };
 
   const updateField = <K extends keyof Job>(field: K, value: Job[K]) => {
     setEditedJob((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Helper to format ISO string or date string to datetime-local format
   const formatDatetimeLocal = (dateString?: string): string => {
     if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      // Check if valid date
-      if (isNaN(date.getTime())) return "";
-      // Format to YYYY-MM-DDTHH:mm
-      return date.toISOString().slice(0, 16);
-    } catch {
-      return "";
-    }
+    try { const d = new Date(dateString); return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 16); } catch { return ""; }
   };
+
+  // Common input classes
+  const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50";
+  const labelCls = "text-[11px] font-semibold text-gray-400 uppercase tracking-wider";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Job details for ${job.ref}`}
+      role="dialog" aria-modal="true" aria-label={`Job details for ${job.ref}`}
       onClick={onClose}
       onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
     >
       <Card
         className={`overflow-y-auto transition-all duration-300 ${
-          isFullscreen
-            ? "w-full h-full max-w-none max-h-none rounded-none"
-            : "w-full max-w-2xl max-h-[90vh]"
+          isFullscreen ? "w-full h-full max-w-none max-h-none rounded-none" : "w-full max-w-2xl max-h-[90vh]"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 sticky top-0 bg-white z-10 border-b border-gray-100">
-          <div>
-            <CardTitle>Job Details</CardTitle>
-            <p className="text-sm text-zinc-500 mt-1">Reference: {job.ref}</p>
+        {/* Header — sticky */}
+        <div className="sticky top-0 bg-white z-10 border-b border-gray-100 px-5 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">{job.ref}</h2>
+              <p className="text-xs text-gray-400">{job.customer}</p>
+            </div>
+            <Badge variant={job.status === "exception" ? "destructive" : job.status === "delivered" ? "success" : "secondary"}>
+              {job.status}
+            </Badge>
+            <Badge className={`${priorityTone(job.priority)} text-[10px]`}>{job.priority}</Badge>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {isEditing ? (
               <>
-                <Button variant="ghost" size="sm" onClick={handleCancel}>
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={handleSave}>
-                  <Save className="h-4 w-4 mr-1" />
-                  Save
+                <Button variant="ghost" size="sm" onClick={handleCancel} className="text-xs">Cancel</Button>
+                <Button size="sm" onClick={handleSave} className="text-xs gap-1">
+                  <Save className="h-3.5 w-3.5" /> Save
                 </Button>
               </>
             ) : (
-              <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
-                <Edit2 className="h-4 w-4 mr-1" />
-                Edit
+              <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="text-xs gap-1">
+                <Edit2 className="h-3.5 w-3.5" /> Edit
               </Button>
             )}
-            <Button variant="ghost" size="icon" onClick={() => setIsFullscreen(!isFullscreen)} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+            <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100" title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
               {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+              <X className="h-4 w-4" />
+            </button>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="space-y-6">
-          {/* Status and Priority */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
-              Status & Priority
-            </div>
-            {isEditing ? (
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">Status</label>
-                  <select
-                    value={editedJob.status}
-                    onChange={(e) => updateField("status", e.target.value as JobStatus)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {JOB_STATUSES.map((status) => (
-                      <option key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs text-zinc-500 mb-1">Priority</label>
-                  <select
-                    value={editedJob.priority}
-                    onChange={(e) => updateField("priority", e.target.value as JobPriority)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {JOB_PRIORITIES.map((priority) => (
-                      <option key={priority} value={priority}>
-                        {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant={job.status === "exception" ? "destructive" : "secondary"}
-                >
-                  {job.status}
-                </Badge>
-                <Badge className={priorityTone(job.priority)}>
-                  {job.priority} priority
-                </Badge>
-              </div>
-            )}
-          </div>
-
-          {/* Workflow Tracking */}
-          <div className="pt-4 border-t">
-            <JobWorkflow
-              job={editedJob}
-              onUpdate={handleWorkflowUpdate}
-            />
-          </div>
-
-          {/* Service Type */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
-              Service Type
-            </div>
-            {isEditing ? (
-              <select
-                value={editedJob.serviceType || "delivery"}
-                onChange={(e) => updateField("serviceType", e.target.value as ServiceType)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="delivery">Delivery — We arrange transport</option>
-                <option value="collection">Collection / Ex Works — Customer collects</option>
-              </select>
-            ) : (
-              <div className="flex items-center gap-2">
-                {job.serviceType === "collection" ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-100 text-purple-700 font-semibold text-sm">
-                    📦 Ex Works / Customer Collection
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 font-semibold text-sm">
-                    🚚 Delivery — We arrange transport
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Truck Size */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
-              Truck Size
-              <span className="text-red-500 text-xs" title="Required for dispatch">
-                <AlertTriangle className="w-3 h-3 inline" />
-              </span>
-            </div>
-            {isEditing ? (
-              <select
-                value={editedJob.truckSize || ""}
-                onChange={(e) => updateField("truckSize", e.target.value as TruckSize || undefined)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select truck size...</option>
-                {TRUCK_SIZES.map((ts) => (
-                  <option key={ts.value} value={ts.value}>{ts.label}</option>
-                ))}
-              </select>
-            ) : (
-              <p className="font-semibold">
-                {job.truckSize ? TRUCK_SIZES.find((ts) => ts.value === job.truckSize)?.label || job.truckSize : "—"}
-              </p>
-            )}
-          </div>
-
-          {/* Customer */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <User className="h-4 w-4 text-zinc-500" />
-              Customer
-            </div>
-            <p className="text-lg font-semibold">{job.customer}</p>
-          </div>
-
-          {/* Route */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <MapPin className="h-4 w-4 text-zinc-500" />
-              Route
-            </div>
-            <div className="space-y-2 pl-6">
+        <div className="px-5 py-4 space-y-4">
+          {/* Status & Priority (edit mode) */}
+          {isEditing && (
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-xs text-zinc-500">Pickup</p>
-                <p className="font-medium">{job.pickup}</p>
+                <label className={labelCls}>Status</label>
+                <select value={editedJob.status} onChange={(e) => updateField("status", e.target.value as JobStatus)} className={inputCls}>
+                  {JOB_STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                </select>
               </div>
-              <div className="border-l-2 border-zinc-300 pl-4 ml-1">
-                <p className="text-xs text-zinc-500">Dropoff</p>
-                <p className="font-medium">{job.dropoff}</p>
+              <div>
+                <label className={labelCls}>Priority</label>
+                <select value={editedJob.priority} onChange={(e) => updateField("priority", e.target.value as JobPriority)} className={inputCls}>
+                  {JOB_PRIORITIES.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+                </select>
               </div>
             </div>
+          )}
+
+          {/* Workflow */}
+          <div className="rounded-xl bg-gray-50 border border-gray-100 p-4">
+            <JobWorkflow job={editedJob} onUpdate={handleWorkflowUpdate} />
           </div>
 
-          {/* Additional Info */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Service Type + Truck Size — 2 columns */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 mb-1">
-                <Package className="h-4 w-4" />
-                Pallets
-                <span className="text-red-500 text-xs" title="Required for dispatch">
-                  <AlertTriangle className="w-3 h-3 inline" />
-                </span>
-              </div>
+              <label className={labelCls}>Service Type</label>
               {isEditing ? (
-                <input
-                  type="number"
-                  value={editedJob.pallets ?? ""}
-                  onChange={(e) => updateField("pallets", e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Number of pallets"
-                  min="0"
-                />
+                <select value={editedJob.serviceType || "delivery"} onChange={(e) => updateField("serviceType", e.target.value as ServiceType)} className={inputCls}>
+                  <option value="delivery">Delivery</option>
+                  <option value="collection">Collection / Ex Works</option>
+                </select>
               ) : (
-                <p className="font-semibold">{job.pallets ?? "—"}</p>
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 mb-1">
-                <Calendar className="h-4 w-4" />
-                ETA
-              </div>
-              {isEditing ? (
-                <input
-                  type="datetime-local"
-                  value={formatDatetimeLocal(editedJob.eta)}
-                  onChange={(e) => updateField("eta", e.target.value ? new Date(e.target.value).toISOString() : undefined)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <p className="font-semibold">{job.eta ? new Date(job.eta).toLocaleString() : "—"}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Actual Delivery Date (only show if delivered or in edit mode) */}
-          {(isEditing || job.actualDeliveryAt) && (
-            <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 mb-1">
-                <Calendar className="h-4 w-4" />
-                Actual Delivery Date
-              </div>
-              {isEditing ? (
-                <input
-                  type="datetime-local"
-                  value={formatDatetimeLocal(editedJob.actualDeliveryAt)}
-                  onChange={(e) => updateField("actualDeliveryAt", e.target.value ? new Date(e.target.value).toISOString() : undefined)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <p className="font-semibold">
-                  {job.actualDeliveryAt ? new Date(job.actualDeliveryAt).toLocaleString() : "—"}
+                <p className="text-sm font-medium text-gray-900 mt-0.5">
+                  {job.serviceType === "collection" ? "📦 Ex Works" : "🚚 Delivery"}
                 </p>
               )}
             </div>
-          )}
-
-          {/* Exception Reason (only show if exception or in edit mode with exception status) */}
-          {(isEditing && editedJob.status === "exception") || job.exceptionReason ? (
             <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 mb-1">
-                <AlertCircle className="h-4 w-4" />
-                Exception Reason
+              <div className="flex items-center gap-1">
+                <label className={labelCls}>Truck Size</label>
+                {!editedJob.truckSize && <AlertTriangle className="w-3 h-3 text-amber-400" />}
               </div>
               {isEditing ? (
-                <textarea
-                  value={editedJob.exceptionReason ?? ""}
-                  onChange={(e) => updateField("exceptionReason", e.target.value || undefined)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={2}
-                  placeholder="Describe the exception..."
-                />
+                <select value={editedJob.truckSize || ""} onChange={(e) => updateField("truckSize", e.target.value as TruckSize || undefined)} className={inputCls}>
+                  <option value="">Select...</option>
+                  {TRUCK_SIZES.map((ts) => <option key={ts.value} value={ts.value}>{ts.label}</option>)}
+                </select>
               ) : (
-                <p className="text-sm">{job.exceptionReason}</p>
+                <p className="text-sm font-medium text-gray-900 mt-0.5">
+                  {job.truckSize ? TRUCK_SIZES.find((ts) => ts.value === job.truckSize)?.label || job.truckSize : "—"}
+                </p>
               )}
             </div>
-          ) : null}
+          </div>
 
-          {/* Assigned Driver */}
-          {(driverName || editedJob.driverId) && (
+          {/* Route — timeline style */}
+          <div className="rounded-xl bg-gray-50 border border-gray-100 p-4">
+            <label className={`${labelCls} mb-2 block`}>Route</label>
+            <div className="flex items-start gap-3">
+              <div className="flex flex-col items-center mt-1">
+                <div className="w-3 h-3 rounded-full bg-blue-500 ring-2 ring-blue-100" />
+                <div className="w-0.5 h-8 bg-gray-300" />
+                <div className="w-3 h-3 rounded-full bg-green-500 ring-2 ring-green-100" />
+              </div>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <p className="text-[10px] text-gray-400 uppercase">Pickup</p>
+                  <p className="text-sm font-medium text-gray-900">{job.pickup}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-400 uppercase">Dropoff</p>
+                  <p className="text-sm font-medium text-gray-900">{job.dropoff}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Customer + Transporter — 2 columns */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 mb-1">
-                <User className="h-4 w-4" />
-                Assigned Transporter
+              <label className={labelCls}>Customer</label>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5">{job.customer}</p>
+            </div>
+            {(driverName || editedJob.driverId) && (
+              <div>
+                <label className={labelCls}>Assigned Transporter</label>
+                <div className="flex items-center justify-between mt-0.5">
+                  <p className="text-sm font-semibold text-gray-900">{driverName || "Assigned"}</p>
+                  {editedJob.status !== "delivered" && editedJob.status !== "cancelled" && (
+                    <button
+                      onClick={async () => {
+                        const ok = await confirm({ title: "Unassign Order", message: "Unassign ALL line items?", type: "warning", confirmText: "Unassign" });
+                        if (ok) { updateAllLineItems({ driverId: undefined, status: "pending" }); onClose(); }
+                      }}
+                      className="text-[10px] text-red-500 hover:text-red-700 font-medium"
+                    >
+                      Unassign
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <p className="font-semibold">{driverName || "Assigned"}</p>
-                {editedJob.status !== "delivered" && editedJob.status !== "cancelled" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600 border-red-200 hover:bg-red-50"
-                    onClick={async () => {
-                      const ok = await confirm({ title: "Unassign Order", message: "Unassign ALL line items for this order from the transporter?", type: "warning", confirmText: "Unassign All" });
-                      if (ok) {
-                        updateAllLineItems({ driverId: undefined, status: "pending" });
-                        onClose();
-                      }
-                    }}
-                  >
-                    Unassign All
-                  </Button>
-                )}
+            )}
+          </div>
+
+          {/* Pallets + ETA — 2 columns */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="flex items-center gap-1">
+                <label className={labelCls}>Pallets</label>
+                {!editedJob.pallets && editedJob.pallets !== 0 && <AlertTriangle className="w-3 h-3 text-amber-400" />}
               </div>
+              {isEditing ? (
+                <input type="number" value={editedJob.pallets ?? ""} onChange={(e) => updateField("pallets", e.target.value ? Number(e.target.value) : undefined)} className={inputCls} placeholder="0" min="0" />
+              ) : (
+                <p className="text-sm font-medium text-gray-900 mt-0.5">{job.pallets ?? "—"}</p>
+              )}
+            </div>
+            <div>
+              <label className={labelCls}>ETA</label>
+              {isEditing ? (
+                <input type="datetime-local" value={formatDatetimeLocal(editedJob.eta)} onChange={(e) => updateField("eta", e.target.value ? new Date(e.target.value).toISOString() : undefined)} className={inputCls} />
+              ) : (
+                <p className="text-sm font-medium text-gray-900 mt-0.5">{job.eta ? formatHumanDate(job.eta) : "—"}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Actual Delivery Date */}
+          {(isEditing || job.actualDeliveryAt) && (
+            <div>
+              <label className={labelCls}>Actual Delivery Date</label>
+              {isEditing ? (
+                <input type="datetime-local" value={formatDatetimeLocal(editedJob.actualDeliveryAt)} onChange={(e) => updateField("actualDeliveryAt", e.target.value ? new Date(e.target.value).toISOString() : undefined)} className={inputCls} />
+              ) : (
+                <p className="text-sm font-medium text-gray-900 mt-0.5">{job.actualDeliveryAt ? formatHumanDate(job.actualDeliveryAt) : "—"}</p>
+              )}
             </div>
           )}
 
-          {/* Line Items (only show when there are multiple under same ASO ref) */}
+          {/* Exception Reason */}
+          {((isEditing && editedJob.status === "exception") || job.exceptionReason) && (
+            <div>
+              <label className={labelCls}>Exception Reason</label>
+              {isEditing ? (
+                <textarea value={editedJob.exceptionReason ?? ""} onChange={(e) => updateField("exceptionReason", e.target.value || undefined)} className={inputCls} rows={2} placeholder="Describe the exception..." />
+              ) : (
+                <p className="text-sm text-red-700 mt-0.5 bg-red-50 rounded-lg px-3 py-2">{job.exceptionReason}</p>
+              )}
+            </div>
+          )}
+
+          {/* Line Items */}
           {hasMultipleLineItems && (
-            <div className="pt-4 border-t">
-              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 mb-3">
-                <List className="h-4 w-4" />
-                Line Items ({lineItems.length})
-              </div>
-              <div className="space-y-2">
+            <div>
+              <label className={`${labelCls} mb-2 block`}>Line Items ({lineItems.length})</label>
+              <div className="space-y-1.5">
                 {lineItems.map((item, idx) => {
                   const isAssigned = item.status !== "pending" && item.driverId;
                   const isPending = item.status === "pending";
                   return (
-                    <div
-                      key={item.id}
-                      className={`flex items-center justify-between p-3 rounded-lg border ${
-                        isPending ? "bg-yellow-50 border-yellow-200" : "bg-gray-50 border-gray-200"
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-gray-500">#{idx + 1}</span>
-                          <span className="text-sm font-medium text-gray-900 truncate">
-                            {item.notes || item.dropoff}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                          {item.pallets != null && item.pallets > 0 && <span>{item.pallets} pallets</span>}
-                          {item.outstandingQty != null && item.outstandingQty > 0 && <span>{item.outstandingQty.toLocaleString()} qty</span>}
-                          <Badge
-                            variant={
-                              item.status === "delivered" ? "success" :
-                              item.status === "exception" ? "destructive" :
-                              item.status === "pending" ? "new" : "default"
-                            }
-                            className="text-[10px] px-1.5 py-0"
-                          >
-                            {item.status}
-                          </Badge>
-                        </div>
+                    <div key={item.id} className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm ${isPending ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-100"}`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[10px] font-bold text-gray-400">#{idx + 1}</span>
+                        <span className="font-medium text-gray-900 truncate">{item.notes || item.dropoff}</span>
+                        {item.pallets != null && item.pallets > 0 && <span className="text-xs text-gray-400">{item.pallets} plt</span>}
+                        <Badge variant={item.status === "delivered" ? "success" : item.status === "exception" ? "destructive" : item.status === "pending" ? "new" : "default"} className="text-[9px] px-1.5 py-0">{item.status}</Badge>
                       </div>
                       {isAssigned && item.status !== "delivered" && item.status !== "cancelled" && item.status !== "en-route" && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 ml-2 shrink-0"
-                          onClick={async () => {
-                            const ok = await confirm({ title: "Unassign Line Item", message: `Unassign line item #${idx + 1} (${item.notes || item.dropoff}) back to pending?`, type: "warning", confirmText: "Unassign" });
-                            if (ok) {
-                              handleUnassignLineItem(item.id);
-                            }
-                          }}
-                          title="Send back to pending"
-                        >
-                          <Undo2 className="h-4 w-4 mr-1" />
-                          <span className="text-xs">Unassign</span>
-                        </Button>
+                        <button onClick={async () => { const ok = await confirm({ title: "Unassign", message: `Unassign #${idx + 1}?`, type: "warning", confirmText: "Unassign" }); if (ok) handleUnassignLineItem(item.id); }} className="text-[10px] text-orange-500 hover:text-orange-700 font-medium ml-2">Unassign</button>
                       )}
-                      {isPending && !item.driverId && (
-                        <span className="text-xs text-yellow-600 font-medium ml-2 shrink-0">Pending</span>
-                      )}
+                      {isPending && !item.driverId && <span className="text-[10px] text-amber-600 font-medium ml-2">Pending</span>}
                     </div>
                   );
                 })}
@@ -507,30 +339,21 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           {/* Notes */}
           {(isEditing || job.notes) && (
             <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 mb-1">
-                <AlertCircle className="h-4 w-4" />
-                Notes
-              </div>
+              <label className={labelCls}>Notes</label>
               {isEditing ? (
-                <textarea
-                  value={editedJob.notes ?? ""}
-                  onChange={(e) => updateField("notes", e.target.value || undefined)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                  placeholder="Add notes about this job..."
-                />
+                <textarea value={editedJob.notes ?? ""} onChange={(e) => updateField("notes", e.target.value || undefined)} className={inputCls} rows={2} placeholder="Add notes..." />
               ) : (
-                <p className="text-sm">{job.notes}</p>
+                <p className="text-sm text-gray-600 mt-0.5">{job.notes}</p>
               )}
             </div>
           )}
 
-          {/* Timestamps */}
-          <div className="pt-4 border-t text-xs text-zinc-500 space-y-1">
-            <p>Created: {job.createdAt.toLocaleString()}</p>
-            <p>Updated: {job.updatedAt.toLocaleString()}</p>
+          {/* Timestamps — human-readable */}
+          <div className="flex items-center gap-4 pt-3 border-t border-gray-100 text-[10px] text-gray-400">
+            <span>Created: {formatHumanDate(job.createdAt)}</span>
+            <span>Updated: {formatHumanDate(job.updatedAt)}</span>
           </div>
-        </CardContent>
+        </div>
       </Card>
     </div>
   );

@@ -44,7 +44,7 @@ const CHART_COLORS = [
 
 export const AdvancedAnalytics: React.FC = () => {
   const { jobs, drivers } = useDispatch();
-  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "all">("30d");
+  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "all">("7d");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
 
   // Get unique warehouses
@@ -408,9 +408,7 @@ export const AdvancedAnalytics: React.FC = () => {
                     borderRadius: "8px",
                   }}
                 />
-                <Legend />
-                <Bar dataKey="palletsLoaded" fill={COLORS.primary} name="Pallets Loaded" />
-                <Bar dataKey="outstandingQty" fill={COLORS.warning} name="Outstanding Qty" />
+                <Bar dataKey="palletsLoaded" fill={COLORS.primary} name="Pallets Loaded" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

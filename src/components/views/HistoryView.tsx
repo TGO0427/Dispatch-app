@@ -231,7 +231,7 @@ export const HistoryView: React.FC = () => {
         Transporter: job.driverId
           ? drivers.find((d) => d.id === job.driverId)?.name || "Unknown"
           : "Unassigned",
-        "Truck Size": getTruckSizeLabel(job.truckSize),
+        "Transport Type": getTruckSizeLabel(job.truckSize),
         Pallets: job.pallets || 0,
         "Outstanding Qty": job.outstandingQty || 0,
         "Line Items": job.notes || "",
@@ -335,7 +335,7 @@ export const HistoryView: React.FC = () => {
 
     autoTable(doc, {
       startY: cardY + cardH + 5,
-      head: [["Ref", "Customer", "Status", "Route", "Warehouse", "Transporter", "Truck", "Plt", "Line Items", "Wk", "Completed"]],
+      head: [["Ref", "Customer", "Status", "Route", "Warehouse", "Transporter", "Type", "Plt", "Line Items", "Wk", "Completed"]],
       body: tableData,
       theme: "grid",
       headStyles: {
@@ -362,7 +362,7 @@ export const HistoryView: React.FC = () => {
         3: { cellWidth: 46 },                          // Route
         4: { cellWidth: 22 },                          // Warehouse
         5: { cellWidth: 28 },                          // Transporter
-        6: { cellWidth: 16 },                          // Truck (narrower)
+        6: { cellWidth: 16 },                          // Type (narrower)
         7: { cellWidth: 8, halign: "center" },         // Pallets (narrower)
         8: { cellWidth: 38 },                          // Line Items
         9: { cellWidth: 9, halign: "center" },         // Week (narrower)
@@ -590,7 +590,7 @@ export const HistoryView: React.FC = () => {
                   <th className="text-left p-3 font-semibold text-gray-700">Route</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Warehouse</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
-                  <th className="text-left p-3 font-semibold text-gray-700">Truck Size</th>
+                  <th className="text-left p-3 font-semibold text-gray-700">Transport Type</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Pallets</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Line Items</th>
                   <th className="text-left p-3 font-semibold text-gray-700">Week</th>

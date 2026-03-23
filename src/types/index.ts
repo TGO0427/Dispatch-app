@@ -19,7 +19,7 @@ export type JobType = "order" | "ibt";
 
 export type ServiceType = "delivery" | "collection";
 export type TransportService = "local" | "express" | "economy" | "outline" | "airfreight" | "seafreight";
-export type TruckSize = "1ton" | "4ton" | "8ton" | "6m" | "12m" | "superlink";
+export type TruckSize = "1ton" | "4ton" | "8ton" | "6m" | "12m" | "superlink" | "airline" | "vessel";
 
 export const TRUCK_SIZES: { value: TruckSize; label: string }[] = [
   { value: "1ton", label: "1 Ton Bakkie" },
@@ -28,6 +28,8 @@ export const TRUCK_SIZES: { value: TruckSize; label: string }[] = [
   { value: "6m", label: "6m" },
   { value: "12m", label: "12m" },
   { value: "superlink", label: "SuperLink" },
+  { value: "airline", label: "Airline" },
+  { value: "vessel", label: "Vessel" },
 ];
 
 export const SERVICE_TYPES: ServiceType[] = ["delivery", "collection"];

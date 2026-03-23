@@ -135,7 +135,7 @@ const guideSections: GuideSection[] = [
       { title: "Use Filters", detail: "Filter by status, transporter, warehouse, or use the search bar to find specific orders." },
       { title: "Read the Stats", detail: "The KPI cards show Total Jobs, Delivered, Cancelled, Success Rate, Total Pallets, Qty Picked, and Avg Delivery Time — all filtered to your selection." },
       { title: "Export PDF", detail: "Click 'Export PDF' for a professional report with KPI summary cards and full data table. Includes truck size, week number, and line items." },
-      { title: "Export Excel", detail: "Click 'Export Excel' for a spreadsheet with all columns including Line Items, Truck Size, and Week Number." },
+      { title: "Export Excel", detail: "Click 'Export Excel' for a spreadsheet with all columns including Line Items, Transport Type, and Week Number." },
     ],
     tips: [
       "The PDF includes a dark header, KPI cards, and a formatted table — ready for management reporting.",

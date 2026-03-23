@@ -56,7 +56,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       if (!editedJob.orderPicked) missing.push("Order Picked");
       if (!editedJob.coaAvailable) missing.push("COA Available");
       if (!editedJob.transportService) missing.push("Transport Lead Time");
-      if (!editedJob.truckSize) missing.push("Truck Size");
+      if (!editedJob.truckSize) missing.push("Transport Type");
       if (!editedJob.pallets && editedJob.pallets !== 0) missing.push("Pallets");
       if (missing.length > 0) {
         showWarning(`Complete the following before moving to En Route:\n${missing.join(", ")}`);
@@ -198,7 +198,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
             <JobWorkflow job={editedJob} onUpdate={handleWorkflowUpdate} />
           </div>
 
-          {/* Service Type + Truck Size — 2 columns */}
+          {/* Service Type + Transport Type — 2 columns */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Service Type</label>
@@ -215,7 +215,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
             </div>
             <div>
               <div className="flex items-center gap-1">
-                <label className={labelCls}>Truck Size</label>
+                <label className={labelCls}>Transport Type</label>
                 {!editedJob.truckSize && <AlertTriangle className="w-3 h-3 text-amber-400" />}
               </div>
               {isEditing ? (

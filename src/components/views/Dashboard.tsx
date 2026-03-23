@@ -9,21 +9,18 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  ChevronRight,
   Bell,
 } from "lucide-react";
 import { GlobalSearch } from "../GlobalSearch";
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
 } from "recharts";
 import { useDispatch } from "../../context/DispatchContext";
 import { useAuth } from "../../context/AuthContext";
@@ -159,28 +156,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
 
   // Weekly trend data
   const weeklyData = useMemo(() => {
-    const weeks: { [key: string]: number } = {};
+    const weeks: Record<string, { week: string; created: number; delivered: number; pending: number }> = {};
     const now = new Date();
-    // Generate last 12 weeks
-    for (let i = 11; i >= 0; i--) {
+    // Last 8 weeks only
+    for (let i = 7; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i * 7);
       const weekNum = getWeekNumber(d);
-      weeks[`W${weekNum}`] = 0;
+      const key = `W${weekNum}`;
+      weeks[key] = { week: key, created: 0, delivered: 0, pending: 0 };
     }
-    // Count unique orders (by ref) per week
-    const seenRefs = new Set<string>();
+    // Count unique orders per week by status
+    const seenCreated = new Set<string>();
+    const seenDelivered = new Set<string>();
+    const seenPending = new Set<string>();
     orderJobs.forEach((job) => {
-      const refWeekKey = `${job.ref}-W${getWeekNumber(new Date(job.createdAt))}`;
-      if (seenRefs.has(refWeekKey)) return;
-      seenRefs.add(refWeekKey);
       const weekNum = getWeekNumber(new Date(job.createdAt));
       const key = `W${weekNum}`;
-      if (key in weeks) {
-        weeks[key]++;
-      }
+      if (!(key in weeks)) return;
+      const refKey = `${job.ref}-${key}`;
+      if (!seenCreated.has(refKey)) { seenCreated.add(refKey); weeks[key].created++; }
+      if (job.status === "delivered" && !seenDelivered.has(refKey)) { seenDelivered.add(refKey); weeks[key].delivered++; }
+      if ((job.status === "pending" || job.status === "assigned") && !seenPending.has(refKey)) { seenPending.add(refKey); weeks[key].pending++; }
     });
-    return Object.entries(weeks).map(([week, count]) => ({ week, orders: count }));
+    return Object.values(weeks);
   }, [orderJobs]);
 
   // Status distribution
@@ -364,51 +363,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
         />
       </div>
 
-      {/* Live Status Banner */}
-      <div className="bg-gray-900 rounded-xl px-6 py-3 flex items-center gap-4 overflow-hidden">
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xl">📦</span>
-        </div>
-        <div className="flex items-center gap-4 overflow-hidden text-sm">
-          <span className="px-2 py-0.5 bg-green-600 text-white rounded text-xs font-semibold flex-shrink-0">
-            Dispatch News
-          </span>
-          <span className="text-gray-300 truncate">
-            {stats.pending > 0
-              ? `${stats.pending} orders pending dispatch • ${stats.inTransit} shipments in transit`
-              : "All orders processed — system running smoothly"}
-          </span>
-          <span className="px-2 py-0.5 bg-blue-600 text-white rounded text-xs font-semibold flex-shrink-0">
-            Live
-          </span>
-          <span className="text-gray-300 truncate">
-            {stats.availableDrivers} drivers available • {stats.busyDrivers} on route
-          </span>
-          {stats.highVolumeWins.length > 0 && (
-            <>
-              <span className="px-2 py-0.5 bg-emerald-500 text-white rounded text-xs font-semibold flex-shrink-0">
-                High Volume Complete
-              </span>
-              <span className="text-emerald-400 truncate">
-                {stats.highVolumeWins.map((w) => `${w.date} — ${w.pct}% (${w.completed}/${w.total})`).join(" • ")}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Performance Metrics Expandable */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Performance Metrics</h2>
-            <p className="text-sm text-gray-500">
-              Core dispatch performance & system health{" "}
-              {user?.role === "admin" && <span className="text-gray-400">(admin only)</span>}
-            </p>
-          </div>
-          <ChevronRight className="w-5 h-5 text-gray-400" />
-        </div>
+      {/* Live Status Strip — simplified */}
+      <div className="bg-gray-900 rounded-xl px-5 py-2.5 flex items-center gap-3 text-xs">
+        <span className="text-gray-300">
+          {stats.pending > 0 ? `${stats.pending} pending` : "All processed"} • {stats.inTransit} in transit • {stats.availableDrivers} drivers available
+        </span>
+        {stats.highVolumeWins.length > 0 && (
+          <>
+            <span className="w-px h-4 bg-gray-700" />
+            <span className="text-emerald-400">
+              {stats.highVolumeWins.map((w) => `${w.date}: ${w.pct}%`).join(" • ")}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Stat Cards */}
@@ -462,90 +429,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Weekly Trend */}
+        {/* Weekly Trend — bar chart with created/delivered/pending */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
             <h3 className="text-lg font-semibold text-gray-900">Weekly Trend</h3>
-            <span className="text-sm text-gray-500">Orders per week</span>
+            <span className="text-sm text-gray-500">Last 8 weeks</span>
           </div>
-          <div className="h-64 mt-4">
+          <div className="h-64 mt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={weeklyData}>
+              <BarChart data={weeklyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="#9CA3AF" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#9CA3AF" />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid #E5E7EB",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="orders"
-                  stroke="#10B981"
-                  strokeWidth={2}
-                  dot={{ fill: "#10B981", strokeWidth: 2, r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
+                <XAxis dataKey="week" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
+                <YAxis tick={{ fontSize: 11 }} stroke="#9CA3AF" allowDecimals={false} />
+                <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid #E5E7EB" }} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Bar dataKey="created" fill="#3B82F6" name="Created" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="delivered" fill="#10B981" name="Delivered" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="pending" fill="#F59E0B" name="Pending" radius={[3, 3, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Status Distribution */}
+        {/* Status Overview — horizontal bars */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg font-semibold text-gray-900">Status Distribution</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Status Overview</h3>
           </div>
-          <p className="text-sm text-gray-500 mb-4">By current status</p>
           {statusDistribution.length > 0 ? (
-            <>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusDistribution}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={80}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {statusDistribution.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-2 mt-2">
-                {statusDistribution.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="text-gray-600">{item.name}</span>
+            <div className="space-y-3">
+              {statusDistribution.map((item, idx) => {
+                const pct = stats.total > 0 ? Math.round((item.value / stats.total) * 100) : 0;
+                return (
+                  <div key={idx}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-sm text-gray-700">{item.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-900">{item.value}</span>
+                        <span className="text-xs text-gray-400">{pct}%</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">{item.value}</span>
-                      <span className="text-gray-400">
-                        ({Math.round((item.value / stats.total) * 100)}%)
-                      </span>
+                    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: item.color }} />
                     </div>
                   </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-              No data available
+                );
+              })}
             </div>
+          ) : (
+            <div className="h-32 flex items-center justify-center text-gray-400 text-sm">No data</div>
           )}
         </div>
       </div>

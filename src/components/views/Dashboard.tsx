@@ -118,6 +118,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
       if ((j.priority === "urgent" || j.priority === "high") && j.status === "pending") alertCount++;
     });
 
+    // High volume date achievements: dates with 5+ orders where 95%+ are delivered or picked
+    const dateCounts: Record<string, { total: number; completed: number }> = {};
+    jobs.filter((j) => j.jobType === "order" || j.jobType === undefined).forEach((j) => {
+      if (!j.eta) return;
+      const dateKey = j.eta.split("T")[0];
+      if (!dateCounts[dateKey]) dateCounts[dateKey] = { total: 0, completed: 0 };
+      dateCounts[dateKey].total++;
+      if (j.status === "delivered" || j.orderPicked) dateCounts[dateKey].completed++;
+    });
+    const highVolumeWins = Object.entries(dateCounts)
+      .filter(([, c]) => c.total >= 5 && c.completed / c.total >= 0.95)
+      .map(([date, c]) => ({ date, total: c.total, completed: c.completed, pct: Math.round((c.completed / c.total) * 100) }))
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 3);
+
     return {
       total,
       pending,
@@ -132,6 +147,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
       palletsThisWeek,
       weightThisWeek,
       alertCount,
+      highVolumeWins,
     };
   }, [orderJobs, jobs, drivers]);
 
@@ -351,14 +367,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
           <span className="text-gray-300 truncate">
             {stats.pending > 0
               ? `${stats.pending} orders pending dispatch • ${stats.inTransit} shipments in transit`
-              : "All orders processed - system running smoothly"}
+              : "All orders processed — system running smoothly"}
           </span>
-          <span className="px-2 py-0.5 bg-red-600 text-white rounded text-xs font-semibold flex-shrink-0">
-            Live Status
+          <span className="px-2 py-0.5 bg-blue-600 text-white rounded text-xs font-semibold flex-shrink-0">
+            Live
           </span>
           <span className="text-gray-300 truncate">
-            {stats.availableDrivers} drivers available • {stats.busyDrivers} drivers on route
+            {stats.availableDrivers} drivers available • {stats.busyDrivers} on route
           </span>
+          {stats.highVolumeWins.length > 0 && (
+            <>
+              <span className="px-2 py-0.5 bg-emerald-500 text-white rounded text-xs font-semibold flex-shrink-0">
+                High Volume Complete
+              </span>
+              <span className="text-emerald-400 truncate">
+                {stats.highVolumeWins.map((w) => `${w.date} — ${w.pct}% (${w.completed}/${w.total})`).join(" • ")}
+              </span>
+            </>
+          )}
         </div>
       </div>
 

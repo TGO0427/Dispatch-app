@@ -8,6 +8,7 @@ import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { useDispatch } from "../context/DispatchContext";
 import { useNotification } from "../context/NotificationContext";
+import { useAuth } from "../context/AuthContext";
 import { JobWorkflow } from "./JobWorkflow";
 
 interface JobCardProps {
@@ -28,6 +29,7 @@ const getWeekNumber = (dateString: string | undefined) => {
 export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const { drivers, updateJob, removeJob } = useDispatch();
   const { confirm } = useNotification();
+  const { isViewer } = useAuth();
   const {
     attributes,
     listeners,
@@ -79,14 +81,16 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
       className="flex items-center gap-3 rounded-card border border-gray-200 bg-white p-4 hover:shadow-card-hover transition-all cursor-pointer hover:border-blue-300"
       onClick={onSelect}
     >
-      <button
-        className="cursor-grab active:cursor-grabbing touch-none"
-        onClick={(e) => e.stopPropagation()}
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-5 w-5 text-gray-400" />
-      </button>
+      {!isViewer && (
+        <button
+          className="cursor-grab active:cursor-grabbing touch-none"
+          onClick={(e) => e.stopPropagation()}
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-5 w-5 text-gray-400" />
+        </button>
+      )}
 
       <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
         <p
@@ -152,7 +156,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
             )}
           </div>
         )}
-        {job.status !== "delivered" && job.status !== "cancelled" && job.status !== "en-route" && (
+        {!isViewer && job.status !== "delivered" && job.status !== "cancelled" && job.status !== "en-route" && (
           <Button
             size="sm"
             onClick={handleDispatch}
@@ -162,14 +166,14 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
             <CheckCircle className="h-4 w-4" />
           </Button>
         )}
-        <Button
+        {!isViewer && <Button
           size="sm"
           onClick={handleRemove}
           className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
           title="Remove order"
         >
           <Trash2 className="h-4 w-4" />
-        </Button>
+        </Button>}
         <Button size="sm" onClick={(e) => { e.stopPropagation(); onSelect(); }}>
           Details <ChevronRight className="ml-1 h-4 w-4" />
         </Button>

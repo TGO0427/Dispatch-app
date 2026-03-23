@@ -52,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!username || !email || !password || !role) {
         return res.status(400).json({ success: false, message: "All fields are required" });
       }
-      const validRoles = ["user", "dispatcher", "manager", "admin"];
+      const validRoles = ["viewer", "user", "dispatcher", "manager", "admin"];
       if (!validRoles.includes(role)) {
         return res.status(400).json({ success: false, message: "Invalid role" });
       }

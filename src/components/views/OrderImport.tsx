@@ -8,6 +8,7 @@ import { Badge } from "../ui/Badge";
 import { Select } from "../ui/Select";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
+import { useAuth } from "../../context/AuthContext";
 import { JobPriority, JobStatus } from "../../types";
 
 /**
@@ -285,6 +286,7 @@ const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
 export const OrderImport: React.FC = () => {
   const { refreshData } = useDispatch();
   const { showSuccess, showError } = useNotification();
+  const { isViewer } = useAuth();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importStatus, setImportStatus] = useState<"idle" | "success" | "error">("idle");
@@ -816,7 +818,7 @@ export const OrderImport: React.FC = () => {
                 >
                   <X className="mr-2 h-4 w-4" /> Cancel
                 </Button>
-                <Button onClick={importToDispatch} disabled={isImporting}>
+                <Button onClick={importToDispatch} disabled={isImporting || isViewer}>
                   {isImporting ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

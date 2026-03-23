@@ -4,6 +4,7 @@ import { Job, JobStatus, JobPriority, ServiceType, TruckSize, JOB_STATUSES, JOB_
 import { priorityTone } from "../utils/helpers";
 import { useDispatch } from "../context/DispatchContext";
 import { useNotification } from "../context/NotificationContext";
+import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
 import { Card } from "./ui/Card";
@@ -24,6 +25,7 @@ const formatHumanDate = (dateStr: string) => {
 export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, driverName }) => {
   const { updateJob, jobs } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
+  const { isViewer } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
@@ -139,7 +141,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
             <Badge className={`${priorityTone(job.priority)} text-[10px]`}>{job.priority}</Badge>
           </div>
           <div className="flex items-center gap-1">
-            {isEditing ? (
+            {!isViewer && (isEditing ? (
               <>
                 <Button variant="ghost" size="sm" onClick={handleCancel} className="text-xs">Cancel</Button>
                 <Button size="sm" onClick={handleSave} className="text-xs gap-1">
@@ -156,7 +158,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                 <Edit2 className="h-3.5 w-3.5" />
                 {job.status === "delivered" || job.status === "cancelled" ? "Amend" : "Edit"}
               </Button>
-            )}
+            ))}
             <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100" title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
               {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>

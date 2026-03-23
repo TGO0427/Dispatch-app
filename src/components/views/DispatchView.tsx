@@ -12,6 +12,7 @@ import { Truck, Briefcase, Plus, X, Save, ChevronLeft, ChevronRight, AlertTriang
 
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
+import { useAuth } from "../../context/AuthContext";
 import { filterJobs, sortJobs } from "../../utils/helpers";
 
 import { FilterBar } from "../FilterBar";
@@ -35,6 +36,7 @@ interface DispatchViewProps {
 export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initialTab }) => {
   const { jobs, drivers, updateJob, updateDriver, addDriver, refreshData, filters, sortOptions } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
+  const { isViewer } = useAuth();
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
@@ -586,14 +588,16 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                        "Completed and closed orders"}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    className="gap-2 bg-green-600 hover:bg-green-700"
-                    onClick={() => setShowAddJob(true)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Job
-                  </Button>
+                  {!isViewer && (
+                    <Button
+                      size="sm"
+                      className="gap-2 bg-green-600 hover:bg-green-700"
+                      onClick={() => setShowAddJob(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Job
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
 

@@ -55,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const { username, email, password, role } = req.body;
       if (!username || !email || !role) return res.status(400).json({ success: false, message: "Username, email, and role are required" });
-      const validRoles = ["user", "dispatcher", "manager", "admin"];
+      const validRoles = ["viewer", "user", "dispatcher", "manager", "admin"];
       if (!validRoles.includes(role)) return res.status(400).json({ success: false, message: "Invalid role" });
 
       const updateData: Record<string, unknown> = { username, email, role };

@@ -23,7 +23,7 @@ const formatHumanDate = (dateStr: string) => {
 
 export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, driverName }) => {
   const { updateJob, jobs } = useDispatch();
-  const { showError, showWarning, confirm } = useNotification();
+  const { showSuccess, showError, showWarning, confirm } = useNotification();
   const [isEditing, setIsEditing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
@@ -91,6 +91,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
         .forEach((sibling) => updateJob(sibling.id, sharedUpdates));
     }
 
+    const isAmend = job.status === "delivered" || job.status === "cancelled";
+    showSuccess(isAmend ? `${job.ref} amended successfully` : `${job.ref} saved successfully`);
     setIsEditing(false);
     onClose();
   };

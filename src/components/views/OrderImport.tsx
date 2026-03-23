@@ -210,9 +210,12 @@ const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | n
     safeStr(coalesce(row, customerIdx));
 
   // Warehouse field for filtering
-  const warehouse =
+  let warehouse =
     safeStr(coalesce(row, idx["warehouse"])) ??
     safeStr(coalesce(row, warehouseIdx));
+
+  // Don't use "K58 Warehouse" as a warehouse value — it's the default pickup, not a warehouse
+  if (warehouse === "K58 Warehouse") warehouse = undefined;
 
   // Pickup can be same as warehouse or a different field
   const pickup = warehouse ?? safeStr(coalesce(row, pickupIdx)) ?? DEFAULT_PICKUP;

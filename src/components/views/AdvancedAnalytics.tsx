@@ -69,7 +69,8 @@ export const AdvancedAnalytics: React.FC = () => {
       cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     }
 
-    let filtered = jobs;
+    // Filter by customer orders only (exclude IBT)
+    let filtered = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
 
     if (cutoffDate) {
       filtered = filtered.filter((job) => {
@@ -82,7 +83,20 @@ export const AdvancedAnalytics: React.FC = () => {
       filtered = filtered.filter((job) => job.warehouse === selectedWarehouse);
     }
 
-    return filtered;
+    // Deduplicate by ref — 1 order = 1 ASO number
+    const refMap = new Map<string, typeof filtered[0]>();
+    filtered.forEach((job) => {
+      const existing = refMap.get(job.ref);
+      if (!existing) {
+        refMap.set(job.ref, { ...job });
+      } else {
+        // Aggregate: sum pallets and qty
+        if (job.pallets) existing.pallets = (existing.pallets || 0) + job.pallets;
+        if (job.outstandingQty) existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
+      }
+    });
+
+    return Array.from(refMap.values());
   }, [jobs, timeRange, selectedWarehouse]);
 
   // 1. Transporter Performance Metrics
@@ -196,7 +210,7 @@ export const AdvancedAnalytics: React.FC = () => {
     ];
   }, [filteredJobs]);
 
-  // 4. Jobs Frequency Timeline (Daily)
+  // 4. Jobs Frequency Timeline (Daily) — already deduplicated via filteredJobs
   const jobsTimeline = useMemo(() => {
     const timeline: Record<string, { date: string; created: number; delivered: number }> = {};
 

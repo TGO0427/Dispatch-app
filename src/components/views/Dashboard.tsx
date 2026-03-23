@@ -168,10 +168,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts }) => {
       const weekNum = getWeekNumber(d);
       weeks[`W${weekNum}`] = 0;
     }
-    // Count jobs per week
+    // Count unique orders (by ref) per week
+    const seenRefs = new Set<string>();
     orderJobs.forEach((job) => {
-      const d = new Date(job.createdAt);
-      const weekNum = getWeekNumber(d);
+      const refWeekKey = `${job.ref}-W${getWeekNumber(new Date(job.createdAt))}`;
+      if (seenRefs.has(refWeekKey)) return;
+      seenRefs.add(refWeekKey);
+      const weekNum = getWeekNumber(new Date(job.createdAt));
       const key = `W${weekNum}`;
       if (key in weeks) {
         weeks[key]++;

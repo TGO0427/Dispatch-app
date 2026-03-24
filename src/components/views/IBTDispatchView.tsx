@@ -8,7 +8,7 @@ import {
   closestCenter,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Truck, Briefcase, Plus, ArrowRightLeft, X, Save, Bell } from "lucide-react";
+import { Truck, Briefcase, Plus, ArrowRightLeft, X, Save, Bell, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
@@ -117,8 +117,29 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
       exceptions: ibtJobs.filter((j) => j.status === "exception").length,
       availableDrivers: drivers.filter((d) => d.status === "available").length,
       busyDrivers: drivers.filter((d) => d.status === "busy").length,
+      alertCount: (() => {
+        const now = new Date(); now.setHours(0, 0, 0, 0);
+        const refSeen = new Set<string>();
+        let count = 0;
+        // Use ALL IBT jobs (not filtered) so overdue IBTs aren't missed
+        jobs.filter((j) => j.jobType === "ibt").forEach((j) => {
+          if (refSeen.has(j.ref)) return;
+          refSeen.add(j.ref);
+          if (j.status === "exception") count++;
+          if (j.eta && j.status !== "delivered" && j.status !== "cancelled") {
+            const eta = new Date(j.eta); eta.setHours(0, 0, 0, 0);
+            if (eta < now) count++;
+          }
+          if (j.etd && j.status !== "delivered" && j.status !== "cancelled" && j.status !== "en-route") {
+            const etd = new Date(j.etd); etd.setHours(0, 0, 0, 0);
+            if (Math.floor((etd.getTime() - now.getTime()) / 86400000) <= 1) count++;
+          }
+          if ((j.priority === "urgent" || j.priority === "high") && j.status === "pending") count++;
+        });
+        return count;
+      })(),
     };
-  }, [ibtJobs, drivers]);
+  }, [ibtJobs, jobs, drivers]);
 
   // Compute assigned pallets per driver
   const palletsByDriver = useMemo(() => {
@@ -253,6 +274,19 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
 
   const [showMoreFilters, setShowMoreFilters] = useState(false);
 
+  // Pagination
+  const ITEMS_PER_PAGE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.ceil(filteredAndSortedJobs.length / ITEMS_PER_PAGE);
+  const paginatedJobs = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAndSortedJobs.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredAndSortedJobs, currentPage]);
+
+  // Reset to page 1 when filters change
+  const prevFilterKey = useMemo(() => JSON.stringify(filters), [filters]);
+  useMemo(() => { setCurrentPage(1); }, [prevFilterKey, activeTab]);
+
   return (
     <div className="space-y-4">
       {/* Header — compact */}
@@ -271,9 +305,9 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
           >
             <Bell className="w-4 h-4" />
             Alerts
-            {stats.exceptions > 0 && (
+            {stats.alertCount > 0 && (
               <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                {stats.exceptions}
+                {stats.alertCount}
               </span>
             )}
           </button>
@@ -357,7 +391,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                   </div>
                   <Button
                     size="sm"
-                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                    className="gap-2 bg-green-600 hover:bg-green-700"
                     onClick={() => setShowAddJob(true)}
                   >
                     <Plus className="h-4 w-4" />
@@ -368,7 +402,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
 
               <CardContent>
                 <SortableContext
-                  items={filteredAndSortedJobs.map((j) => j.id)}
+                  items={paginatedJobs.map((j) => j.id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-2">
@@ -377,7 +411,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                         No IBT jobs found matching your filters
                       </div>
                     ) : (
-                      filteredAndSortedJobs.map((job) => (
+                      paginatedJobs.map((job) => (
                         <JobCard
                           key={job.id}
                           job={job}
@@ -387,6 +421,50 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     )}
                   </div>
                 </SortableContext>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                    <span className="text-sm text-gray-500">
+                      Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedJobs.length)} of {filteredAndSortedJobs.length}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Previous
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                              currentPage === page
+                                ? "bg-blue-600 text-white"
+                                : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

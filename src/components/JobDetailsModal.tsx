@@ -219,7 +219,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
             <div>
               <div className="flex items-center gap-1">
                 <label className={labelCls}>Transport Type</label>
-                {!editedJob.truckSize && <AlertTriangle className="w-3 h-3 text-amber-400" />}
+                {!(isEditing ? editedJob.truckSize : job.truckSize) && <AlertTriangle className="w-3 h-3 text-amber-400" />}
               </div>
               {isEditing ? (
                 <select value={editedJob.truckSize || ""} onChange={(e) => updateField("truckSize", e.target.value as TruckSize || undefined)} className={inputCls}>

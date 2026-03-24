@@ -75,7 +75,7 @@ const guideSections: GuideSection[] = [
   {
     id: "ibt",
     icon: ArrowRightLeft,
-    title: "IBT Import",
+    title: "Import IBT",
     description: "Import Internal Branch Transfers from Excel or CSV. Works the same as customer order import but with IBT-specific field mapping.",
     steps: [
       { title: "Upload File", detail: "Upload your IBT spreadsheet. The system maps From Branch, To Branch, Transfer Date, and other fields automatically." },
@@ -85,7 +85,7 @@ const guideSections: GuideSection[] = [
   {
     id: "ibt-dispatch",
     icon: Truck,
-    title: "IBT Dispatch",
+    title: "IBT Management",
     description: "Manage and dispatch Internal Branch Transfers. Same drag-and-drop interface as Order Management but dedicated to IBT jobs.",
     steps: [
       { title: "Assign Transporters", detail: "Drag IBT jobs to transporters to assign them, just like customer orders." },

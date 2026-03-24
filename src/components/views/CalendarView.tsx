@@ -110,7 +110,7 @@ export const CalendarView: React.FC = () => {
         <div className="flex items-center gap-2">
           {/* Legend */}
           <div className="hidden lg:flex items-center gap-3 mr-4 text-xs text-gray-500">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400" /> Order</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400" /> Customer Order</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500" /> IBT</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> En Route</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Delivered</span>

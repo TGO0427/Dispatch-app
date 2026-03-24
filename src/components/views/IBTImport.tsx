@@ -226,11 +226,15 @@ const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
     const rows = XLSX.utils.sheet_to_json<any[]>(sheet, SHEET_TO_JSON_OPTS);
     if (!rows.length) return [];
     const headers = rows[0].map((h: any) => String(h).trim());
+    console.log("IBT Import — Parsed headers:", headers);
+    console.log("IBT Import — Row count:", rows.length - 1);
+    console.log("IBT Import — First data row:", rows[1]);
     const orders: ImportedOrder[] = [];
     for (let i = 1; i < rows.length; i++) {
       const order = rowToOrder(headers, rows[i], i);
       if (order) orders.push(order);
     }
+    console.log("IBT Import — Mapped orders:", orders.length, orders.length > 0 ? "First:" : "", orders[0] || "");
     return orders;
   } catch (err) {
     console.error("Error parsing Excel file:", err);

@@ -75,7 +75,7 @@ function AppContent() {
       case "ibt":
         view = <IBTImport />; break;
       case "ibt-dispatch":
-        view = <IBTDispatchView />; break;
+        view = <IBTDispatchView onOpenAlerts={() => setAlertHubOpen(true)} />; break;
       case "clipboard":
         view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} initialTab={dispatchTab as any} />; break;
       case "calendar":

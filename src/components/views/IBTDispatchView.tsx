@@ -8,7 +8,7 @@ import {
   closestCenter,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Truck, Briefcase, Plus, ArrowRightLeft, X, Save } from "lucide-react";
+import { Truck, Briefcase, Plus, ArrowRightLeft, X, Save, Bell } from "lucide-react";
 
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
@@ -27,7 +27,11 @@ import { Button } from "../ui/Button";
 
 import type { Job, Driver, JobPriority, JobStatus } from "../../types";
 
-export const IBTDispatchView: React.FC = () => {
+interface IBTDispatchViewProps {
+  onOpenAlerts?: () => void;
+}
+
+export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }) => {
   const { jobs, drivers, updateJob, updateDriver, addDriver, refreshData, filters, sortOptions } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
 
@@ -256,10 +260,24 @@ export const IBTDispatchView: React.FC = () => {
         <div className="flex items-center gap-3">
           <ArrowRightLeft className="h-6 w-6 text-blue-600" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">IBT Dispatch</h1>
+            <h1 className="text-2xl font-bold text-gray-900">IBT Management</h1>
             <p className="text-sm text-gray-500">Manage Internal Branch Transfers and track deliveries</p>
           </div>
         </div>
+        {onOpenAlerts && (
+          <button
+            onClick={onOpenAlerts}
+            className="relative flex items-center gap-1.5 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+          >
+            <Bell className="w-4 h-4" />
+            Alerts
+            {stats.exceptions > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {stats.exceptions}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Statistics — compact */}

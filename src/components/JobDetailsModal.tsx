@@ -86,6 +86,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (updates.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
     if (updates.exceptionReason !== undefined) sharedUpdates.exceptionReason = updates.exceptionReason;
     if (editedJob.overdueReason !== job.overdueReason) sharedUpdates.overdueReason = editedJob.overdueReason;
+    if (editedJob.internalNotes !== job.internalNotes) sharedUpdates.internalNotes = editedJob.internalNotes;
 
     updateJob(job.id, updates);
 
@@ -395,17 +396,27 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
             </div>
           )}
 
-          {/* Line Item / Product — shown when single line item (multi shown in Line Items section above) */}
-          {!hasMultipleLineItems && (isEditing || job.notes) && (
+          {/* Line Item — product name from import (only for single line item) */}
+          {!hasMultipleLineItems && job.notes && (
             <div>
               <label className={labelCls}>Line Item</label>
-              {isEditing ? (
-                <textarea value={editedJob.notes ?? ""} onChange={(e) => updateField("notes", e.target.value || undefined)} className={inputCls} rows={2} placeholder="Product / item description..." />
-              ) : (
-                <p className="text-sm font-medium text-gray-900 mt-0.5">{job.notes}</p>
-              )}
+              <p className="text-sm font-medium text-gray-900 mt-0.5">{job.notes}</p>
             </div>
           )}
+
+          {/* Notes — editable free-text for important details */}
+          <div>
+            <label className={labelCls}>Notes</label>
+            {isEditing ? (
+              <textarea value={editedJob.internalNotes ?? ""} onChange={(e) => updateField("internalNotes", e.target.value || undefined)} className={inputCls} rows={2} placeholder="Add important details, special instructions..." />
+            ) : (
+              job.internalNotes ? (
+                <p className="text-sm text-gray-600 mt-0.5 bg-gray-50 rounded-lg px-3 py-2">{job.internalNotes}</p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-0.5">No notes added</p>
+              )
+            )}
+          </div>
 
           {/* Timestamps — human-readable */}
           <div className="flex items-center gap-4 pt-3 border-t border-gray-100 text-[10px] text-gray-400">

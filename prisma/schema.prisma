@@ -39,7 +39,8 @@ model Job {
   driverId  String?  @db.VarChar(255)
   driver    Driver?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
-  notes     String?  @db.Text
+  notes          String?  @db.Text
+  internalNotes  String?  @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

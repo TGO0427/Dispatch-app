@@ -98,7 +98,8 @@ export interface Job {
   overdueReason?: string;       // set when order is past ETA
 
   driverId?: string;
-  notes?: string;
+  notes?: string;               // line item / product name from import
+  internalNotes?: string;       // free-text notes added by dispatchers
 
   createdAt: string;            // ISO datetime
   updatedAt: string;            // ISO datetime

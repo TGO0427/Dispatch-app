@@ -9,7 +9,7 @@ const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 function setCors(res: VercelResponse, req: VercelRequest) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || req.headers.origin || "*");
+  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || req.headers?.origin || "");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
@@ -47,7 +47,7 @@ function checkRateLimit(key: string, maxRequests: number, windowMs: number): boo
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-fallback-key";
-if (!process.env.JWT_SECRET) console.warn("WARNING: JWT_SECRET not set — using insecure fallback");
+if (!process.env.JWT_SECRET) console.warn("WARNING: JWT_SECRET not set");
 
 // Fallback admin for initial setup (only works when DB has no admin users)
 const FALLBACK_ADMIN = {
@@ -100,7 +100,7 @@ async function handleLogin(req: VercelRequest, res: VercelResponse) {
   const token = jwt.sign(
     { id: user.id, username: user.username, email: user.email, role: user.role },
     JWT_SECRET,
-    { expiresIn: "24h" }
+    { expiresIn: "8h" }
   );
   const { password: _, ...userWithoutPassword } = user;
   return res.json({ success: true, token, user: userWithoutPassword });
@@ -167,7 +167,7 @@ async function handleForgotPassword(req: VercelRequest, res: VercelResponse) {
   const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || "http://localhost:3000";
   const resetUrl = `${frontendUrl}?reset-token=${resetToken}`;
   // TODO: Send email with resetUrl instead of logging
-  console.log(`[Password Reset] User: ${user.email}, Reset URL: ${resetUrl}`);
+  console.log(`[Password Reset] Token generated for: ${user.email}`);
 
   return res.json(successResponse);
 }
@@ -266,7 +266,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case "reset-password": return await handleResetPassword(req, res);
       case "change-password": return await handleChangePassword(req, res);
       default:
-        return res.status(400).json({ success: false, message: `Unknown action: ${action}` });
+        return res.status(400).json({ success: false, message: "Unknown or invalid action" });
     }
   } catch (error) {
     console.error(`Auth error (${action}):`, error);

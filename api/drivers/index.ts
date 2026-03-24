@@ -7,15 +7,16 @@ const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 function setCors(res: VercelResponse, req: VercelRequest) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || req.headers.origin || "*");
+  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || req.headers?.origin || "");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
 
 interface JwtPayload { id: string; username: string; email: string; role: string }
 
-function requireAuth(authHeader: string | undefined): JwtPayload | null {
-  const secret = process.env.JWT_SECRET || "dev-only-fallback-key";
+function requireAuth(authHeader: string | undefined, res: VercelResponse): JwtPayload | null {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) { res.status(500).json({ success: false, error: "Server configuration error" }); return null; }
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
   try { return jwt.verify(authHeader.slice(7), secret) as JwtPayload; } catch { return null; }
 }
@@ -24,8 +25,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const user = requireAuth(req.headers.authorization);
-  if (!user) return res.status(401).json({ success: false, error: "Unauthorized" });
+  const user = requireAuth(req.headers.authorization, res);
+  if (!user) return res.headersSent ? undefined : res.status(401).json({ success: false, error: "Unauthorized" });
 
   if (req.method === "GET") {
     try {
@@ -38,6 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === "POST") {
+    if (user.role === "viewer") return res.status(403).json({ success: false, error: "Viewers cannot modify data" });
     try {
       if (!req.body.name || !req.body.callsign || !req.body.location) {
         return res.status(400).json({ success: false, error: "Name, callsign, and location are required" });

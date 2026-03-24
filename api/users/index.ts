@@ -8,21 +8,22 @@ const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 function setCors(res: VercelResponse, req: VercelRequest) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || req.headers.origin || "*");
+  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || req.headers?.origin || "");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
 
 interface JwtPayload { id: string; username: string; email: string; role: string }
 
-function requireAuth(authHeader: string | undefined): JwtPayload | null {
-  const secret = process.env.JWT_SECRET || "dev-only-fallback-key";
+function requireAuth(authHeader: string | undefined, res: VercelResponse): JwtPayload | null {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) { res.status(500).json({ success: false, error: "Server configuration error" }); return null; }
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
   try { return jwt.verify(authHeader.slice(7), secret) as JwtPayload; } catch { return null; }
 }
 
-function requireAdmin(authHeader: string | undefined): JwtPayload | null {
-  const user = requireAuth(authHeader);
+function requireAdmin(authHeader: string | undefined, res: VercelResponse): JwtPayload | null {
+  const user = requireAuth(authHeader, res);
   if (!user || user.role !== "admin") return null;
   return user;
 }
@@ -31,8 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const caller = requireAdmin(req.headers.authorization);
-  if (!caller) return res.status(403).json({ success: false, message: "Admin access required" });
+  const caller = requireAdmin(req.headers.authorization, res);
+  if (!caller) return res.headersSent ? undefined : res.status(403).json({ success: false, message: "Admin access required" });
 
   if (req.method === "GET") {
     try {

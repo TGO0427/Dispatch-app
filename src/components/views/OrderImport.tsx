@@ -752,7 +752,7 @@ export const OrderImport: React.FC = () => {
           className={`border-2 border-dashed rounded-xl transition-colors flex flex-col items-center justify-center ${
             isDragging ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
           }`}
-          style={{ minHeight: "150px" }}
+          style={{ minHeight: "130px" }}
         >
           <Upload className="h-10 w-10 text-gray-300 mb-3" />
           <p className="text-sm font-medium text-gray-700">
@@ -778,9 +778,12 @@ export const OrderImport: React.FC = () => {
         )}
 
         {/* Format Tips — accordion inside the card */}
-        <button onClick={() => setShowFormatTips(!showFormatTips)} className="mt-3 text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
-          {showFormatTips ? "▾ Hide format tips" : "▸ Format tips"}
-        </button>
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <button onClick={() => setShowFormatTips(!showFormatTips)} className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-700 font-medium py-1">
+            <span>Column mapping reference</span>
+            <span className="text-[10px]">{showFormatTips ? "▲" : "▼"}</span>
+          </button>
+        </div>
         {showFormatTips && (
           <div className="mt-2 rounded-lg bg-blue-50 border border-blue-100 p-3 text-xs text-blue-800">
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-1">
@@ -948,12 +951,12 @@ export const OrderImport: React.FC = () => {
         </Card>
       )}
 
-      {/* Preview placeholder — when no file uploaded */}
+      {/* Preview placeholder */}
       {importedOrders.length === 0 && importStatus === "idle" && (
-        <Card className="p-8">
-          <div className="text-center text-gray-400">
-            <p className="text-sm font-medium">Imported Orders Preview</p>
-            <p className="text-xs mt-1">Upload a file to see orders here</p>
+        <Card className="py-6 px-4">
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-500">No orders imported yet</p>
+            <p className="text-xs text-gray-400 mt-0.5">Upload a CSV or Excel file to preview orders before import</p>
           </div>
         </Card>
       )}

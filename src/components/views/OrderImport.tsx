@@ -726,14 +726,12 @@ export const OrderImport: React.FC = () => {
   const [showFormatTips, setShowFormatTips] = useState(false);
 
   return (
-    <div className="space-y-4">
-      {/* Header — compact */}
+    <div className="space-y-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Import Customer Orders</h1>
-          <p className="text-sm text-gray-500">
-            Drop your Sales Orders export (CSV/Excel) — maps Document No, Customer, Warehouse, Delivery Date automatically
-          </p>
+          <p className="text-sm text-gray-500">Drop your Sales Orders export — auto-maps Document No, Customer, Warehouse, Delivery Date</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => downloadTemplate("csv")} className="text-sm">
@@ -745,44 +743,57 @@ export const OrderImport: React.FC = () => {
         </div>
       </div>
 
-      {/* Upload Area — compact */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed p-6 text-center transition-colors rounded-xl ${
-          isDragging ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300 bg-white"
-        }`}
-      >
-        <div className="flex items-center justify-center gap-4">
-          <Upload className="h-8 w-8 text-gray-400" />
-          <div className="text-left">
-            <p className="text-sm font-medium text-gray-900">Drop CSV/Excel file or <button onClick={() => fileInputRef.current?.click()} className="text-blue-600 hover:text-blue-700 underline">browse</button></p>
-            <p className="text-xs text-gray-500">Supported: .csv, .xlsx, .xls</p>
-          </div>
+      {/* Upload Card */}
+      <Card className="p-5">
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-xl transition-colors flex flex-col items-center justify-center ${
+            isDragging ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+          }`}
+          style={{ minHeight: "150px" }}
+        >
+          <Upload className="h-10 w-10 text-gray-300 mb-3" />
+          <p className="text-sm font-medium text-gray-700">
+            Drag & drop your file here, or{" "}
+            <button onClick={() => fileInputRef.current?.click()} className="text-blue-600 hover:text-blue-700 underline">browse</button>
+          </p>
+          <p className="text-xs text-gray-400 mt-1">CSV, XLSX, XLS</p>
+          <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileSelect} className="hidden" id="file-upload" />
         </div>
-        <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileSelect} className="hidden" id="file-upload" />
-      </div>
 
-      {/* Format Tips toggle */}
-      <button onClick={() => setShowFormatTips(!showFormatTips)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
-        {showFormatTips ? "Hide format tips" : "Show format tips"}
-      </button>
+        {/* Status Messages */}
+        {importStatus === "success" && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-green-50 p-3 text-green-700 text-sm">
+            <Check className="h-4 w-4" />
+            <span className="font-medium">Successfully parsed {importedOrders.length} orders</span>
+          </div>
+        )}
+        {importStatus === "error" && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-700 text-sm">
+            <AlertCircle className="h-4 w-4" />
+            <span className="font-medium">No valid rows found. Check your column headers.</span>
+          </div>
+        )}
 
-          {/* Status Messages */}
-          {importStatus === "success" && (
-            <div className="mt-4 flex items-center gap-2 rounded-xl bg-green-50 p-3 text-green-700">
-              <Check className="h-5 w-5" />
-              <span className="font-medium">Successfully imported {importedOrders.length} orders</span>
+        {/* Format Tips — accordion inside the card */}
+        <button onClick={() => setShowFormatTips(!showFormatTips)} className="mt-3 text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+          {showFormatTips ? "▾ Hide format tips" : "▸ Format tips"}
+        </button>
+        {showFormatTips && (
+          <div className="mt-2 rounded-lg bg-blue-50 border border-blue-100 p-3 text-xs text-blue-800">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-1">
+              <span><strong>Document No</strong> → Reference</span>
+              <span><strong>Customer Name</strong> → Customer</span>
+              <span><strong>Warehouse</strong> → Pickup</span>
+              <span><strong>Delivery Date</strong> → ETA</span>
+              <span><strong>Inventory Description</strong> → Line Item</span>
+              <span><strong>Status</strong> → Priority</span>
             </div>
-          )}
-
-          {importStatus === "error" && (
-            <div className="mt-4 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-red-700">
-              <AlertCircle className="h-5 w-5" />
-              <span className="font-medium">No valid rows found. Please check your headers (e.g., “Document No”, “Customer Name”).</span>
-            </div>
-          )}
+          </div>
+        )}
+      </Card>
 
       {/* Preview Table */}
       {importedOrders.length > 0 && (
@@ -937,19 +948,14 @@ export const OrderImport: React.FC = () => {
         </Card>
       )}
 
-      {/* Format Tips — collapsible content */}
-      {showFormatTips && (
-        <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900">
-          <p className="font-semibold mb-2">Auto-detected columns:</p>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-1 text-xs">
-            <span><strong>Document No</strong> → Reference</span>
-            <span><strong>Customer Name</strong> → Customer</span>
-            <span><strong>Warehouse</strong> → Pickup</span>
-            <span><strong>Delivery Date</strong> → ETA</span>
-            <span><strong>Inventory Description</strong> → Line Item</span>
-            <span><strong>Status</strong> → Priority</span>
+      {/* Preview placeholder — when no file uploaded */}
+      {importedOrders.length === 0 && importStatus === "idle" && (
+        <Card className="p-8">
+          <div className="text-center text-gray-400">
+            <p className="text-sm font-medium">Imported Orders Preview</p>
+            <p className="text-xs mt-1">Upload a file to see orders here</p>
           </div>
-        </div>
+        </Card>
       )}
 
     </div>

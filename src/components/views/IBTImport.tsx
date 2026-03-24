@@ -687,14 +687,12 @@ export const IBTImport: React.FC = () => {
   const [showFormatTips, setShowFormatTips] = useState(false);
 
   return (
-    <div className="space-y-4">
-      {/* Header — compact */}
+    <div className="space-y-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Import IBT</h1>
-          <p className="text-sm text-gray-500">
-            Drop your IBT export (CSV/Excel) — maps IBT No, From/To Branch, Due Date automatically
-          </p>
+          <p className="text-sm text-gray-500">Drop your IBT export — auto-maps IBT No, From/To Branch, Due Date</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => setShowManualModal(true)} className="bg-green-600 hover:bg-green-700 text-sm">
@@ -709,44 +707,67 @@ export const IBTImport: React.FC = () => {
         </div>
       </div>
 
-      {/* Upload Area — compact */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed p-6 text-center transition-colors rounded-xl ${
-          isDragging ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300 bg-white"
-        }`}
-      >
-        <div className="flex items-center justify-center gap-4">
-          <Upload className="h-8 w-8 text-gray-400" />
-          <div className="text-left">
-            <p className="text-sm font-medium text-gray-900">Drop CSV/Excel file or <button onClick={() => fileInputRef.current?.click()} className="text-blue-600 hover:text-blue-700 underline">browse</button></p>
-            <p className="text-xs text-gray-500">Supported: .csv, .xlsx, .xls</p>
-          </div>
+      {/* Upload Card */}
+      <Card className="p-5">
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-xl transition-colors flex flex-col items-center justify-center ${
+            isDragging ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+          }`}
+          style={{ minHeight: "150px" }}
+        >
+          <Upload className="h-10 w-10 text-gray-300 mb-3" />
+          <p className="text-sm font-medium text-gray-700">
+            Drag & drop your file here, or{" "}
+            <button onClick={() => fileInputRef.current?.click()} className="text-blue-600 hover:text-blue-700 underline">browse</button>
+          </p>
+          <p className="text-xs text-gray-400 mt-1">CSV, XLSX, XLS</p>
+          <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileSelect} className="hidden" id="file-upload" />
         </div>
-        <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileSelect} className="hidden" id="file-upload" />
-      </div>
 
-      {/* Format Tips — collapsible */}
-      <button onClick={() => setShowFormatTips(!showFormatTips)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
-        {showFormatTips ? "Hide format tips" : "Show format tips"}
-      </button>
+        {/* Status Messages */}
+        {importStatus === "success" && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-green-50 p-3 text-green-700 text-sm">
+            <Check className="h-4 w-4" />
+            <span className="font-medium">Successfully parsed {importedOrders.length} orders</span>
+          </div>
+        )}
+        {importStatus === "error" && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-700 text-sm">
+            <AlertCircle className="h-4 w-4" />
+            <span className="font-medium">No valid rows found. Check your column headers.</span>
+          </div>
+        )}
 
-          {/* Status Messages */}
-          {importStatus === "success" && (
-            <div className="mt-4 flex items-center gap-2 rounded-xl bg-green-50 p-3 text-green-700">
-              <Check className="h-5 w-5" />
-              <span className="font-medium">Successfully imported {importedOrders.length} orders</span>
+        {/* Format Tips — accordion */}
+        <button onClick={() => setShowFormatTips(!showFormatTips)} className="mt-3 text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+          {showFormatTips ? "▾ Hide format tips" : "▸ Format tips"}
+        </button>
+        {showFormatTips && (
+          <div className="mt-2 rounded-lg bg-blue-50 border border-blue-100 p-3 text-xs text-blue-800">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-1">
+              <span><strong>IBT No</strong> → Reference</span>
+              <span><strong>From Branch</strong> → Pickup</span>
+              <span><strong>To Branch</strong> → Dropoff</span>
+              <span><strong>Due Date</strong> → ETA</span>
+              <span><strong>Description</strong> → Line Item</span>
+              <span><strong>Priority</strong> → Priority</span>
             </div>
-          )}
+          </div>
+        )}
+      </Card>
 
-          {importStatus === "error" && (
-            <div className="mt-4 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-red-700">
-              <AlertCircle className="h-5 w-5" />
-              <span className="font-medium">No valid rows found. Please check your headers (e.g., “Document No”, “Customer Name”).</span>
-            </div>
-          )}
+      {/* Preview placeholder */}
+      {importedOrders.length === 0 && importStatus === "idle" && (
+        <Card className="p-8">
+          <div className="text-center text-gray-400">
+            <p className="text-sm font-medium">Imported IBT Preview</p>
+            <p className="text-xs mt-1">Upload a file to see transfers here</p>
+          </div>
+        </Card>
+      )}
 
       {/* Preview Table */}
       {importedOrders.length > 0 && (
@@ -901,21 +922,6 @@ export const IBTImport: React.FC = () => {
         </Card>
       )}
 
-      {/* Format Tips — collapsible content */}
-      {showFormatTips && (
-        <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900">
-          <p className="font-semibold mb-2">Auto-detected columns:</p>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-1 text-xs">
-            <span><strong>IBT No</strong> → Reference</span>
-            <span><strong>From Branch</strong> → Pickup</span>
-            <span><strong>To Branch</strong> → Dropoff</span>
-            <span><strong>Due Date</strong> → ETA</span>
-            <span><strong>Description</strong> → Line Item</span>
-            <span><strong>Priority</strong> → Priority</span>
-          </div>
-          <p className="mt-2 text-[10px] text-blue-700">All imports tagged as "IBT - Internal Transfer"</p>
-        </div>
-      )}
 
       {/* Manual IBT Creation Modal */}
       {showManualModal && (

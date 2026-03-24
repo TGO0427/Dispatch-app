@@ -378,7 +378,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                     <div key={item.id} className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm ${isPending ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-100"}`}>
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-[10px] font-bold text-gray-400">#{idx + 1}</span>
-                        <span className="font-medium text-gray-900 truncate">{item.notes || item.dropoff}</span>
+                        <span className="font-medium text-gray-900 truncate">
+                          {item.notes && !item.notes.match(/^(ASO|IBT|CSO)\d/) ? item.notes : item.dropoff}
+                        </span>
                         {item.pallets != null && item.pallets > 0 && <span className="text-xs text-gray-400">{item.pallets} plt</span>}
                         <Badge variant={item.status === "delivered" ? "success" : item.status === "exception" ? "destructive" : item.status === "pending" ? "new" : "default"} className="text-[9px] px-1.5 py-0">{item.status}</Badge>
                       </div>

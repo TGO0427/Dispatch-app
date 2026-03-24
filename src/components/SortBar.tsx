@@ -9,11 +9,11 @@ export const SortBar: React.FC = () => {
   const { sortOptions, setSortOptions } = useDispatch();
 
   return (
-    <>
+    <div className="flex items-center gap-1.5">
       <Select
         value={sortOptions.field}
         onChange={(e) => setSortOptions({ ...sortOptions, field: e.target.value as SortField })}
-        className="w-auto text-sm"
+        className="h-8 text-xs"
       >
         <option value="createdAt">Sort: Date</option>
         <option value="ref">Sort: Ref</option>
@@ -26,10 +26,10 @@ export const SortBar: React.FC = () => {
         size="icon"
         onClick={() => setSortOptions({ ...sortOptions, direction: sortOptions.direction === "asc" ? "desc" : "asc" })}
         title={sortOptions.direction === "asc" ? "Sort Descending" : "Sort Ascending"}
-        className="h-9 w-9"
+        className="h-8 w-8"
       >
-        {sortOptions.direction === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+        {sortOptions.direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
       </Button>
-    </>
+    </div>
   );
 };

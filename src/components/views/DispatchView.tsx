@@ -550,17 +550,16 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         </div>
       )}
 
-      {/* Compact Filter Bar */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <WarehouseSelector />
-        <FilterBar showMore={showMoreFilters} />
-        <SortBar />
-        <button
-          onClick={() => setShowMoreFilters(!showMoreFilters)}
-          className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-        >
-          {showMoreFilters ? "Less filters" : "More filters"}
-        </button>
+      {/* Filters */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="w-48"><WarehouseSelector /></div>
+          <div className="flex-1"><FilterBar showMore={showMoreFilters} /></div>
+        </div>
+        <div className="flex items-center gap-2">
+          <SortBar />
+          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors">{showMoreFilters ? "Less filters" : "More filters"}</button>
+        </div>
       </div>
 
       {/* Main Content Grid */}

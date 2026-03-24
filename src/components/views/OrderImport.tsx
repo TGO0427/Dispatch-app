@@ -723,63 +723,51 @@ export const OrderImport: React.FC = () => {
     );
   }
 
+  const [showFormatTips, setShowFormatTips] = useState(false);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="mb-2 text-3xl font-bold text-gray-900">Import Customer Orders</h1>
-            <p className="text-gray-600">
-              Drop your Sales Orders export (CSV or Excel). We’ll map <em>Document No</em>, <em>Customer Name</em>, <em>Warehouse</em>, and <em>Delivery Date</em> automatically.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => downloadTemplate("csv")}>
-              <Download className="mr-2 h-4 w-4" /> CSV Template
-            </Button>
-            <Button variant="outline" onClick={() => downloadTemplate("excel")}>
-              <Download className="mr-2 h-4 w-4" /> Excel Template
-            </Button>
+    <div className="space-y-4">
+      {/* Header — compact */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Import Customer Orders</h1>
+          <p className="text-sm text-gray-500">
+            Drop your Sales Orders export (CSV/Excel) — maps Document No, Customer, Warehouse, Delivery Date automatically
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => downloadTemplate("csv")} className="text-sm">
+            <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button variant="outline" onClick={() => downloadTemplate("excel")} className="text-sm">
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Excel
+          </Button>
+        </div>
+      </div>
+
+      {/* Upload Area — compact */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={`border-2 border-dashed p-6 text-center transition-colors rounded-xl ${
+          isDragging ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300 bg-white"
+        }`}
+      >
+        <div className="flex items-center justify-center gap-4">
+          <Upload className="h-8 w-8 text-gray-400" />
+          <div className="text-left">
+            <p className="text-sm font-medium text-gray-900">Drop CSV/Excel file or <button onClick={() => fileInputRef.current?.click()} className="text-blue-600 hover:text-blue-700 underline">browse</button></p>
+            <p className="text-xs text-gray-500">Supported: .csv, .xlsx, .xls</p>
           </div>
         </div>
-      </Card>
+        <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileSelect} className="hidden" id="file-upload" />
+      </div>
 
-      {/* Upload Area */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload Orders</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed p-12 text-center transition-colors rounded-xl ${
-              isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"
-            }`}
-          >
-            <Upload className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">
-              Drop CSV/Excel file here or click to browse
-            </h3>
-            <p className="mb-4 text-sm text-gray-600">Supported formats: .csv, .xlsx, .xls</p>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              onChange={handleFileSelect}
-              className="hidden"
-              id="file-upload"
-            />
-            <Button type="button" onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
-              Select File
-            </Button>
-          </div>
+      {/* Format Tips toggle */}
+      <button onClick={() => setShowFormatTips(!showFormatTips)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+        {showFormatTips ? "Hide format tips" : "Show format tips"}
+      </button>
 
           {/* Status Messages */}
           {importStatus === "success" && (
@@ -795,8 +783,6 @@ export const OrderImport: React.FC = () => {
               <span className="font-medium">No valid rows found. Please check your headers (e.g., “Document No”, “Customer Name”).</span>
             </div>
           )}
-        </CardContent>
-      </Card>
 
       {/* Preview Table */}
       {importedOrders.length > 0 && (
@@ -951,25 +937,20 @@ export const OrderImport: React.FC = () => {
         </Card>
       )}
 
-      {/* Instructions */}
-      <Card className="bg-blue-50">
-        <CardHeader>
-          <CardTitle className="text-blue-900">CSV/Excel Format Tips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm text-blue-900">
-            <p className="font-semibold">Detects these columns automatically:</p>
-            <ul className="ml-2 list-inside list-disc space-y-1">
-              <li><strong>Document No</strong> → Reference</li>
-              <li><strong>Customer Name</strong> → Customer</li>
-              <li><strong>Warehouse</strong> → Pickup</li>
-              <li><strong>Delivery Date</strong> → ETA (normalized)</li>
-              <li><strong>Inventory Description</strong> → Notes</li>
-              <li><strong>Status</strong> → Priority</li>
-            </ul>
+      {/* Format Tips — collapsible content */}
+      {showFormatTips && (
+        <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900">
+          <p className="font-semibold mb-2">Auto-detected columns:</p>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-1 text-xs">
+            <span><strong>Document No</strong> → Reference</span>
+            <span><strong>Customer Name</strong> → Customer</span>
+            <span><strong>Warehouse</strong> → Pickup</span>
+            <span><strong>Delivery Date</strong> → ETA</span>
+            <span><strong>Inventory Description</strong> → Line Item</span>
+            <span><strong>Status</strong> → Priority</span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
     </div>
   );

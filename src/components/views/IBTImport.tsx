@@ -684,66 +684,54 @@ export const IBTImport: React.FC = () => {
     );
   }
 
+  const [showFormatTips, setShowFormatTips] = useState(false);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="mb-2 text-3xl font-bold text-gray-900">Import Internal Branch Transfers (IBT)</h1>
-            <p className="text-gray-600">
-              Drop your IBT export (CSV or Excel). We'll map <em>IBT No</em>, <em>From Branch</em>, <em>To Branch</em>, and <em>Due Date</em> automatically.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={() => setShowManualModal(true)} className="bg-green-600 hover:bg-green-700">
-              <Plus className="mr-2 h-4 w-4" /> Add IBT Manually
-            </Button>
-            <Button variant="outline" onClick={() => downloadTemplate("csv")}>
-              <Download className="mr-2 h-4 w-4" /> CSV Template
-            </Button>
-            <Button variant="outline" onClick={() => downloadTemplate("excel")}>
-              <Download className="mr-2 h-4 w-4" /> Excel Template
-            </Button>
+    <div className="space-y-4">
+      {/* Header — compact */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Import IBT</h1>
+          <p className="text-sm text-gray-500">
+            Drop your IBT export (CSV/Excel) — maps IBT No, From/To Branch, Due Date automatically
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setShowManualModal(true)} className="bg-green-600 hover:bg-green-700 text-sm">
+            <Plus className="mr-1.5 h-4 w-4" /> Add IBT
+          </Button>
+          <Button variant="outline" onClick={() => downloadTemplate("csv")} className="text-sm">
+            <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button variant="outline" onClick={() => downloadTemplate("excel")} className="text-sm">
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Excel
+          </Button>
+        </div>
+      </div>
+
+      {/* Upload Area — compact */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={`border-2 border-dashed p-6 text-center transition-colors rounded-xl ${
+          isDragging ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300 bg-white"
+        }`}
+      >
+        <div className="flex items-center justify-center gap-4">
+          <Upload className="h-8 w-8 text-gray-400" />
+          <div className="text-left">
+            <p className="text-sm font-medium text-gray-900">Drop CSV/Excel file or <button onClick={() => fileInputRef.current?.click()} className="text-blue-600 hover:text-blue-700 underline">browse</button></p>
+            <p className="text-xs text-gray-500">Supported: .csv, .xlsx, .xls</p>
           </div>
         </div>
-      </Card>
+        <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileSelect} className="hidden" id="file-upload" />
+      </div>
 
-      {/* Upload Area */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload Orders</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed p-12 text-center transition-colors rounded-xl ${
-              isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"
-            }`}
-          >
-            <Upload className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">
-              Drop CSV/Excel file here or click to browse
-            </h3>
-            <p className="mb-4 text-sm text-gray-600">Supported formats: .csv, .xlsx, .xls</p>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              onChange={handleFileSelect}
-              className="hidden"
-              id="file-upload"
-            />
-            <Button type="button" onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
-              Select File
-            </Button>
-          </div>
+      {/* Format Tips — collapsible */}
+      <button onClick={() => setShowFormatTips(!showFormatTips)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+        {showFormatTips ? "Hide format tips" : "Show format tips"}
+      </button>
 
           {/* Status Messages */}
           {importStatus === "success" && (
@@ -759,8 +747,6 @@ export const IBTImport: React.FC = () => {
               <span className="font-medium">No valid rows found. Please check your headers (e.g., “Document No”, “Customer Name”).</span>
             </div>
           )}
-        </CardContent>
-      </Card>
 
       {/* Preview Table */}
       {importedOrders.length > 0 && (
@@ -915,28 +901,21 @@ export const IBTImport: React.FC = () => {
         </Card>
       )}
 
-      {/* Instructions */}
-      <Card className="bg-blue-50">
-        <CardHeader>
-          <CardTitle className="text-blue-900">CSV/Excel Format Tips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm text-blue-900">
-            <p className="font-semibold">Detects these columns automatically:</p>
-            <ul className="ml-2 list-inside list-disc space-y-1">
-              <li><strong>IBT No / Transfer No</strong> → Reference</li>
-              <li><strong>From Branch / Source</strong> → Pickup (Source Branch)</li>
-              <li><strong>To Branch / Destination</strong> → Dropoff (Destination Branch)</li>
-              <li><strong>Due Date</strong> → ETA (normalized to YYYY-MM-DD)</li>
-              <li><strong>Description / Notes</strong> → Notes</li>
-              <li><strong>Priority / Status</strong> → Priority</li>
-            </ul>
-            <p className="mt-3 text-xs">
-              <strong>Note:</strong> All imports are automatically tagged as "IBT - Internal Transfer"
-            </p>
+      {/* Format Tips — collapsible content */}
+      {showFormatTips && (
+        <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900">
+          <p className="font-semibold mb-2">Auto-detected columns:</p>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-1 text-xs">
+            <span><strong>IBT No</strong> → Reference</span>
+            <span><strong>From Branch</strong> → Pickup</span>
+            <span><strong>To Branch</strong> → Dropoff</span>
+            <span><strong>Due Date</strong> → ETA</span>
+            <span><strong>Description</strong> → Line Item</span>
+            <span><strong>Priority</strong> → Priority</span>
           </div>
-        </CardContent>
-      </Card>
+          <p className="mt-2 text-[10px] text-blue-700">All imports tagged as "IBT - Internal Transfer"</p>
+        </div>
+      )}
 
       {/* Manual IBT Creation Modal */}
       {showManualModal && (

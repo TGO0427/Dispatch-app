@@ -395,14 +395,14 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
             </div>
           )}
 
-          {/* Notes */}
-          {(isEditing || job.notes) && (
+          {/* Line Item / Product — shown when single line item (multi shown in Line Items section above) */}
+          {!hasMultipleLineItems && (isEditing || job.notes) && (
             <div>
-              <label className={labelCls}>Notes</label>
+              <label className={labelCls}>Line Item</label>
               {isEditing ? (
-                <textarea value={editedJob.notes ?? ""} onChange={(e) => updateField("notes", e.target.value || undefined)} className={inputCls} rows={2} placeholder="Add notes..." />
+                <textarea value={editedJob.notes ?? ""} onChange={(e) => updateField("notes", e.target.value || undefined)} className={inputCls} rows={2} placeholder="Product / item description..." />
               ) : (
-                <p className="text-sm text-gray-600 mt-0.5">{job.notes}</p>
+                <p className="text-sm font-medium text-gray-900 mt-0.5">{job.notes}</p>
               )}
             </div>
           )}

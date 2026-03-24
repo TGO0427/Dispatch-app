@@ -8,7 +8,7 @@ import {
   closestCenter,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Truck, Briefcase, Plus, ArrowRightLeft, X, Save, Bell, ChevronLeft, ChevronRight } from "lucide-react";
+import { Truck, Briefcase, Plus, ArrowRightLeft, X, Save, Bell, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
@@ -356,6 +356,41 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
           </button>
         ))}
       </div>
+
+      {/* High Volume Dates — IBT only, current month + 2 months */}
+      {(() => {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfRange = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+        const dateCounts: Record<string, number> = {};
+        jobs.filter((j) => j.jobType === "ibt").forEach((j) => {
+          if (!j.eta) return;
+          const dateKey = j.eta.split("T")[0];
+          const d = new Date(dateKey);
+          if (d < startOfMonth || d > endOfRange) return;
+          dateCounts[dateKey] = (dateCounts[dateKey] || 0) + 1;
+        });
+        const alerts = Object.entries(dateCounts)
+          .filter(([, c]) => c >= 5)
+          .map(([date, total]) => ({ date, total }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+
+        if (alerts.length === 0) return null;
+        return (
+          <div className="flex items-center gap-2 flex-wrap text-sm">
+            <div className="flex items-center gap-1.5 text-amber-700">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="font-semibold text-xs">High Volume:</span>
+            </div>
+            {alerts.map((a) => (
+              <span key={a.date} className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 rounded-lg text-xs border border-amber-200">
+                <span className="font-semibold text-amber-900">{a.date}</span>
+                <span className="text-amber-600">{a.total} IBTs</span>
+              </span>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Filters */}
       <div className="space-y-2">

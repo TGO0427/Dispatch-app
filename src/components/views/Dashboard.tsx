@@ -392,6 +392,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
         ))}
       </div>
 
+      {/* High Volume Dates — current month + 2 months, orders + IBT */}
+      {(() => {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfRange = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+        const dateCounts: Record<string, { orders: number; ibts: number }> = {};
+        jobs.forEach((j) => {
+          if (!j.eta) return;
+          const dateKey = j.eta.split("T")[0];
+          const d = new Date(dateKey);
+          if (d < startOfMonth || d > endOfRange) return;
+          if (!dateCounts[dateKey]) dateCounts[dateKey] = { orders: 0, ibts: 0 };
+          if (j.jobType === "ibt") dateCounts[dateKey].ibts++;
+          else dateCounts[dateKey].orders++;
+        });
+        const alerts = Object.entries(dateCounts)
+          .filter(([, c]) => c.orders + c.ibts >= 5)
+          .map(([date, c]) => ({ date, total: c.orders + c.ibts, orders: c.orders, ibts: c.ibts }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+
+        if (alerts.length === 0) return null;
+        return (
+          <div className="flex items-center gap-2 flex-wrap text-sm">
+            <div className="flex items-center gap-1.5 text-amber-700">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="font-semibold text-xs">High Volume:</span>
+            </div>
+            {alerts.map((a) => (
+              <span key={a.date} className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 rounded-lg text-xs border border-amber-200">
+                <span className="font-semibold text-amber-900">{a.date}</span>
+                <span className="text-amber-600">{a.total} ({a.orders} orders, {a.ibts} IBT)</span>
+              </span>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Weekly Trend — bar chart with created/delivered/pending */}

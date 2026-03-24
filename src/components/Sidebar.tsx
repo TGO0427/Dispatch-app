@@ -59,11 +59,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
   const sidebarStats = useMemo(() => {
     const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
+    const ibtJobs = jobs.filter((j) => j.jobType === "ibt");
     return {
       totalJobs: orderJobs.length,
       inTransit: orderJobs.filter((j) => j.status === "en-route").length,
       exceptions: orderJobs.filter((j) => j.status === "exception").length,
       pendingCount: orderJobs.filter((j) => j.status === "pending").length,
+      ibtPendingCount: ibtJobs.filter((j) => j.status === "pending").length,
     };
   }, [jobs]);
 
@@ -74,7 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       items: [
         { id: "home", icon: Home, label: "Import Customer Orders" },
         { id: "ibt", icon: ArrowRightLeft, label: "IBT Import" },
-        { id: "ibt-dispatch", icon: Truck, label: "IBT Dispatch" },
+        { id: "ibt-dispatch", icon: Truck, label: "IBT Dispatch", badge: sidebarStats.ibtPendingCount, badgeType: "info" },
         { id: "clipboard", icon: ClipboardList, label: "Order Management", badge: sidebarStats.pendingCount, badgeType: "info" },
       ],
     },

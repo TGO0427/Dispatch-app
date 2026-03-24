@@ -1,6 +1,6 @@
 // src/components/views/OrderImport.tsx
 import React, { useState, useCallback, useRef, useMemo } from "react";
-import { Upload, Check, AlertCircle, Download, Search, Filter, ArrowUpDown, Plus, X, Save } from "lucide-react";
+import { Upload, Check, AlertCircle, Download, Search, Filter, ArrowUpDown, Plus, X, Save, Clock, RefreshCw, SkipForward, AlertTriangle } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -248,6 +248,15 @@ export const IBTImport: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  interface ImportResult {
+    timestamp: string;
+    newOrders: ImportedOrder[];
+    updatedOrders: ImportedOrder[];
+    skippedOrders: ImportedOrder[];
+    failedOrders: ImportedOrder[];
+  }
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+
   // Manual IBT creation
   const [showManualModal, setShowManualModal] = useState(false);
   const [manualOrder, setManualOrder] = useState<ImportedOrder>({
@@ -493,17 +502,27 @@ export const IBTImport: React.FC = () => {
         }
       }
 
-      const skippedCount = existingOrders.length - updatedCount - failedCount;
+      const skippedOrders = existingOrders.slice(0, existingOrders.length - updatedCount - failedCount);
+      const updatedOrdersList = existingOrders.slice(0, updatedCount);
+      const failedOrdersList = existingOrders.slice(existingOrders.length - failedCount);
 
       await refreshData();
 
       const parts = [];
       if (newOrders.length > 0) parts.push(`${newOrders.length} new IBT orders imported`);
       if (updatedCount > 0) parts.push(`${updatedCount} existing orders updated`);
-      if (skippedCount > 0) parts.push(`${skippedCount} duplicate orders skipped (no changes)`);
+      if (skippedOrders.length > 0) parts.push(`${skippedOrders.length} duplicate orders skipped (no changes)`);
       if (failedCount > 0) parts.push(`${failedCount} orders failed to update`);
       if (parts.length === 0) parts.push("No changes needed");
       showSuccess(parts.join(". "));
+
+      setImportResult({
+        timestamp: new Date().toISOString(),
+        newOrders,
+        updatedOrders: updatedOrdersList,
+        skippedOrders,
+        failedOrders: failedOrdersList,
+      });
 
       setImportedOrders([]);
       setImportStatus("idle");
@@ -566,6 +585,104 @@ export const IBTImport: React.FC = () => {
     return "default";
     // Align with your design system as needed
   };
+
+  // Render import summary page
+  if (importResult) {
+    const { timestamp, newOrders: newOrd, updatedOrders: updOrd, skippedOrders: skipOrd, failedOrders: failOrd } = importResult;
+    const importTime = new Date(timestamp);
+    const totalProcessed = newOrd.length + updOrd.length + skipOrd.length + failOrd.length;
+    const formatTime = (d: Date) => d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    const formatDate = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+    const timelineItems: { icon: React.FC<any>; color: string; bgColor: string; label: string; count: number; orders: ImportedOrder[] }[] = [
+      { icon: Plus, color: "text-green-600", bgColor: "bg-green-100", label: "New IBTs Imported", count: newOrd.length, orders: newOrd },
+      { icon: RefreshCw, color: "text-blue-600", bgColor: "bg-blue-100", label: "Existing IBTs Updated", count: updOrd.length, orders: updOrd },
+      { icon: SkipForward, color: "text-gray-500", bgColor: "bg-gray-100", label: "Duplicates Skipped", count: skipOrd.length, orders: skipOrd },
+      { icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100", label: "Failed", count: failOrd.length, orders: failOrd },
+    ];
+
+    return (
+      <div className="space-y-6">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <Check className="h-8 w-8 text-green-600" />
+                <h1 className="text-3xl font-bold text-gray-900">IBT Import Complete</h1>
+              </div>
+              <p className="text-gray-600">{formatDate(importTime)} at {formatTime(importTime)} — {totalProcessed} transfers processed</p>
+            </div>
+            <Button onClick={() => setImportResult(null)} className="gap-2">
+              <Upload className="h-4 w-4" /> New Import
+            </Button>
+          </div>
+        </Card>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          {timelineItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Card key={item.label} className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`rounded-lg p-2 ${item.bgColor}`}><Icon className={`h-5 w-5 ${item.color}`} /></div>
+                  <div>
+                    <div className={`text-2xl font-bold ${item.color}`}>{item.count}</div>
+                    <div className="text-xs text-gray-600">{item.label}</div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2"><Clock className="h-5 w-5 text-gray-600" /><CardTitle>Import Timeline</CardTitle></div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {timelineItems.filter((t) => t.count > 0).map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.label}>
+                    <div className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-10 h-10 rounded-full ${item.bgColor} flex items-center justify-center`}><Icon className={`w-5 h-5 ${item.color}`} /></div>
+                        {idx < timelineItems.filter((t) => t.count > 0).length - 1 && <div className="w-0.5 flex-1 bg-gray-200 my-2" />}
+                      </div>
+                      <div className="flex-1 pb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-semibold text-gray-900">{item.label}</h4>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.bgColor} ${item.color}`}>{item.count}</span>
+                          <span className="text-xs text-gray-400">{formatTime(importTime)}</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {item.orders.slice(0, 20).map((order, i) => (
+                            <div key={`${order.ref}-${i}`} className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100 text-sm">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="font-semibold text-blue-600">{order.ref}</span>
+                                <span className="text-gray-600 truncate">{order.notes || order.dropoff}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
+                                {order.eta && <span>{order.eta}</span>}
+                                {order.outstandingQty !== undefined && <span>{order.outstandingQty} qty</span>}
+                              </div>
+                            </div>
+                          ))}
+                          {item.orders.length > 20 && <p className="text-xs text-gray-400 pl-2">+ {item.orders.length - 20} more</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {timelineItems.every((t) => t.count === 0) && <p className="text-center text-gray-500 py-8">No changes were made during this import.</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

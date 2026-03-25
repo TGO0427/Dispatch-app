@@ -35,12 +35,15 @@ model Job {
   transporterBooked  Boolean?  @default(false)
   orderPicked        Boolean?  @default(false)
   coaAvailable       Boolean?  @default(false)
+  hasFlowbin         Boolean?  @default(false)
 
   driverId  String?  @db.VarChar(255)
   driver    Driver?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
   notes          String?  @db.Text
   internalNotes  String?  @db.Text
+
+  flowbinBatches FlowbinBatch[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -86,4 +89,18 @@ model User {
   updatedAt            DateTime  @updatedAt
 
   @@map("users")
+}
+
+model FlowbinBatch {
+  id           String    @id @default(uuid())
+  jobId        String    @db.VarChar(255)
+  job          Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  batchNumber  String    @db.VarChar(255)
+  quantity     Int
+  returnedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([jobId])
+  @@map("flowbin_batches")
 }

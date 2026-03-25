@@ -8,6 +8,8 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
 import { Card } from "./ui/Card";
+import { flowbinsAPI } from "../services/api";
+import type { FlowbinBatch } from "../types";
 import { JobWorkflow } from "./JobWorkflow";
 
 interface JobDetailsModalProps {
@@ -29,6 +31,39 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
   const [isEditing, setIsEditing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
+
+  // Flowbin state
+  const [flowbinBatches, setFlowbinBatches] = useState<FlowbinBatch[]>([]);
+  const [newBatchNumber, setNewBatchNumber] = useState("");
+  const [newBatchQty, setNewBatchQty] = useState("");
+
+  // Fetch flowbin batches when job has flowbin enabled
+  React.useEffect(() => {
+    if (job.hasFlowbin) {
+      flowbinsAPI.getAll().then((data) => {
+        const jobBatches = data.find((j: any) => j.id === job.id)?.flowbinBatches || [];
+        setFlowbinBatches(jobBatches);
+      }).catch(() => {});
+    }
+  }, [job.id, job.hasFlowbin]);
+
+  const handleAddBatch = async () => {
+    if (!newBatchNumber.trim() || !newBatchQty) return;
+    try {
+      await flowbinsAPI.create({ jobId: job.id, batchNumber: newBatchNumber.trim(), quantity: Number(newBatchQty) });
+      const data = await flowbinsAPI.getAll();
+      setFlowbinBatches(data.find((j: any) => j.id === job.id)?.flowbinBatches || []);
+      setNewBatchNumber("");
+      setNewBatchQty("");
+    } catch { showError("Failed to add batch"); }
+  };
+
+  const handleRemoveBatch = async (batchId: string) => {
+    try {
+      await flowbinsAPI.remove(batchId);
+      setFlowbinBatches((prev) => prev.filter((b) => b.id !== batchId));
+    } catch { showError("Failed to remove batch"); }
+  };
 
   const lineItems = useMemo(() => jobs.filter((j) => j.ref === job.ref), [jobs, job.ref]);
   const hasMultipleLineItems = lineItems.length > 1;
@@ -403,6 +438,65 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
               <p className="text-sm font-medium text-gray-900 mt-0.5">{job.notes}</p>
             </div>
           )}
+
+          {/* Flowbin Section */}
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className={labelCls}>Flowbin</label>
+              {!isViewer && (
+                <button
+                  onClick={() => {
+                    const newVal = !editedJob.hasFlowbin;
+                    updateField("hasFlowbin", newVal);
+                    updateJob(job.id, { hasFlowbin: newVal });
+                  }}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${editedJob.hasFlowbin ? "bg-blue-600" : "bg-gray-300"}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${editedJob.hasFlowbin ? "translate-x-5" : "translate-x-0.5"}`} />
+                </button>
+              )}
+            </div>
+
+            {editedJob.hasFlowbin && (
+              <div className="space-y-2 mt-3">
+                {flowbinBatches.length > 0 && (
+                  <div className="space-y-1">
+                    {flowbinBatches.map((b) => (
+                      <div key={b.id} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white border border-gray-100 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">{b.batchNumber}</span>
+                          <span className="text-xs text-gray-500">{b.quantity} qty</span>
+                          {b.returnedAt && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1 py-0.5 rounded">Returned</span>}
+                        </div>
+                        {!isViewer && !b.returnedAt && (
+                          <button onClick={() => handleRemoveBatch(b.id)} className="text-[10px] text-red-400 hover:text-red-600">Remove</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!isViewer && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text" placeholder="Batch number" value={newBatchNumber}
+                      onChange={(e) => setNewBatchNumber(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      type="number" placeholder="Qty" value={newBatchQty}
+                      onChange={(e) => setNewBatchQty(e.target.value)}
+                      className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      min="1"
+                    />
+                    <Button size="sm" onClick={handleAddBatch} disabled={!newBatchNumber.trim() || !newBatchQty} className="text-xs h-7">
+                      Add
+                    </Button>
+                  </div>
+                )}
+                {flowbinBatches.length === 0 && <p className="text-[10px] text-gray-400">No batches added — add batch numbers above</p>}
+              </div>
+            )}
+          </div>
 
           {/* Notes — editable free-text for important details */}
           <div>

@@ -89,6 +89,8 @@ export interface Job {
   orderPicked?: boolean;        // Order has been picked from warehouse
   coaAvailable?: boolean;       // Certificate of Analysis available
   readyForDispatch?: boolean;   // Computed: transporterBooked && orderPicked && coaAvailable (not persisted to DB)
+  hasFlowbin?: boolean;         // Whether this job includes flowbins to be returned
+  flowbinBatches?: FlowbinBatch[]; // Flowbin batch details (when loaded)
 
   // Dates as ISO strings — easy to serialize, compare, and store
   eta?: string;                 // planned ETA (e.g. "2025-10-10" or ISO datetime)
@@ -116,6 +118,18 @@ export interface Driver {
   phone?: string;
   email?: string;
 }
+
+export interface FlowbinBatch {
+  id: string;
+  jobId: string;
+  batchNumber: string;
+  quantity: number;
+  returnedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type FlowbinStatus = "on-time" | "warning" | "overdue" | "returned";
 
 // ------------------------------
 // Sorting / Filtering

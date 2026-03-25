@@ -131,6 +131,19 @@ export const driversAPI = {
   },
 };
 
+// ============ Flowbin Batches ============
+export const flowbinsAPI = {
+  getAll: () => fetchAPI<any[]>("/api/flowbins"),
+  create: (data: { jobId: string; batchNumber: string; quantity: number }) =>
+    fetchAPI<any>("/api/flowbins", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: Record<string, unknown>) =>
+    fetchAPI<any>(`/api/flowbins/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  remove: (id: string) =>
+    fetchAPI<void>(`/api/flowbins/${id}`, { method: "DELETE" }),
+  markReturned: (id: string) =>
+    fetchAPI<any>(`/api/flowbins/${id}`, { method: "PUT", body: JSON.stringify({ returnedAt: new Date().toISOString() }) }),
+};
+
 // ============ Health Check ============
 
 export const healthCheck = async (): Promise<{ status: string; timestamp: string }> => {

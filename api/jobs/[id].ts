@@ -62,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         "ref", "customer", "pickup", "dropoff", "warehouse", "priority", "status",
         "pallets", "outstandingQty", "eta", "scheduledAt", "actualDeliveryAt",
         "exceptionReason", "overdueReason", "driverId", "notes", "internalNotes", "transporterBooked", "orderPicked",
-        "coaAvailable", "serviceType", "jobType", "transportService", "truckSize", "etd",
+        "coaAvailable", "hasFlowbin", "serviceType", "jobType", "transportService", "truckSize", "etd",
       ];
       const requiredStringFields = new Set(["ref", "customer", "pickup", "dropoff", "priority", "status"]);
       const data: Record<string, unknown> = {};

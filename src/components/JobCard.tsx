@@ -131,7 +131,21 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
           </div>
         )}
         <div className="mt-2">
-          <JobWorkflow job={job} onUpdate={updateJob} compact />
+          <JobWorkflow job={job} onUpdate={(jobId, updates) => {
+            // Auto-assign DHL + Airline when Export Airfreight is selected
+            if (updates.transportService === "airfreight") {
+              const dhlDriver = drivers.find((d) => d.name.toLowerCase().includes("dhl"));
+              if (dhlDriver) {
+                updates.driverId = dhlDriver.id;
+                updates.truckSize = "airline";
+                updates.status = "assigned";
+              }
+            }
+            if (updates.transportService === "seafreight") {
+              updates.truckSize = "vessel";
+            }
+            updateJob(jobId, updates);
+          }} compact />
         </div>
       </div>
 

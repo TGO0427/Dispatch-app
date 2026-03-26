@@ -25,7 +25,7 @@ const formatHumanDate = (dateStr: string) => {
 };
 
 export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, driverName }) => {
-  const { updateJob, jobs } = useDispatch();
+  const { updateJob, jobs, drivers } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
   const { isViewer } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -73,6 +73,19 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
   };
 
   const handleWorkflowUpdate = (_jobId: string, updates: Partial<Job>) => {
+    // Auto-assign DHL + Airline truck type when Export Airfreight is selected
+    if (updates.transportService === "airfreight") {
+      const dhlDriver = drivers.find((d) => d.name.toLowerCase().includes("dhl"));
+      if (dhlDriver) {
+        updates.driverId = dhlDriver.id;
+        updates.truckSize = "airline";
+        updates.status = "assigned";
+      }
+    }
+    // Auto-assign Vessel truck type when Export Seafreight is selected
+    if (updates.transportService === "seafreight") {
+      updates.truckSize = "vessel";
+    }
     updateAllLineItems(updates);
     setEditedJob((prev) => ({ ...prev, ...updates }));
   };

@@ -1,8 +1,6 @@
 import React, { useMemo } from "react";
 import { Search, X } from "lucide-react";
-import { Input } from "./ui/Input";
 import { Button } from "./ui/Button";
-import { Select } from "./ui/Select";
 import { useDispatch } from "../context/DispatchContext";
 import { JobStatus, JobPriority } from "../types";
 
@@ -38,77 +36,77 @@ export const FilterBar: React.FC<{ showMore?: boolean }> = ({ showMore }) => {
     filters.orderPicked !== undefined ||
     filters.coaAvailable !== undefined;
 
-  const selectCls = "h-7 text-[11px]";
-  const selectStyle = { width: "auto", minWidth: "5.5rem" };
+  const selCls = "h-7 text-[11px] border border-gray-300 rounded-md bg-white px-2 py-0 focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
     <div className="flex items-center gap-1.5">
       {/* Search */}
-      <div className="relative w-44 flex-shrink-0">
+      <div className="relative" style={{ width: "11rem" }}>
         <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
-        <Input
+        <input
+          type="text"
           placeholder="Search ref, customer..."
           value={filters.searchQuery || ""}
           onChange={(e) => setFilters({ ...filters, searchQuery: e.target.value })}
-          className="pl-7 h-7 text-[11px]"
+          className="h-7 text-[11px] w-full pl-7 pr-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
         />
       </div>
 
       {/* Core filters */}
-      <Select value={filters.status?.[0] || "all"} onChange={(e) => setFilters({ ...filters, status: e.target.value === "all" ? undefined : [e.target.value as JobStatus] })} className={selectCls} style={selectStyle}>
+      <select value={filters.status?.[0] || "all"} onChange={(e) => setFilters({ ...filters, status: e.target.value === "all" ? undefined : [e.target.value as JobStatus] })} className={selCls}>
         <option value="all">Status</option>
         <option value="pending">Pending</option>
         <option value="assigned">Assigned</option>
         <option value="en-route">En Route</option>
         <option value="exception">Exception</option>
-      </Select>
+      </select>
 
-      <Select value={filters.priority?.[0] || "all"} onChange={(e) => setFilters({ ...filters, priority: e.target.value === "all" ? undefined : [e.target.value as JobPriority] })} className={selectCls} style={selectStyle}>
+      <select value={filters.priority?.[0] || "all"} onChange={(e) => setFilters({ ...filters, priority: e.target.value === "all" ? undefined : [e.target.value as JobPriority] })} className={selCls}>
         <option value="all">Priority</option>
         <option value="urgent">Urgent</option>
         <option value="high">High</option>
         <option value="normal">Normal</option>
         <option value="low">Low</option>
-      </Select>
+      </select>
 
-      <Select value={filters.driverId || "all"} onChange={(e) => setFilters({ ...filters, driverId: e.target.value === "all" ? undefined : e.target.value })} className={selectCls} style={{ width: "auto", minWidth: "7rem" }}>
+      <select value={filters.driverId || "all"} onChange={(e) => setFilters({ ...filters, driverId: e.target.value === "all" ? undefined : e.target.value })} className={selCls}>
         <option value="all">Transporter</option>
         <option value="unassigned">Unassigned</option>
         {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-      </Select>
+      </select>
 
-      <Select value={filters.etaWeek || "all"} onChange={(e) => setFilters({ ...filters, etaWeek: e.target.value === "all" ? undefined : e.target.value })} className={selectCls} style={{ width: "auto", minWidth: "6.5rem" }}>
+      <select value={filters.etaWeek || "all"} onChange={(e) => setFilters({ ...filters, etaWeek: e.target.value === "all" ? undefined : e.target.value })} className={selCls}>
         <option value="all">ETA Week</option>
         {etaWeeks.map(w => { const [y, wn] = w.split('-W'); return <option key={w} value={w}>W{wn}, {y}</option>; })}
-      </Select>
+      </select>
 
       {/* Workflow filters */}
       {showMore && (
         <>
-          <Select value={filters.workflowStatus || "all"} onChange={(e) => setFilters({ ...filters, workflowStatus: e.target.value === "all" ? undefined : e.target.value as "ready" | "in-progress" | "not-started" })} className={selectCls} style={selectStyle}>
+          <select value={filters.workflowStatus || "all"} onChange={(e) => setFilters({ ...filters, workflowStatus: e.target.value === "all" ? undefined : e.target.value as "ready" | "in-progress" | "not-started" })} className={selCls}>
             <option value="all">Workflow</option>
             <option value="ready">Ready</option>
             <option value="in-progress">In Progress</option>
             <option value="not-started">Not Started</option>
-          </Select>
+          </select>
 
-          <Select value={filters.transporterBooked === undefined ? "all" : filters.transporterBooked ? "yes" : "no"} onChange={(e) => setFilters({ ...filters, transporterBooked: e.target.value === "all" ? undefined : e.target.value === "yes" })} className={selectCls} style={selectStyle}>
+          <select value={filters.transporterBooked === undefined ? "all" : filters.transporterBooked ? "yes" : "no"} onChange={(e) => setFilters({ ...filters, transporterBooked: e.target.value === "all" ? undefined : e.target.value === "yes" })} className={selCls}>
             <option value="all">TB</option>
             <option value="yes">Booked</option>
             <option value="no">Not Booked</option>
-          </Select>
+          </select>
 
-          <Select value={filters.orderPicked === undefined ? "all" : filters.orderPicked ? "yes" : "no"} onChange={(e) => setFilters({ ...filters, orderPicked: e.target.value === "all" ? undefined : e.target.value === "yes" })} className={selectCls} style={selectStyle}>
+          <select value={filters.orderPicked === undefined ? "all" : filters.orderPicked ? "yes" : "no"} onChange={(e) => setFilters({ ...filters, orderPicked: e.target.value === "all" ? undefined : e.target.value === "yes" })} className={selCls}>
             <option value="all">OP</option>
             <option value="yes">Picked</option>
             <option value="no">Not Picked</option>
-          </Select>
+          </select>
 
-          <Select value={filters.coaAvailable === undefined ? "all" : filters.coaAvailable ? "yes" : "no"} onChange={(e) => setFilters({ ...filters, coaAvailable: e.target.value === "all" ? undefined : e.target.value === "yes" })} className={selectCls} style={selectStyle}>
+          <select value={filters.coaAvailable === undefined ? "all" : filters.coaAvailable ? "yes" : "no"} onChange={(e) => setFilters({ ...filters, coaAvailable: e.target.value === "all" ? undefined : e.target.value === "yes" })} className={selCls}>
             <option value="all">COA</option>
             <option value="yes">Available</option>
             <option value="no">Not Available</option>
-          </Select>
+          </select>
         </>
       )}
 

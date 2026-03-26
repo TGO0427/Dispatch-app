@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Package, Search, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { Package, Search, CheckCircle2, AlertTriangle, XCircle, X, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
@@ -86,13 +86,32 @@ export const FlowbinTracking: React.FC = () => {
     };
   }, [flowbinJobs]);
 
-  const handleMarkReturned = async (batchId: string) => {
-    await flowbinsAPI.markReturned(batchId);
+  // Return modal state
+  const [returnModal, setReturnModal] = useState<{ batch: FlowbinBatch; jobRef: string } | null>(null);
+  const [returnQty, setReturnQty] = useState("");
+  const [returnDate, setReturnDate] = useState("");
+  const [returnNotes, setReturnNotes] = useState("");
+
+  const openReturnModal = (batch: FlowbinBatch, jobRef: string) => {
+    setReturnModal({ batch, jobRef });
+    setReturnQty(String(batch.quantity));
+    setReturnDate(new Date().toISOString().slice(0, 10));
+    setReturnNotes("");
+  };
+
+  const handleSubmitReturn = async () => {
+    if (!returnModal || !returnQty) return;
+    await flowbinsAPI.markReturned(returnModal.batch.id, {
+      quantityReturned: Number(returnQty),
+      returnedAt: new Date(returnDate + "T00:00:00").toISOString(),
+      returnNotes: returnNotes.trim() || undefined,
+    });
+    setReturnModal(null);
     fetchData();
   };
 
   const handleUnmarkReturned = async (batchId: string) => {
-    await flowbinsAPI.update(batchId, { returnedAt: null });
+    await flowbinsAPI.update(batchId, { returnedAt: null, quantityReturned: null, returnNotes: null });
     fetchData();
   };
 
@@ -169,7 +188,8 @@ export const FlowbinTracking: React.FC = () => {
                     <th className="text-left p-3 font-semibold text-gray-700">ETA</th>
                     <th className="text-center p-3 font-semibold text-gray-700">Days at Client</th>
                     <th className="text-center p-3 font-semibold text-gray-700">Status</th>
-                    <th className="text-center p-3 font-semibold text-gray-700">Batches</th>
+                    <th className="text-center p-3 font-semibold text-gray-700">Sent</th>
+                    <th className="text-center p-3 font-semibold text-gray-700">Outstanding</th>
                     <th className="text-left p-3 font-semibold text-gray-700"></th>
                   </tr>
                 </thead>
@@ -197,7 +217,21 @@ export const FlowbinTracking: React.FC = () => {
                               {cfg.label}
                             </span>
                           </td>
-                          <td className="p-3 text-center text-gray-600">{batches.length}</td>
+                          <td className="p-3 text-center text-gray-600">
+                            {batches.reduce((sum, b) => sum + b.quantity, 0)}
+                          </td>
+                          <td className="p-3 text-center">
+                            {(() => {
+                              const totalSent = batches.reduce((sum, b) => sum + b.quantity, 0);
+                              const totalReturned = batches.reduce((sum, b) => sum + (b.quantityReturned || 0), 0);
+                              const outstanding = totalSent - totalReturned;
+                              return outstanding > 0 ? (
+                                <span className="font-bold text-red-600">{outstanding}</span>
+                              ) : (
+                                <span className="font-bold text-green-600">0</span>
+                              );
+                            })()}
+                          </td>
                           <td className="p-3">
                             <button onClick={() => setExpandedJob(isExpanded ? null : job.id)} className="text-xs text-blue-600 hover:text-blue-800">
                               {isExpanded ? "Hide" : "View"} batches
@@ -206,33 +240,53 @@ export const FlowbinTracking: React.FC = () => {
                         </tr>
                         {isExpanded && (
                           <tr>
-                            <td colSpan={8} className="p-3 bg-gray-50">
+                            <td colSpan={9} className="p-3 bg-gray-50">
                               {batches.length === 0 ? (
                                 <p className="text-xs text-gray-400 text-center">No batches added yet</p>
                               ) : (
                                 <div className="space-y-1.5">
-                                  {batches.map((b) => (
-                                    <div key={b.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white border border-gray-100">
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-sm font-medium text-gray-900">{b.batchNumber}</span>
-                                        <span className="text-xs text-gray-500">{b.quantity} qty</span>
-                                        {b.returnedAt && (
-                                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                                            Returned {new Date(b.returnedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-                                          </span>
+                                  {batches.map((b) => {
+                                    const outstanding = b.quantity - (b.quantityReturned || 0);
+                                    return (
+                                      <div key={b.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white border border-gray-100">
+                                        <div className="flex items-center gap-3">
+                                          <span className="text-sm font-medium text-gray-900">{b.batchNumber}</span>
+                                          <span className="text-xs text-gray-500">Sent: {b.quantity}</span>
+                                          {b.returnedAt ? (
+                                            <>
+                                              <span className="text-xs text-green-600">Returned: {b.quantityReturned ?? b.quantity}</span>
+                                              {outstanding > 0 && (
+                                                <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                                  {outstanding} outstanding
+                                                </span>
+                                              )}
+                                              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                                                {new Date(b.returnedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                                              </span>
+                                              {b.returnNotes && (
+                                                <span className="text-[10px] text-gray-500 italic">"{b.returnNotes}"</span>
+                                              )}
+                                            </>
+                                          ) : (
+                                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                                              {b.quantity} outstanding
+                                            </span>
+                                          )}
+                                        </div>
+                                        {!isViewer && (
+                                          b.returnedAt ? (
+                                            <button onClick={() => handleUnmarkReturned(b.id)} className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                                              <RotateCcw className="h-3 w-3" /> Undo
+                                            </button>
+                                          ) : (
+                                            <Button size="sm" onClick={() => openReturnModal(b, job.ref)} className="text-xs h-7 bg-green-600 hover:bg-green-700">
+                                              Receive Return
+                                            </Button>
+                                          )
                                         )}
                                       </div>
-                                      {!isViewer && (
-                                        b.returnedAt ? (
-                                          <button onClick={() => handleUnmarkReturned(b.id)} className="text-[10px] text-gray-400 hover:text-gray-600">Undo return</button>
-                                        ) : (
-                                          <Button size="sm" onClick={() => handleMarkReturned(b.id)} className="text-xs h-7 bg-green-600 hover:bg-green-700">
-                                            Mark Returned
-                                          </Button>
-                                        )
-                                      )}
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               )}
                             </td>
@@ -247,6 +301,83 @@ export const FlowbinTracking: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Return Modal */}
+      {returnModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setReturnModal(null)}
+        >
+          <Card className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Receive Flowbin Return</h3>
+                <p className="text-xs text-gray-500">{returnModal.jobRef} — {returnModal.batch.batchNumber}</p>
+              </div>
+              <button onClick={() => setReturnModal(null)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 border border-gray-100">
+                <span className="text-sm text-gray-600">Quantity Dispatched</span>
+                <span className="text-sm font-bold text-gray-900">{returnModal.batch.quantity}</span>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Quantity Returned</label>
+                <input
+                  type="number"
+                  value={returnQty}
+                  onChange={(e) => setReturnQty(e.target.value)}
+                  min="0"
+                  max={returnModal.batch.quantity}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                />
+                {Number(returnQty) < returnModal.batch.quantity && Number(returnQty) >= 0 && (
+                  <p className="text-[10px] text-amber-600 mt-1">
+                    {returnModal.batch.quantity - Number(returnQty)} flowbin(s) will be recorded as outstanding
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Return Date</label>
+                <input
+                  type="date"
+                  value={returnDate}
+                  onChange={(e) => setReturnDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Notes (optional)</label>
+                <textarea
+                  value={returnNotes}
+                  onChange={(e) => setReturnNotes(e.target.value)}
+                  placeholder="Damage, missing units, condition..."
+                  rows={2}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <Button variant="ghost" onClick={() => setReturnModal(null)} className="flex-1 text-sm">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitReturn}
+                  disabled={!returnQty || Number(returnQty) < 0}
+                  className="flex-1 text-sm bg-green-600 hover:bg-green-700"
+                >
+                  Confirm Return
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Job Details Modal */}
       {selectedJob && (

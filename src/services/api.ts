@@ -140,8 +140,8 @@ export const flowbinsAPI = {
     fetchAPI<any>(`/api/flowbins/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   remove: (id: string) =>
     fetchAPI<void>(`/api/flowbins/${id}`, { method: "DELETE" }),
-  markReturned: (id: string) =>
-    fetchAPI<any>(`/api/flowbins/${id}`, { method: "PUT", body: JSON.stringify({ returnedAt: new Date().toISOString() }) }),
+  markReturned: (id: string, data: { quantityReturned: number; returnedAt: string; returnNotes?: string }) =>
+    fetchAPI<any>(`/api/flowbins/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 };
 
 // ============ Health Check ============

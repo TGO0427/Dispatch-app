@@ -95,11 +95,13 @@ model FlowbinBatch {
   id           String    @id @default(uuid())
   jobId        String    @db.VarChar(255)
   job          Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  batchNumber  String    @db.VarChar(255)
-  quantity     Int
-  returnedAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  batchNumber       String    @db.VarChar(255)
+  quantity          Int
+  quantityReturned  Int?
+  returnedAt        DateTime?
+  returnNotes       String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([jobId])
   @@map("flowbin_batches")

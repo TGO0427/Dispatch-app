@@ -461,18 +461,34 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
               <div className="space-y-2 mt-3">
                 {flowbinBatches.length > 0 && (
                   <div className="space-y-1">
-                    {flowbinBatches.map((b) => (
-                      <div key={b.id} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white border border-gray-100 text-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">{b.batchNumber}</span>
-                          <span className="text-xs text-gray-500">{b.quantity} qty</span>
-                          {b.returnedAt && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1 py-0.5 rounded">Returned</span>}
+                    {flowbinBatches.map((b) => {
+                      const outstanding = b.quantity - (b.quantityReturned || 0);
+                      return (
+                        <div key={b.id} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white border border-gray-100 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900">{b.batchNumber}</span>
+                            <span className="text-xs text-gray-500">{b.quantity} sent</span>
+                            {b.returnedAt ? (
+                              <>
+                                <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1 py-0.5 rounded">
+                                  {b.quantityReturned ?? b.quantity} returned
+                                </span>
+                                {outstanding > 0 && (
+                                  <span className="text-[9px] font-bold text-red-600 bg-red-50 px-1 py-0.5 rounded">
+                                    {outstanding} outstanding
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded">Pending return</span>
+                            )}
+                          </div>
+                          {!isViewer && !b.returnedAt && (
+                            <button onClick={() => handleRemoveBatch(b.id)} className="text-[10px] text-red-400 hover:text-red-600">Remove</button>
+                          )}
                         </div>
-                        {!isViewer && !b.returnedAt && (
-                          <button onClick={() => handleRemoveBatch(b.id)} className="text-[10px] text-red-400 hover:text-red-600">Remove</button>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {!isViewer && (

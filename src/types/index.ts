@@ -124,7 +124,9 @@ export interface FlowbinBatch {
   jobId: string;
   batchNumber: string;
   quantity: number;
+  quantityReturned?: number | null;
   returnedAt?: string | null;
+  returnNotes?: string | null;
   createdAt: string;
   updatedAt: string;
 }

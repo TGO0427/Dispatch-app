@@ -39,6 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (req.body.batchNumber !== undefined) data.batchNumber = req.body.batchNumber;
       if (req.body.quantity !== undefined) data.quantity = Number(req.body.quantity);
       if (req.body.returnedAt !== undefined) data.returnedAt = req.body.returnedAt ? new Date(req.body.returnedAt) : null;
+      if (req.body.quantityReturned !== undefined) data.quantityReturned = req.body.quantityReturned !== null ? Number(req.body.quantityReturned) : null;
+      if (req.body.returnNotes !== undefined) data.returnNotes = req.body.returnNotes || null;
 
       const batch = await prisma.flowbinBatch.update({ where: { id }, data });
       return res.json({ success: true, data: batch });

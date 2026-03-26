@@ -155,45 +155,44 @@ export const FlowbinTracking: React.FC = () => {
         <p className="text-xs text-gray-400 mt-0.5">2 week warning, 4 week cutoff</p>
       </div>
 
-      {/* KPI Filter Strip + Totals */}
-      <div className="flex items-center gap-3">
-        <div className="flex gap-1.5 flex-1">
-          {([
-            { label: "All", value: stats.total, color: "text-gray-900", dotColor: "bg-gray-400", filterValue: "all" },
-            { label: "On Time", value: stats.onTime, color: "text-green-600", dotColor: "bg-green-500", filterValue: "on-time" },
-            { label: "Warning", value: stats.warning, color: "text-amber-600", dotColor: "bg-amber-500", filterValue: "warning" },
-            { label: "Overdue", value: stats.overdue, color: "text-red-600", dotColor: "bg-red-500", filterValue: "overdue" },
-            { label: "Returned", value: stats.returned, color: "text-blue-600", dotColor: "bg-blue-500", filterValue: "returned" },
-          ]).map((kpi) => {
-            const isActive = statusFilter === kpi.filterValue;
-            return (
-              <button
-                key={kpi.label}
-                onClick={() => setStatusFilter(isActive ? "all" : kpi.filterValue)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all ${
-                  isActive
-                    ? "border-gray-900 bg-gray-900 text-white shadow-sm"
-                    : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                <div className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-white" : kpi.dotColor}`} />
-                <div className={`text-sm font-bold leading-tight ${isActive ? "text-white" : kpi.color}`}>{kpi.value}</div>
-                <div className={`text-[10px] uppercase tracking-wider font-medium ${isActive ? "text-gray-300" : "text-gray-400"}`}>{kpi.label}</div>
-              </button>
-            );
-          })}
-        </div>
+      {/* KPI Filter Strip */}
+      <div className="flex gap-1.5">
+        {([
+          { label: "All", value: stats.total, color: "text-gray-900", dotColor: "bg-gray-400", filterValue: "all" },
+          { label: "On Time", value: stats.onTime, color: "text-green-600", dotColor: "bg-green-500", filterValue: "on-time" },
+          { label: "Warning", value: stats.warning, color: "text-amber-600", dotColor: "bg-amber-500", filterValue: "warning" },
+          { label: "Overdue", value: stats.overdue, color: "text-red-600", dotColor: "bg-red-500", filterValue: "overdue" },
+          { label: "Returned", value: stats.returned, color: "text-blue-600", dotColor: "bg-blue-500", filterValue: "returned" },
+        ]).map((kpi) => {
+          const isActive = statusFilter === kpi.filterValue;
+          return (
+            <button
+              key={kpi.label}
+              onClick={() => setStatusFilter(isActive ? "all" : kpi.filterValue)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all ${
+                isActive
+                  ? "border-gray-900 bg-gray-900 text-white shadow-sm"
+                  : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-white" : kpi.dotColor}`} />
+              <div className={`text-sm font-bold leading-tight ${isActive ? "text-white" : kpi.color}`}>{kpi.value}</div>
+              <div className={`text-[10px] uppercase tracking-wider font-medium ${isActive ? "text-gray-300" : "text-gray-400"}`}>{kpi.label}</div>
+            </button>
+          );
+        })}
         {stats.total > 0 && (
-          <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
-            <div className="text-right">
+          <>
+            <div className="w-px bg-gray-200 mx-1 self-stretch" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 bg-white">
               <div className="text-sm font-bold text-gray-900">{stats.totalSent}</div>
-              <div className="text-[9px] text-gray-400 uppercase tracking-wider">Sent</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Sent</div>
             </div>
-            <div className="text-right">
+            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border ${stats.totalOutstanding > 0 ? "border-red-200 bg-red-50" : "border-gray-200 bg-white"}`}>
               <div className={`text-sm font-bold ${stats.totalOutstanding > 0 ? "text-red-600" : "text-green-600"}`}>{stats.totalOutstanding}</div>
-              <div className="text-[9px] text-gray-400 uppercase tracking-wider">Out</div>
+              <div className={`text-[10px] uppercase tracking-wider font-medium ${stats.totalOutstanding > 0 ? "text-red-400" : "text-gray-400"}`}>Out</div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -212,12 +211,12 @@ export const FlowbinTracking: React.FC = () => {
                 const total = agingBuckets.safe + agingBuckets.warning + agingBuckets.overdue;
                 const pct = total > 0 ? (bucket.value / total) * 100 : 0;
                 return (
-                  <div key={bucket.label} className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-500 w-16 flex-shrink-0">{bucket.label}</span>
+                  <div key={bucket.label} className="flex items-center gap-2.5">
+                    <span className="text-[10px] text-gray-500 w-[4.5rem] flex-shrink-0 tabular-nums">{bucket.label}</span>
                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${bucket.color} transition-all`} style={{ width: `${pct}%` }} />
+                      <div className={`h-full rounded-full ${bucket.color} transition-all`} style={{ width: `${Math.max(pct, bucket.value > 0 ? 8 : 0)}%` }} />
                     </div>
-                    <span className={`text-xs font-bold w-5 text-right ${bucket.value > 0 ? bucket.textColor : "text-gray-300"}`}>{bucket.value}</span>
+                    <span className={`text-xs font-bold w-6 text-right tabular-nums ${bucket.value > 0 ? bucket.textColor : "text-gray-300"}`}>{bucket.value}</span>
                   </div>
                 );
               })}
@@ -228,19 +227,22 @@ export const FlowbinTracking: React.FC = () => {
           <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Top Exposure by Customer</div>
             {customerExposure.length === 0 ? (
-              <p className="text-[10px] text-gray-300">No outstanding flowbins</p>
+              <div className="flex items-center gap-2 py-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                <p className="text-xs text-gray-500">All customer sites are clear</p>
+              </div>
             ) : (
               <div className="space-y-1.5">
                 {customerExposure.map(([name, count]) => {
                   const maxCount = customerExposure[0][1];
                   const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
                   return (
-                    <div key={name} className="flex items-center gap-2">
-                      <span className="text-[10px] text-gray-600 w-24 truncate flex-shrink-0" title={name}>{name}</span>
+                    <div key={name} className="flex items-center gap-2.5">
+                      <span className="text-[10px] text-gray-600 w-[5.5rem] truncate flex-shrink-0" title={name}>{name}</span>
                       <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${pct}%` }} />
+                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${Math.max(pct, 8)}%` }} />
                       </div>
-                      <span className="text-xs font-bold text-gray-700 w-5 text-right">{count}</span>
+                      <span className="text-xs font-bold text-gray-700 w-6 text-right tabular-nums">{count}</span>
                     </div>
                   );
                 })}

@@ -118,49 +118,52 @@ export const FlowbinTracking: React.FC = () => {
 
   return (
     <div className="space-y-3">
-      {/* Header + Stat Strip */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Flowbin Tracking</h1>
-          <p className="text-xs text-gray-400 mt-0.5">2 week warning, 4 week cutoff</p>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Flowbin Tracking</h1>
+        <p className="text-xs text-gray-400 mt-0.5">2 week warning, 4 week cutoff</p>
+      </div>
+
+      {/* KPI Filter Strip + Totals */}
+      <div className="flex items-center gap-3">
+        <div className="flex gap-1.5 flex-1">
+          {([
+            { label: "All", value: stats.total, color: "text-gray-900", dotColor: "bg-gray-400", filterValue: "all" },
+            { label: "On Time", value: stats.onTime, color: "text-green-600", dotColor: "bg-green-500", filterValue: "on-time" },
+            { label: "Warning", value: stats.warning, color: "text-amber-600", dotColor: "bg-amber-500", filterValue: "warning" },
+            { label: "Overdue", value: stats.overdue, color: "text-red-600", dotColor: "bg-red-500", filterValue: "overdue" },
+            { label: "Returned", value: stats.returned, color: "text-blue-600", dotColor: "bg-blue-500", filterValue: "returned" },
+          ]).map((kpi) => {
+            const isActive = statusFilter === kpi.filterValue;
+            return (
+              <button
+                key={kpi.label}
+                onClick={() => setStatusFilter(isActive ? "all" : kpi.filterValue)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all ${
+                  isActive
+                    ? "border-gray-900 bg-gray-900 text-white shadow-sm"
+                    : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                <div className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-white" : kpi.dotColor}`} />
+                <div className={`text-sm font-bold leading-tight ${isActive ? "text-white" : kpi.color}`}>{kpi.value}</div>
+                <div className={`text-[10px] uppercase tracking-wider font-medium ${isActive ? "text-gray-300" : "text-gray-400"}`}>{kpi.label}</div>
+              </button>
+            );
+          })}
         </div>
         {stats.total > 0 && (
-          <div className="flex items-center gap-4 text-right">
-            <div>
-              <div className="text-lg font-bold text-gray-900">{stats.totalSent}</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider">Total Sent</div>
+          <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
+            <div className="text-right">
+              <div className="text-sm font-bold text-gray-900">{stats.totalSent}</div>
+              <div className="text-[9px] text-gray-400 uppercase tracking-wider">Sent</div>
             </div>
-            <div>
-              <div className={`text-lg font-bold ${stats.totalOutstanding > 0 ? "text-red-600" : "text-green-600"}`}>{stats.totalOutstanding}</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider">Outstanding</div>
+            <div className="text-right">
+              <div className={`text-sm font-bold ${stats.totalOutstanding > 0 ? "text-red-600" : "text-green-600"}`}>{stats.totalOutstanding}</div>
+              <div className="text-[9px] text-gray-400 uppercase tracking-wider">Out</div>
             </div>
           </div>
         )}
-      </div>
-
-      {/* Compact KPI Strip */}
-      <div className="flex gap-2">
-        {([
-          { label: "Total", value: stats.total, color: "text-gray-900", dotColor: "bg-blue-500", filterValue: "all" },
-          { label: "On Time", value: stats.onTime, color: "text-green-600", dotColor: "bg-green-500", filterValue: "on-time" },
-          { label: "Warning", value: stats.warning, color: "text-amber-600", dotColor: "bg-amber-500", filterValue: "warning" },
-          { label: "Overdue", value: stats.overdue, color: "text-red-600", dotColor: "bg-red-500", filterValue: "overdue" },
-          { label: "Returned", value: stats.returned, color: "text-blue-600", dotColor: "bg-blue-500", filterValue: "returned" },
-        ]).map((kpi) => (
-          <button
-            key={kpi.label}
-            onClick={() => setStatusFilter(statusFilter === kpi.filterValue ? "all" : kpi.filterValue)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-left flex-1 ${
-              statusFilter === kpi.filterValue
-                ? "border-blue-300 bg-blue-50 shadow-sm"
-                : "border-gray-200 bg-white hover:border-gray-300"
-            }`}
-          >
-            <div className={`w-2 h-2 rounded-full ${kpi.dotColor}`} />
-            <div className={`text-base font-bold leading-tight ${kpi.color}`}>{kpi.value}</div>
-            <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{kpi.label}</div>
-          </button>
-        ))}
       </div>
 
       {/* Search */}
@@ -219,7 +222,7 @@ export const FlowbinTracking: React.FC = () => {
                     return (
                       <React.Fragment key={job.id}>
                         <tr
-                          className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${isExpanded ? "bg-gray-50" : ""}`}
+                          className={`border-b border-gray-100 cursor-pointer transition-colors group ${isExpanded ? "bg-gray-50" : "hover:bg-blue-50/40"}`}
                           onClick={() => setExpandedJob(isExpanded ? null : job.id)}
                         >
                           <td className="px-3 py-2.5">
@@ -253,9 +256,9 @@ export const FlowbinTracking: React.FC = () => {
                           </td>
                           <td className="px-3 py-2.5 text-center">
                             {isExpanded ? (
-                              <ChevronUp className="h-4 w-4 text-gray-400 mx-auto" />
+                              <ChevronUp className="h-4 w-4 text-gray-900 mx-auto" />
                             ) : (
-                              <ChevronDown className="h-4 w-4 text-gray-400 mx-auto" />
+                              <ChevronDown className="h-4 w-4 text-gray-300 group-hover:text-gray-600 transition-colors mx-auto" />
                             )}
                           </td>
                         </tr>

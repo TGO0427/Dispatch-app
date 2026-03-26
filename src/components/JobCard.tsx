@@ -167,7 +167,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
-        <button onClick={(e) => { e.stopPropagation(); onSelect(); }} className="h-7 px-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium flex items-center gap-1">
+        <button onClick={(e) => { e.stopPropagation(); onSelect(); }} className="h-8 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1 shadow-sm">
           Details <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>

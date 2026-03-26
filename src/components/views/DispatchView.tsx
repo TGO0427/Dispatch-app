@@ -515,12 +515,16 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         </div>
       )}
 
-      {/* Filters — single compact block */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <div className="w-40"><WarehouseSelector /></div>
-        <div className="flex-1 min-w-[200px]"><FilterBar showMore={showMoreFilters} /></div>
-        <SortBar />
-        <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-[10px] text-blue-600 hover:text-blue-800 font-medium px-2 py-1.5 rounded hover:bg-blue-50 transition-colors whitespace-nowrap">{showMoreFilters ? "Less" : "More"}</button>
+      {/* Filters — two tight rows */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <div className="w-36 flex-shrink-0"><WarehouseSelector /></div>
+          <FilterBar showMore={showMoreFilters} />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <SortBar />
+          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-[10px] text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors whitespace-nowrap">{showMoreFilters ? "Less" : "More"}</button>
+        </div>
       </div>
 
       {/* Main Content Grid */}

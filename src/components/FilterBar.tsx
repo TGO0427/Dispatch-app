@@ -41,9 +41,9 @@ export const FilterBar: React.FC<{ showMore?: boolean }> = ({ showMore }) => {
   const selectCls = "h-7 text-[11px]";
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
+    <div className="flex items-center gap-1.5">
       {/* Search */}
-      <div className="relative flex-1 min-w-[140px]">
+      <div className="relative w-44 flex-shrink-0">
         <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
         <Input
           placeholder="Search ref, customer..."

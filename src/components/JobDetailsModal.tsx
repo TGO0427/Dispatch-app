@@ -430,7 +430,18 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                         <span className="font-medium text-gray-900 truncate">
                           {item.notes && !item.notes.match(/^(ASO|IBT|CSO)\d/) ? item.notes : item.dropoff}
                         </span>
-                        {item.pallets != null && item.pallets > 0 && <span className="text-xs text-gray-400">{item.pallets} plt</span>}
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            value={item.pallets ?? ""}
+                            onChange={(e) => updateJob(item.id, { pallets: e.target.value !== "" ? Number(e.target.value) : undefined })}
+                            className="w-14 border border-gray-200 rounded px-1.5 py-0.5 text-xs text-center bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="plt"
+                            min="0"
+                          />
+                        ) : (
+                          item.pallets != null && item.pallets > 0 && <span className="text-xs text-gray-400">{item.pallets} plt</span>
+                        )}
                         <Badge variant={item.status === "delivered" ? "success" : item.status === "exception" ? "destructive" : item.status === "pending" ? "new" : "default"} className="text-[9px] px-1.5 py-0">{item.status}</Badge>
                       </div>
                       {isAssigned && item.status !== "delivered" && item.status !== "cancelled" && item.status !== "en-route" && (

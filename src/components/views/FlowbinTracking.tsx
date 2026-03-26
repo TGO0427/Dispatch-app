@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Package, Search, CheckCircle2, AlertTriangle, XCircle, X, RotateCcw } from "lucide-react";
+import { Package, Search, X, RotateCcw, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { Card, CardContent } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { Select } from "../ui/Select";
 import { JobDetailsModal } from "../JobDetailsModal";
 import { useDispatch } from "../../context/DispatchContext";
 import { useAuth } from "../../context/AuthContext";
@@ -29,8 +28,8 @@ function getDaysAtClient(eta: string | undefined): number {
 
 const statusConfig: Record<FlowbinStatus, { label: string; color: string; bg: string }> = {
   "on-time": { label: "On Time", color: "text-green-700", bg: "bg-green-100" },
-  "warning": { label: "Warning (2+ weeks)", color: "text-amber-700", bg: "bg-amber-100" },
-  "overdue": { label: "Overdue (4+ weeks)", color: "text-red-700", bg: "bg-red-100" },
+  "warning": { label: "Warning", color: "text-amber-700", bg: "bg-amber-100" },
+  "overdue": { label: "Overdue", color: "text-red-700", bg: "bg-red-100" },
   "returned": { label: "Returned", color: "text-blue-700", bg: "bg-blue-100" },
 };
 
@@ -83,6 +82,8 @@ export const FlowbinTracking: React.FC = () => {
       warning: all.filter((s) => s === "warning").length,
       overdue: all.filter((s) => s === "overdue").length,
       returned: all.filter((s) => s === "returned").length,
+      totalSent: flowbinJobs.reduce((sum, j) => sum + (j.flowbinBatches || []).reduce((s, b) => s + b.quantity, 0), 0),
+      totalOutstanding: flowbinJobs.reduce((sum, j) => sum + (j.flowbinBatches || []).reduce((s, b) => s + b.quantity - (b.quantityReturned || 0), 0), 0),
     };
   }, [flowbinJobs]);
 
@@ -116,81 +117,95 @@ export const FlowbinTracking: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-3">
+      {/* Header + Stat Strip */}
+      <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Flowbin Tracking</h1>
-          <p className="text-sm text-gray-500">Track flowbins at customer sites — 2 week warning, 4 week cutoff</p>
+          <p className="text-xs text-gray-400 mt-0.5">2 week warning, 4 week cutoff</p>
         </div>
+        {stats.total > 0 && (
+          <div className="flex items-center gap-4 text-right">
+            <div>
+              <div className="text-lg font-bold text-gray-900">{stats.totalSent}</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider">Total Sent</div>
+            </div>
+            <div>
+              <div className={`text-lg font-bold ${stats.totalOutstanding > 0 ? "text-red-600" : "text-green-600"}`}>{stats.totalOutstanding}</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider">Outstanding</div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+      {/* Compact KPI Strip */}
+      <div className="flex gap-2">
         {([
-          { icon: Package, label: "Total", value: stats.total, color: "text-gray-900", iconColor: "text-blue-600", bg: "bg-blue-50" },
-          { icon: CheckCircle2, label: "On Time", value: stats.onTime, color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
-          { icon: AlertTriangle, label: "Warning", value: stats.warning, color: "text-amber-600", iconColor: "text-amber-600", bg: "bg-amber-50" },
-          { icon: XCircle, label: "Overdue", value: stats.overdue, color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },
-          { icon: CheckCircle2, label: "Returned", value: stats.returned, color: "text-blue-600", iconColor: "text-blue-600", bg: "bg-blue-50" },
-        ] as const).map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <Card key={kpi.label} className="p-3">
-              <div className="flex items-center gap-2.5">
-                <div className={`rounded-lg p-1.5 ${kpi.bg}`}><Icon className={`h-4 w-4 ${kpi.iconColor}`} /></div>
-                <div>
-                  <div className={`text-xl font-bold leading-tight ${kpi.color}`}>{kpi.value}</div>
-                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{kpi.label}</div>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
+          { label: "Total", value: stats.total, color: "text-gray-900", dotColor: "bg-blue-500", filterValue: "all" },
+          { label: "On Time", value: stats.onTime, color: "text-green-600", dotColor: "bg-green-500", filterValue: "on-time" },
+          { label: "Warning", value: stats.warning, color: "text-amber-600", dotColor: "bg-amber-500", filterValue: "warning" },
+          { label: "Overdue", value: stats.overdue, color: "text-red-600", dotColor: "bg-red-500", filterValue: "overdue" },
+          { label: "Returned", value: stats.returned, color: "text-blue-600", dotColor: "bg-blue-500", filterValue: "returned" },
+        ]).map((kpi) => (
+          <button
+            key={kpi.label}
+            onClick={() => setStatusFilter(statusFilter === kpi.filterValue ? "all" : kpi.filterValue)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-left flex-1 ${
+              statusFilter === kpi.filterValue
+                ? "border-blue-300 bg-blue-50 shadow-sm"
+                : "border-gray-200 bg-white hover:border-gray-300"
+            }`}
+          >
+            <div className={`w-2 h-2 rounded-full ${kpi.dotColor}`} />
+            <div className={`text-base font-bold leading-tight ${kpi.color}`}>{kpi.value}</div>
+            <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{kpi.label}</div>
+          </button>
+        ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text" placeholder="Search ref, customer, destination..."
-            value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 h-8 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-8 text-xs">
-          <option value="all">All Status</option>
-          <option value="on-time">On Time</option>
-          <option value="warning">Warning (2+ wks)</option>
-          <option value="overdue">Overdue (4+ wks)</option>
-          <option value="returned">Returned</option>
-        </Select>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text" placeholder="Search by reference, customer, or destination..."
+          value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-3 h-9 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+        />
       </div>
 
       {/* Table */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="text-center py-12 text-gray-400 text-sm">Loading...</div>
+            <div className="text-center py-10 text-gray-400 text-sm">Loading...</div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 text-sm">
-              {flowbinJobs.length === 0 ? "No flowbins tracked yet — enable flowbin on a job to start" : "No flowbins matching your filters"}
+            <div className="py-10 px-6">
+              {flowbinJobs.length === 0 ? (
+                <div className="text-center">
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                    <Package className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-600">No flowbins tracked yet</p>
+                  <p className="text-xs text-gray-400 mt-1">Open a job and toggle the Flowbin switch to start tracking</p>
+                </div>
+              ) : (
+                <p className="text-center text-sm text-gray-400">No flowbins matching your filters</p>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-gray-50/80 border-b border-gray-200">
                   <tr>
-                    <th className="text-left p-3 font-semibold text-gray-700">Reference</th>
-                    <th className="text-left p-3 font-semibold text-gray-700">Customer</th>
-                    <th className="text-left p-3 font-semibold text-gray-700">Destination</th>
-                    <th className="text-left p-3 font-semibold text-gray-700">ETA</th>
-                    <th className="text-center p-3 font-semibold text-gray-700">Days at Client</th>
-                    <th className="text-center p-3 font-semibold text-gray-700">Status</th>
-                    <th className="text-center p-3 font-semibold text-gray-700">Sent</th>
-                    <th className="text-center p-3 font-semibold text-gray-700">Outstanding</th>
-                    <th className="text-left p-3 font-semibold text-gray-700"></th>
+                    <th className="text-left px-3 py-2.5 font-semibold text-gray-600 text-xs">Reference</th>
+                    <th className="text-left px-3 py-2.5 font-semibold text-gray-600 text-xs">Customer</th>
+                    <th className="text-left px-3 py-2.5 font-semibold text-gray-600 text-xs hidden lg:table-cell">Destination</th>
+                    <th className="text-left px-3 py-2.5 font-semibold text-gray-600 text-xs">ETA</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-600 text-xs">Days</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-600 text-xs">Status</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-600 text-xs">Sent</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-600 text-xs">Out</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-600 text-xs w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -198,66 +213,72 @@ export const FlowbinTracking: React.FC = () => {
                     const cfg = statusConfig[job.status_fb];
                     const batches = job.flowbinBatches || [];
                     const isExpanded = expandedJob === job.id;
+                    const totalSent = batches.reduce((sum, b) => sum + b.quantity, 0);
+                    const totalReturned = batches.reduce((sum, b) => sum + (b.quantityReturned || 0), 0);
+                    const outstanding = totalSent - totalReturned;
                     return (
                       <React.Fragment key={job.id}>
-                        <tr className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="p-3">
-                            <button className="font-medium text-blue-600 hover:text-blue-800 hover:underline" onClick={() => setSelectedJob(job)}>{job.ref}</button>
+                        <tr
+                          className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${isExpanded ? "bg-gray-50" : ""}`}
+                          onClick={() => setExpandedJob(isExpanded ? null : job.id)}
+                        >
+                          <td className="px-3 py-2.5">
+                            <button
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                              onClick={(e) => { e.stopPropagation(); setSelectedJob(job); }}
+                            >
+                              {job.ref}
+                            </button>
                           </td>
-                          <td className="p-3 text-gray-700">{job.customer}</td>
-                          <td className="p-3 text-gray-700 text-xs">{job.dropoff}</td>
-                          <td className="p-3 text-gray-700 text-xs">{job.eta || "—"}</td>
-                          <td className="p-3 text-center">
-                            <span className={`font-bold ${job.daysAtClient >= 28 ? "text-red-600" : job.daysAtClient >= 14 ? "text-amber-600" : "text-green-600"}`}>
+                          <td className="px-3 py-2.5 text-gray-700 text-xs">{job.customer}</td>
+                          <td className="px-3 py-2.5 text-gray-500 text-xs hidden lg:table-cell truncate max-w-[160px]">{job.dropoff}</td>
+                          <td className="px-3 py-2.5 text-gray-500 text-xs">{job.eta ? new Date(job.eta).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span className={`text-xs font-bold ${job.daysAtClient >= 28 ? "text-red-600" : job.daysAtClient >= 14 ? "text-amber-600" : "text-green-600"}`}>
                               {job.daysAtClient}d
                             </span>
                           </td>
-                          <td className="p-3 text-center">
+                          <td className="px-3 py-2.5 text-center">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${cfg.bg} ${cfg.color}`}>
                               {cfg.label}
                             </span>
                           </td>
-                          <td className="p-3 text-center text-gray-600">
-                            {batches.reduce((sum, b) => sum + b.quantity, 0)}
+                          <td className="px-3 py-2.5 text-center text-xs text-gray-600">{totalSent}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            {outstanding > 0 ? (
+                              <span className="text-xs font-bold text-red-600">{outstanding}</span>
+                            ) : (
+                              <span className="text-xs font-bold text-green-600">0</span>
+                            )}
                           </td>
-                          <td className="p-3 text-center">
-                            {(() => {
-                              const totalSent = batches.reduce((sum, b) => sum + b.quantity, 0);
-                              const totalReturned = batches.reduce((sum, b) => sum + (b.quantityReturned || 0), 0);
-                              const outstanding = totalSent - totalReturned;
-                              return outstanding > 0 ? (
-                                <span className="font-bold text-red-600">{outstanding}</span>
-                              ) : (
-                                <span className="font-bold text-green-600">0</span>
-                              );
-                            })()}
-                          </td>
-                          <td className="p-3">
-                            <button onClick={() => setExpandedJob(isExpanded ? null : job.id)} className="text-xs text-blue-600 hover:text-blue-800">
-                              {isExpanded ? "Hide" : "View"} batches
-                            </button>
+                          <td className="px-3 py-2.5 text-center">
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-gray-400 mx-auto" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-gray-400 mx-auto" />
+                            )}
                           </td>
                         </tr>
                         {isExpanded && (
                           <tr>
-                            <td colSpan={9} className="p-3 bg-gray-50">
+                            <td colSpan={9} className="px-3 py-2.5 bg-gray-50/50 border-b border-gray-100">
                               {batches.length === 0 ? (
-                                <p className="text-xs text-gray-400 text-center">No batches added yet</p>
+                                <p className="text-xs text-gray-400 text-center py-2">No batches added yet</p>
                               ) : (
                                 <div className="space-y-1.5">
                                   {batches.map((b) => {
-                                    const outstanding = b.quantity - (b.quantityReturned || 0);
+                                    const batchOutstanding = b.quantity - (b.quantityReturned || 0);
                                     return (
                                       <div key={b.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white border border-gray-100">
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-3 flex-wrap">
                                           <span className="text-sm font-medium text-gray-900">{b.batchNumber}</span>
                                           <span className="text-xs text-gray-500">Sent: {b.quantity}</span>
                                           {b.returnedAt ? (
                                             <>
                                               <span className="text-xs text-green-600">Returned: {b.quantityReturned ?? b.quantity}</span>
-                                              {outstanding > 0 && (
+                                              {batchOutstanding > 0 && (
                                                 <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
-                                                  {outstanding} outstanding
+                                                  {batchOutstanding} outstanding
                                                 </span>
                                               )}
                                               <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
@@ -275,11 +296,11 @@ export const FlowbinTracking: React.FC = () => {
                                         </div>
                                         {!isViewer && (
                                           b.returnedAt ? (
-                                            <button onClick={() => handleUnmarkReturned(b.id)} className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                                            <button onClick={(e) => { e.stopPropagation(); handleUnmarkReturned(b.id); }} className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-1 flex-shrink-0">
                                               <RotateCcw className="h-3 w-3" /> Undo
                                             </button>
                                           ) : (
-                                            <Button size="sm" onClick={() => openReturnModal(b, job.ref)} className="text-xs h-7 bg-green-600 hover:bg-green-700">
+                                            <Button size="sm" onClick={(e) => { e.stopPropagation(); openReturnModal(b, job.ref); }} className="text-xs h-7 bg-green-600 hover:bg-green-700 flex-shrink-0">
                                               Receive Return
                                             </Button>
                                           )
@@ -301,6 +322,17 @@ export const FlowbinTracking: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Summary footer — shown when data exists but keeps page from feeling empty */}
+      {!isLoading && flowbinJobs.length > 0 && (
+        <div className="flex items-start gap-2 px-1 text-[11px] text-gray-400">
+          <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          <span>
+            Flowbins at customer sites for 14+ days trigger a warning. After 28 days they are marked overdue.
+            Click any row to view batches and process returns.
+          </span>
+        </div>
+      )}
 
       {/* Return Modal */}
       {returnModal && (

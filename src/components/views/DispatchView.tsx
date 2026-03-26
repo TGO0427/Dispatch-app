@@ -378,7 +378,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header — compact */}
       <div className="flex items-center justify-between">
         <div>
@@ -401,106 +401,71 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         )}
       </div>
 
-      {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-9">
+      {/* Stats Strip — primary metrics */}
+      <div className="flex gap-1.5 flex-wrap">
         {([
-          { label: "Total Jobs", value: stats.total, color: "text-gray-900", tab: "open" as const, borderColor: "hover:border-gray-400" },
-          { label: "Pending", value: stats.pending, color: "text-resilinc-warning", tab: "open" as const, borderColor: "hover:border-yellow-400" },
-          { label: "En Route", value: stats.inRoute, color: "text-resilinc-primary", tab: "assigned" as const, borderColor: "hover:border-blue-400" },
-          { label: "Delivered", value: stats.delivered, color: "text-green-600", tab: "delivered" as const, borderColor: "hover:border-green-400" },
-          { label: "Exceptions", value: stats.exceptions, color: "text-resilinc-alert", tab: "open" as const, borderColor: "hover:border-red-400" },
+          { label: "Total", value: stats.total, color: "text-gray-900", dotColor: "bg-gray-400", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("open" as const); } },
+          { label: "Pending", value: stats.pending, color: "text-yellow-600", dotColor: "bg-yellow-500", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("open" as const); } },
+          { label: "En Route", value: stats.inRoute, color: "text-blue-600", dotColor: "bg-blue-500", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("assigned" as const); } },
+          { label: "Delivered", value: stats.delivered, color: "text-green-600", dotColor: "bg-green-500", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("delivered" as const); } },
+          { label: "Exceptions", value: stats.exceptions, color: "text-red-600", dotColor: "bg-red-500", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("open" as const); } },
         ] as const).map((stat) => (
-          <Card
+          <button
             key={stat.label}
-            className={`p-4 transition-all cursor-pointer ${stat.borderColor} hover:shadow-md active:scale-[0.97] ${
-              !showPickedOnly && !showOutstandingCoaOnly && !serviceFilter && activeTab === stat.tab ? "ring-2 ring-offset-1 ring-blue-200" : ""
-            }`}
-            onClick={() => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab(stat.tab); setCurrentPage(1); }}
+            onClick={() => { stat.action(); setCurrentPage(1); }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all"
           >
-            <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
-            <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">{stat.label}</div>
-          </Card>
+            <div className={`w-1.5 h-1.5 rounded-full ${stat.dotColor}`} />
+            <div className={`text-sm font-bold leading-tight ${stat.color}`}>{stat.value}</div>
+            <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{stat.label}</div>
+          </button>
         ))}
 
-        {/* Delivery Card */}
-        <Card
-          className={`p-4 transition-all cursor-pointer hover:border-blue-400 hover:shadow-md active:scale-[0.97] ${
-            serviceFilter === "delivery" ? "ring-2 ring-offset-1 ring-blue-300 border-blue-400" : ""
-          }`}
-          onClick={() => {
-            setShowPickedOnly(false);
-            setShowOutstandingCoaOnly(false);
-            setServiceFilter(serviceFilter === "delivery" ? null : "delivery");
-            setCurrentPage(1);
-          }}
-        >
-          <div className="text-3xl font-bold text-blue-600">{stats.delivery}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Delivery</div>
-        </Card>
+        <div className="w-px bg-gray-200 mx-0.5 self-stretch" />
 
-        {/* Collection (Ex Works) Card */}
-        <Card
-          className={`p-4 transition-all cursor-pointer hover:border-purple-400 hover:shadow-md active:scale-[0.97] ${
-            serviceFilter === "collection" ? "ring-2 ring-offset-1 ring-purple-300 border-purple-400" : ""
+        {/* Service type filters */}
+        <button
+          onClick={() => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(serviceFilter === "delivery" ? null : "delivery"); setCurrentPage(1); }}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all ${
+            serviceFilter === "delivery" ? "border-gray-900 bg-gray-900 text-white shadow-sm" : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
           }`}
-          onClick={() => {
-            setShowPickedOnly(false);
-            setShowOutstandingCoaOnly(false);
-            setServiceFilter(serviceFilter === "collection" ? null : "collection");
-            setCurrentPage(1);
-          }}
         >
-          <div className="text-3xl font-bold text-purple-700">{stats.collection}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Collection</div>
-        </Card>
+          <div className={`text-sm font-bold ${serviceFilter === "delivery" ? "text-white" : "text-blue-600"}`}>{stats.delivery}</div>
+          <div className={`text-[10px] uppercase tracking-wider font-medium ${serviceFilter === "delivery" ? "text-gray-300" : "text-gray-400"}`}>Delivery</div>
+        </button>
+        <button
+          onClick={() => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(serviceFilter === "collection" ? null : "collection"); setCurrentPage(1); }}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all ${
+            serviceFilter === "collection" ? "border-gray-900 bg-gray-900 text-white shadow-sm" : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+          }`}
+        >
+          <div className={`text-sm font-bold ${serviceFilter === "collection" ? "text-white" : "text-purple-600"}`}>{stats.collection}</div>
+          <div className={`text-[10px] uppercase tracking-wider font-medium ${serviceFilter === "collection" ? "text-gray-300" : "text-gray-400"}`}>Collection</div>
+        </button>
 
-        {/* Orders Picked Card */}
-        <Card
-          className={`p-4 transition-all cursor-pointer hover:border-purple-400 hover:shadow-md active:scale-[0.97] ${
-            showPickedOnly ? "ring-2 ring-offset-1 ring-purple-300 border-purple-400" : ""
-          }`}
-          onClick={() => {
-            setShowOutstandingCoaOnly(false);
-            setServiceFilter(null);
-            setShowPickedOnly(!showPickedOnly);
-            setCurrentPage(1);
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-3xl font-bold text-purple-600">{stats.picked}</div>
-              <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Orders Picked</div>
-            </div>
-            <PackageCheck className={`w-6 h-6 ${showPickedOnly ? "text-purple-600" : "text-purple-400"}`} />
-          </div>
-          <div className="mt-2 text-[10px] text-gray-400">
-            {stats.total > 0 ? Math.round((stats.picked / stats.total) * 100) : 0}% of total
-          </div>
-        </Card>
+        <div className="w-px bg-gray-200 mx-0.5 self-stretch" />
 
-        {/* Outstanding COA Card */}
-        <Card
-          className={`p-4 transition-all cursor-pointer hover:border-amber-400 hover:shadow-md active:scale-[0.97] ${
-            showOutstandingCoaOnly ? "ring-2 ring-offset-1 ring-amber-300 border-amber-400" : ""
+        {/* Workflow indicators */}
+        <button
+          onClick={() => { setShowOutstandingCoaOnly(false); setServiceFilter(null); setShowPickedOnly(!showPickedOnly); setCurrentPage(1); }}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all ${
+            showPickedOnly ? "border-gray-900 bg-gray-900 text-white shadow-sm" : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
           }`}
-          onClick={() => {
-            setShowPickedOnly(false);
-            setServiceFilter(null);
-            setShowOutstandingCoaOnly(!showOutstandingCoaOnly);
-            setCurrentPage(1);
-          }}
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-3xl font-bold text-amber-600">{stats.outstandingCoa}</div>
-              <div className="mt-1 text-xs uppercase tracking-wide text-gray-600">Outstanding COA</div>
-            </div>
-            <FileCheck2 className={`w-6 h-6 ${showOutstandingCoaOnly ? "text-amber-600" : "text-amber-400"}`} />
-          </div>
-          <div className="mt-2 text-[10px] text-gray-400">
-            {stats.picked > 0 ? Math.round((stats.outstandingCoa / stats.picked) * 100) : 0}% of picked
-          </div>
-        </Card>
+          <PackageCheck className={`w-3.5 h-3.5 ${showPickedOnly ? "text-white" : "text-purple-500"}`} />
+          <div className={`text-sm font-bold ${showPickedOnly ? "text-white" : "text-purple-600"}`}>{stats.picked}</div>
+          <div className={`text-[10px] uppercase tracking-wider font-medium ${showPickedOnly ? "text-gray-300" : "text-gray-400"}`}>Picked</div>
+        </button>
+        <button
+          onClick={() => { setShowPickedOnly(false); setServiceFilter(null); setShowOutstandingCoaOnly(!showOutstandingCoaOnly); setCurrentPage(1); }}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all ${
+            showOutstandingCoaOnly ? "border-gray-900 bg-gray-900 text-white shadow-sm" : stats.outstandingCoa > 0 ? "border-amber-200 bg-amber-50 hover:border-amber-300" : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+          }`}
+        >
+          <FileCheck2 className={`w-3.5 h-3.5 ${showOutstandingCoaOnly ? "text-white" : "text-amber-500"}`} />
+          <div className={`text-sm font-bold ${showOutstandingCoaOnly ? "text-white" : "text-amber-600"}`}>{stats.outstandingCoa}</div>
+          <div className={`text-[10px] uppercase tracking-wider font-medium ${showOutstandingCoaOnly ? "text-gray-300" : "text-gray-400"}`}>COA</div>
+        </button>
       </div>
 
       {/* Order Tabs */}
@@ -532,16 +497,16 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
 
       {/* Busy Date Alerts — compact inline */}
       {busyDateAlerts.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap text-sm">
-          <div className="flex items-center gap-1.5 text-amber-700">
-            <AlertTriangle className="w-4 h-4" />
-            <span className="font-semibold">High Volume:</span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1 text-amber-700">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span className="text-xs font-semibold">High Volume:</span>
           </div>
           {busyDateAlerts.map((alert) => (
             <button
               key={alert.date}
               onClick={() => setSelectedAlertDate(alert.date)}
-              className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 rounded-lg text-xs cursor-pointer transition-colors border border-amber-200 hover:border-amber-300"
+              className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 hover:bg-amber-100 rounded-md text-[11px] cursor-pointer transition-colors border border-amber-200 hover:border-amber-300"
             >
               <span className="font-semibold text-amber-900">{alert.date}</span>
               <span className="text-amber-600">{alert.total}</span>
@@ -550,16 +515,12 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         </div>
       )}
 
-      {/* Filters */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <div className="w-48"><WarehouseSelector /></div>
-          <div className="flex-1"><FilterBar showMore={showMoreFilters} /></div>
-        </div>
-        <div className="flex items-center gap-2">
-          <SortBar />
-          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors">{showMoreFilters ? "Less filters" : "More filters"}</button>
-        </div>
+      {/* Filters — single compact block */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="w-40"><WarehouseSelector /></div>
+        <div className="flex-1 min-w-[200px]"><FilterBar showMore={showMoreFilters} /></div>
+        <SortBar />
+        <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-[10px] text-blue-600 hover:text-blue-800 font-medium px-2 py-1.5 rounded hover:bg-blue-50 transition-colors whitespace-nowrap">{showMoreFilters ? "Less" : "More"}</button>
       </div>
 
       {/* Main Content Grid */}

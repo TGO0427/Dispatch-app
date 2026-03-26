@@ -13,7 +13,7 @@ export const SortBar: React.FC = () => {
       <Select
         value={sortOptions.field}
         onChange={(e) => setSortOptions({ ...sortOptions, field: e.target.value as SortField })}
-        className="h-8 text-xs"
+        className="h-7 text-[11px]"
       >
         <option value="createdAt">Sort: Date</option>
         <option value="ref">Sort: Ref</option>
@@ -26,7 +26,7 @@ export const SortBar: React.FC = () => {
         size="icon"
         onClick={() => setSortOptions({ ...sortOptions, direction: sortOptions.direction === "asc" ? "desc" : "asc" })}
         title={sortOptions.direction === "asc" ? "Sort Descending" : "Sort Ascending"}
-        className="h-8 w-8"
+        className="h-7 w-7"
       >
         {sortOptions.direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
       </Button>

@@ -1,11 +1,10 @@
 import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Clock, ChevronRight, GripVertical, Truck, CheckCircle, Trash2 } from "lucide-react";
+import { ChevronRight, GripVertical, Truck, CheckCircle, Trash2 } from "lucide-react";
 import { Job } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { Badge } from "./ui/Badge";
-import { Button } from "./ui/Button";
 import { useDispatch } from "../context/DispatchContext";
 import { useNotification } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
@@ -78,7 +77,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 rounded-card border border-gray-200 bg-white p-4 hover:shadow-card-hover transition-all cursor-pointer hover:border-blue-300"
+      className="flex items-center gap-2.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 hover:shadow-sm transition-all cursor-pointer hover:border-blue-200"
       onClick={onSelect}
     >
       {!isViewer && (
@@ -88,49 +87,41 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
           {...attributes}
           {...listeners}
         >
-          <GripVertical className="h-5 w-5 text-gray-400" />
+          <GripVertical className="h-4 w-4 text-gray-300" />
         </button>
       )}
 
       <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-        <p
-          className="truncate font-semibold text-base text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-          onClick={(e) => { e.stopPropagation(); onSelect(); }}
-        >
-          {job.ref}
-        </p>
-        <p className="truncate text-sm text-gray-600 mt-0.5">
-          <span className={priorityTone(job.priority)}>{job.customer}</span>
-        </p>
-        <div className="flex items-center gap-2 mt-1">
-          <p className="truncate text-xs text-gray-500">
+        <div className="flex items-center gap-2">
+          <p
+            className="truncate font-semibold text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); onSelect(); }}
+          >
+            {job.ref}
+          </p>
+          <span className={`truncate text-xs ${priorityTone(job.priority)}`}>{job.customer}</span>
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
+          <p className="truncate text-[11px] text-gray-400">
             {job.pickup} → {job.dropoff}
           </p>
           {job.serviceType === "collection" ? (
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 flex-shrink-0">
-              EX WORKS
-            </span>
+            <span className="text-[9px] font-semibold px-1 py-px rounded bg-purple-100 text-purple-700 flex-shrink-0">EX WORKS</span>
           ) : (
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 flex-shrink-0">
-              DELIVERY
+            <span className="text-[9px] font-semibold px-1 py-px rounded bg-blue-100 text-blue-700 flex-shrink-0">DELIVERY</span>
+          )}
+          {job.pallets !== undefined && <span className="text-[11px] text-gray-400 flex-shrink-0">{job.pallets} plt</span>}
+          {job.outstandingQty !== undefined && job.outstandingQty > 0 && (
+            <span className="text-[11px] text-orange-600 font-medium flex-shrink-0">{job.outstandingQty.toLocaleString()} qty</span>
+          )}
+          {job.driverId && (
+            <span className="text-[11px] text-gray-500 flex-shrink-0 flex items-center gap-0.5">
+              <Truck className="h-2.5 w-2.5" />
+              {drivers.find(d => d.id === job.driverId)?.name || "Unknown"}
             </span>
           )}
         </div>
-        {(job.pallets !== undefined || job.outstandingQty) && (
-          <div className="flex items-center gap-3 mt-1 text-xs">
-            {job.pallets !== undefined && <span className="text-gray-500">{job.pallets} pallets</span>}
-            {job.outstandingQty !== undefined && job.outstandingQty > 0 && (
-              <span className="text-orange-600 font-medium">{job.outstandingQty.toLocaleString()} qty</span>
-            )}
-          </div>
-        )}
-        {job.driverId && (
-          <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
-            <Truck className="h-3 w-3" />
-            <span className="truncate">{drivers.find(d => d.id === job.driverId)?.name || "Unknown"}</span>
-          </div>
-        )}
-        <div className="mt-2">
+        <div className="mt-1.5">
           <JobWorkflow job={job} onUpdate={(jobId, updates) => {
             // Auto-assign DHL + Airline when Export Airfreight is selected
             if (updates.transportService === "airfreight") {
@@ -149,51 +140,36 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
         </div>
       </div>
 
-      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        <Badge variant={getBadgeVariant()}>
+      <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        <Badge variant={getBadgeVariant()} className="text-[10px] px-1.5 py-0">
           {job.status}
         </Badge>
         {(job.eta || job.etd) && (
-          <div className="flex flex-col items-end text-xs">
+          <div className="flex flex-col items-end text-[10px] leading-tight">
             {job.etd && (
-              <div className="flex items-center gap-1 text-blue-600 font-medium">
-                <span className="text-[9px] text-blue-400">ETD</span> {job.etd}
-              </div>
+              <span className="text-blue-600 font-medium">ETD {job.etd}</span>
             )}
             {job.eta && (
-              <div className="flex items-center gap-1 text-gray-600">
-                <Clock className="h-3 w-3" />
-                <span className="text-[9px] text-gray-400">ETA</span> {job.eta}
-              </div>
+              <span className="text-gray-500">ETA {job.eta}</span>
             )}
             {job.eta && (
-              <div className="text-gray-400 text-[10px]">
-                Week {getWeekNumber(job.eta)}
-              </div>
+              <span className="text-gray-400">W{getWeekNumber(job.eta)}</span>
             )}
           </div>
         )}
         {!isViewer && job.status !== "delivered" && job.status !== "cancelled" && job.status !== "en-route" && (
-          <Button
-            size="sm"
-            onClick={handleDispatch}
-            className="bg-green-600 hover:bg-green-700 text-white"
-            title="Mark as dispatched"
-          >
-            <CheckCircle className="h-4 w-4" />
-          </Button>
+          <button onClick={handleDispatch} className="h-7 w-7 rounded-md bg-green-600 hover:bg-green-700 text-white flex items-center justify-center" title="Mark as dispatched">
+            <CheckCircle className="h-3.5 w-3.5" />
+          </button>
         )}
-        {!isViewer && <Button
-          size="sm"
-          onClick={handleRemove}
-          className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
-          title="Remove order"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>}
-        <Button size="sm" onClick={(e) => { e.stopPropagation(); onSelect(); }}>
-          Details <ChevronRight className="ml-1 h-4 w-4" />
-        </Button>
+        {!isViewer && (
+          <button onClick={handleRemove} className="h-7 w-7 rounded-md bg-red-50 hover:bg-red-100 text-red-500 border border-red-200 flex items-center justify-center" title="Remove order">
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button onClick={(e) => { e.stopPropagation(); onSelect(); }} className="h-7 px-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium flex items-center gap-1">
+          Details <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
   );

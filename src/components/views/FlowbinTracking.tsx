@@ -87,6 +87,37 @@ export const FlowbinTracking: React.FC = () => {
     };
   }, [flowbinJobs]);
 
+  // Aging buckets (exclude fully returned jobs)
+  const agingBuckets = useMemo(() => {
+    const active = flowbinJobs.filter((j) => {
+      const batches = j.flowbinBatches || [];
+      return batches.length === 0 || !batches.every((b) => b.returnedAt);
+    });
+    const buckets = { safe: 0, warning: 0, overdue: 0 };
+    active.forEach((j) => {
+      const days = getDaysAtClient(j.eta);
+      if (days >= 28) buckets.overdue++;
+      else if (days >= 14) buckets.warning++;
+      else buckets.safe++;
+    });
+    return buckets;
+  }, [flowbinJobs]);
+
+  // Customer exposure (top 5 by outstanding flowbins)
+  const customerExposure = useMemo(() => {
+    const map = new Map<string, number>();
+    flowbinJobs.forEach((j) => {
+      const batches = j.flowbinBatches || [];
+      const outstanding = batches.reduce((s, b) => s + b.quantity - (b.quantityReturned || 0), 0);
+      if (outstanding > 0) {
+        map.set(j.customer, (map.get(j.customer) || 0) + outstanding);
+      }
+    });
+    return [...map.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+  }, [flowbinJobs]);
+
   // Return modal state
   const [returnModal, setReturnModal] = useState<{ batch: FlowbinBatch; jobRef: string } | null>(null);
   const [returnQty, setReturnQty] = useState("");
@@ -165,6 +196,59 @@ export const FlowbinTracking: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Mini Charts — only shown when there's data */}
+      {stats.total > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          {/* Aging Buckets */}
+          <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Aging Pipeline</div>
+            <div className="space-y-1.5">
+              {([
+                { label: "0–14 days", value: agingBuckets.safe, color: "bg-green-500", textColor: "text-green-700" },
+                { label: "15–28 days", value: agingBuckets.warning, color: "bg-amber-500", textColor: "text-amber-700" },
+                { label: "29+ days", value: agingBuckets.overdue, color: "bg-red-500", textColor: "text-red-700" },
+              ]).map((bucket) => {
+                const total = agingBuckets.safe + agingBuckets.warning + agingBuckets.overdue;
+                const pct = total > 0 ? (bucket.value / total) * 100 : 0;
+                return (
+                  <div key={bucket.label} className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-500 w-16 flex-shrink-0">{bucket.label}</span>
+                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${bucket.color} transition-all`} style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className={`text-xs font-bold w-5 text-right ${bucket.value > 0 ? bucket.textColor : "text-gray-300"}`}>{bucket.value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Customer Exposure */}
+          <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Top Exposure by Customer</div>
+            {customerExposure.length === 0 ? (
+              <p className="text-[10px] text-gray-300">No outstanding flowbins</p>
+            ) : (
+              <div className="space-y-1.5">
+                {customerExposure.map(([name, count]) => {
+                  const maxCount = customerExposure[0][1];
+                  const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                  return (
+                    <div key={name} className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-600 w-24 truncate flex-shrink-0" title={name}>{name}</span>
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs font-bold text-gray-700 w-5 text-right">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">

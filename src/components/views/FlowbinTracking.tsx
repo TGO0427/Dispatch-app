@@ -258,7 +258,7 @@ export const FlowbinTracking: React.FC = () => {
         <input
           type="text" placeholder="Search by reference, customer, or destination..."
           value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-9 pr-3 h-9 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+          className="w-full pl-9 pr-3 h-8 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
         />
       </div>
 
@@ -341,11 +341,17 @@ export const FlowbinTracking: React.FC = () => {
                             )}
                           </td>
                           <td className="px-3 py-2.5 text-center">
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4 text-gray-900 mx-auto" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4 text-gray-300 group-hover:text-gray-600 transition-colors mx-auto" />
-                            )}
+                            <div className={`inline-flex items-center justify-center w-6 h-6 rounded-md transition-colors ${
+                              isExpanded
+                                ? "bg-gray-200 text-gray-700"
+                                : "bg-gray-100 text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-600"
+                            }`}>
+                              {isExpanded ? (
+                                <ChevronUp className="h-3.5 w-3.5" />
+                              ) : (
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              )}
+                            </div>
                           </td>
                         </tr>
                         {isExpanded && (

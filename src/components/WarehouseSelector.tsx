@@ -1,5 +1,4 @@
 import { useDispatch } from "../context/DispatchContext";
-import { Select } from "./ui/Select";
 import { useMemo } from "react";
 
 export const WarehouseSelector: React.FC = () => {
@@ -19,15 +18,15 @@ export const WarehouseSelector: React.FC = () => {
   };
 
   return (
-    <Select
+    <select
       value={filters.warehouse || "all"}
       onChange={handleWarehouseChange}
-      className="w-auto text-sm"
+      className="h-7 text-[11px] border border-gray-300 rounded-md bg-white px-2 py-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
     >
       <option value="all">All Warehouses</option>
       {warehouses.map((warehouse) => (
         <option key={warehouse} value={warehouse}>{warehouse}</option>
       ))}
-    </Select>
+    </select>
   );
 };

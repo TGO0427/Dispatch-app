@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   X, ChevronRight,
   LayoutDashboard, Home, ClipboardList, Calendar, Grid3x3, Clock,
-  BarChart3, ArrowRightLeft, Truck, Users, Search, Settings,
+  BarChart3, ArrowRightLeft, Truck, Users, Search, Settings, Package,
 } from "lucide-react";
 
 interface HelpGuideProps {
@@ -90,6 +90,26 @@ const guideSections: GuideSection[] = [
     steps: [
       { title: "Assign Transporters", detail: "Drag IBT jobs to transporters to assign them, just like customer orders." },
       { title: "Track Status", detail: "Use the Open / Assigned / Delivered tabs to monitor IBT progress." },
+    ],
+  },
+  {
+    id: "flowbin-tracking",
+    icon: Package,
+    title: "Flowbin Tracking",
+    description: "Track flowbins dispatched to customer sites and manage their return. Monitor outstanding quantities, receive returns with partial quantity support, and keep notes on condition.",
+    steps: [
+      { title: "Enable Flowbin on a Job", detail: "Open any job's details modal and toggle the Flowbin switch on. Then add batches with a batch number and quantity for each flowbin shipment." },
+      { title: "View Tracking Dashboard", detail: "Go to Flowbin Tracking in the sidebar. The KPI cards show Total, On Time, Warning (2+ weeks), Overdue (4+ weeks), and Returned counts." },
+      { title: "Monitor Outstanding", detail: "The table shows Sent and Outstanding columns per job. Outstanding (in red) = total sent minus total returned. Green 0 means all flowbins are back." },
+      { title: "Receive a Return", detail: "Expand a job's batches and click 'Receive Return'. A modal lets you enter: quantity returned (defaults to full qty), return date, and optional notes for damage or losses." },
+      { title: "Partial Returns", detail: "If fewer flowbins come back than were sent, enter the lower quantity. The system records the shortage and shows it as outstanding." },
+      { title: "Undo a Return", detail: "If a return was logged incorrectly, click 'Undo' on the batch to clear the return data and mark it as pending again." },
+    ],
+    tips: [
+      "Status is calculated from the ETA date: On Time (0-13 days), Warning (14-27 days), Overdue (28+ days).",
+      "A job is marked 'Returned' only when ALL its batches have been returned.",
+      "Use the search bar and status filter to find specific jobs quickly.",
+      "Return notes are visible in the expanded batch view — use them to document damage or missing units.",
     ],
   },
   {

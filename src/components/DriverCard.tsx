@@ -1,11 +1,10 @@
 import React from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Phone, MessageSquare, Edit, AlertTriangle } from "lucide-react";
+import { Phone, MessageSquare, Edit, AlertTriangle, Truck } from "lucide-react";
 import { Driver } from "../types";
 import { useDispatch } from "../context/DispatchContext";
 import { statusColour } from "../utils/helpers";
 import { Badge } from "./ui/Badge";
-import { Button } from "./ui/Button";
 
 interface DriverCardProps {
   driver: Driver;
@@ -25,80 +24,82 @@ export const DriverCard: React.FC<DriverCardProps> = ({ driver, onEdit, assigned
   const isOverCapacity = assignedPallets > capacity && capacity > 0;
   const isNearCapacity = usagePercent >= 80 && !isOverCapacity;
   const remaining = capacity - assignedPallets;
+  const utilization = capacity > 0 ? Math.round(usagePercent) : 0;
 
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-card border p-4 transition-all ${
+      className={`rounded-lg border px-3 py-2.5 transition-all ${
         isOver
-          ? "border-resilinc-primary bg-blue-50 shadow-card-hover"
+          ? "border-blue-400 bg-blue-50 shadow-md"
           : isOverCapacity
-            ? "border-red-400 bg-red-50"
-            : "border-gray-200 bg-white"
+            ? "border-red-300 bg-red-50"
+            : "border-gray-200 bg-white hover:border-gray-300"
       }`}
     >
-      <div className="flex items-center justify-between">
+      {/* Top row: name + status + actions */}
+      <div className="flex items-center gap-2">
+        <Truck className="h-4 w-4 text-gray-400 flex-shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-base text-gray-900">
-            {driver.name}
-          </p>
-          <p className="truncate text-sm text-gray-600 mt-0.5">
-            {driver.callsign}
-          </p>
-          <p className="truncate text-xs text-gray-500 mt-1">
-            {driver.location} • Jobs: {actualAssignedJobs}
-          </p>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm text-gray-900 truncate">{driver.name}</span>
+            <span className="text-[10px] text-gray-400 flex-shrink-0">{driver.callsign}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge className={statusColour(driver.status)}>
-            {driver.status}
-          </Badge>
+        <Badge className={`${statusColour(driver.status)} text-[10px] px-1.5 py-0`}>
+          {driver.status}
+        </Badge>
+        <div className="flex items-center gap-1 flex-shrink-0">
           {driver.phone && (
-            <Button variant="outline" size="icon" title="Call" onClick={() => window.open(`tel:${driver.phone}`)}>
-              <Phone className="h-4 w-4" />
-            </Button>
+            <button onClick={() => window.open(`tel:${driver.phone}`)} title="Call" className="h-6 w-6 rounded-md border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-500">
+              <Phone className="h-3 w-3" />
+            </button>
           )}
           {driver.email && (
-            <Button variant="outline" size="icon" title="Email" onClick={() => window.open(`mailto:${driver.email}`)}>
-              <MessageSquare className="h-4 w-4" />
-            </Button>
+            <button onClick={() => window.open(`mailto:${driver.email}`)} title="Email" className="h-6 w-6 rounded-md border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-500">
+              <MessageSquare className="h-3 w-3" />
+            </button>
           )}
           {onEdit && (
-            <Button variant="outline" size="icon" title="Edit Details" onClick={() => onEdit(driver)}>
-              <Edit className="h-4 w-4" />
-            </Button>
+            <button onClick={() => onEdit(driver)} title="Edit" className="h-6 w-6 rounded-md border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-500">
+              <Edit className="h-3 w-3" />
+            </button>
           )}
         </div>
       </div>
 
-      {/* Capacity Bar */}
+      {/* Meta line */}
+      <div className="flex items-center gap-3 mt-1 ml-6 text-[10px] text-gray-400">
+        <span>{driver.location}</span>
+        <span>{actualAssignedJobs} {actualAssignedJobs === 1 ? "job" : "jobs"}</span>
+        {capacity > 0 && <span>{utilization}% utilized</span>}
+      </div>
+
+      {/* Capacity bar */}
       {capacity > 0 && (
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-gray-500">
-              Pallet Capacity
-            </span>
-            <span className={`font-semibold ${
+        <div className="mt-2 ml-6">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  isOverCapacity ? "bg-red-500" : isNearCapacity ? "bg-amber-500" : "bg-green-500"
+                }`}
+                style={{ width: `${Math.min(usagePercent, 100)}%` }}
+              />
+            </div>
+            <span className={`text-[11px] font-bold tabular-nums flex-shrink-0 ${
               isOverCapacity ? "text-red-600" : isNearCapacity ? "text-amber-600" : "text-gray-700"
             }`}>
-              {assignedPallets} / {capacity}
-              {remaining > 0 && !isOverCapacity && (
-                <span className="text-gray-400 font-normal ml-1">({remaining} avail)</span>
-              )}
+              {assignedPallets}/{capacity}
             </span>
-          </div>
-          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-300 ${
-                isOverCapacity ? "bg-red-500" : isNearCapacity ? "bg-amber-500" : "bg-green-500"
-              }`}
-              style={{ width: `${Math.min(usagePercent, 100)}%` }}
-            />
+            {remaining > 0 && !isOverCapacity && (
+              <span className="text-[10px] text-gray-400 flex-shrink-0">{remaining} avail</span>
+            )}
           </div>
           {isOverCapacity && (
-            <div className="flex items-center gap-1 mt-1.5 text-xs text-red-600 font-medium">
+            <div className="flex items-center gap-1 mt-1 text-[10px] text-red-600 font-medium">
               <AlertTriangle className="w-3 h-3" />
-              Over capacity by {assignedPallets - capacity} pallets
+              Over by {assignedPallets - capacity} pallets
             </div>
           )}
         </div>

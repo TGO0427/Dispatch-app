@@ -432,53 +432,64 @@ export const OrderImport: React.FC = () => {
 
       // Split into new orders and orders that need updating
       const newOrders = allOrders.filter((order) => !existingByRef.has(order.ref));
-      const existingOrders = allOrders.filter((order) => existingByRef.has(order.ref));
+      const existingRefs = new Set(allOrders.filter((order) => existingByRef.has(order.ref)).map((o) => o.ref));
 
-      // Create new orders
-      if (newOrders.length > 0) {
-        await jobsAPI.bulkCreate(newOrders);
-      }
-
-      // Update existing orders: match by ref + notes (product name) for line-item accuracy
+      // For existing refs: delete old line items, then recreate from the fresh import
+      // This prevents duplicate accumulation and ensures line items match the source exactly
       let updatedCount = 0;
       let failedCount = 0;
-      for (const order of existingOrders) {
-        const existingLines = existingByRef.get(order.ref) || [];
-        // Match by ref + product name (notes) to find the exact line item
-        const match = existingLines.find((j) => j.notes === order.notes)
-          || (existingLines.length === 1 ? existingLines[0] : null);
+      const ordersToRecreate: typeof allOrders = [];
 
-        if (match) {
-          // Only send fields that have values — skip undefined to avoid overwriting with null
-          const updates: Record<string, any> = {};
-          if (order.customer) updates.customer = order.customer;
-          if (order.pickup) updates.pickup = order.pickup;
-          if (order.dropoff) updates.dropoff = order.dropoff;
-          if (order.warehouse !== undefined) updates.warehouse = order.warehouse;
-          if (order.pallets !== undefined) updates.pallets = order.pallets;
-          if (order.outstandingQty !== undefined) updates.outstandingQty = order.outstandingQty;
-          if (order.eta !== undefined) updates.eta = order.eta;
-          if (order.notes !== undefined) updates.notes = order.notes;
+      for (const ref of existingRefs) {
+        const existingLines = existingByRef.get(ref) || [];
+        const importLines = allOrders.filter((o) => o.ref === ref);
 
-          if (Object.keys(updates).length > 0) {
-            try {
-              await jobsAPI.update(match.id, updates as any);
-              updatedCount++;
-            } catch (err) {
-              console.error(`Failed to update order ${order.ref}:`, err);
-              failedCount++;
-            }
+        // Preserve status, driverId, and workflow fields from the first existing line
+        const existing = existingLines[0];
+        const preserved = {
+          status: existing.status,
+          driverId: existing.driverId,
+          transporterBooked: existing.transporterBooked,
+          orderPicked: existing.orderPicked,
+          coaAvailable: existing.coaAvailable,
+          transportService: existing.transportService,
+          truckSize: existing.truckSize,
+          etd: existing.etd,
+          hasFlowbin: existing.hasFlowbin,
+          internalNotes: existing.internalNotes,
+          serviceType: existing.serviceType,
+        };
+
+        // Delete all old line items for this ref
+        for (const line of existingLines) {
+          try {
+            await jobsAPI.delete(line.id);
+          } catch (err) {
+            console.error(`Failed to delete old line item ${line.id}:`, err);
           }
+        }
+
+        // Recreate from import data, preserving workflow state
+        for (const importLine of importLines) {
+          ordersToRecreate.push({ ...importLine, ...preserved } as any);
+        }
+        updatedCount += importLines.length;
+      }
+
+      // Create all new + recreated orders
+      const allToCreate = [...newOrders, ...ordersToRecreate];
+      if (allToCreate.length > 0) {
+        try {
+          await jobsAPI.bulkCreate(allToCreate);
+        } catch (err) {
+          console.error("Failed to create orders:", err);
+          failedCount += allToCreate.length;
         }
       }
 
-      void existingOrders.slice(0, existingOrders.length - updatedCount - failedCount);
-      void existingOrders.slice(existingOrders.length - failedCount);
-      void existingOrders.slice(0, updatedCount);
-
       await refreshData();
 
-      showSuccess(`Import complete: ${newOrders.length} new, ${updatedCount} updated, ${failedCount} failed`);
+      showSuccess(`Import complete: ${newOrders.length} new, ${existingRefs.size} updated (${updatedCount} lines)${failedCount > 0 ? `, ${failedCount} failed` : ""}`);
       setImportedOrders([]);
       setImportStatus("idle");
     } catch (error) {

@@ -442,6 +442,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                         ) : (
                           item.pallets != null && item.pallets > 0 && <span className="text-xs text-gray-400">{item.pallets} plt</span>
                         )}
+                        {item.outstandingQty != null && item.outstandingQty > 0 && (
+                          <span className="text-xs text-orange-600 font-medium">{item.outstandingQty.toLocaleString()} qty</span>
+                        )}
                         <Badge variant={item.status === "delivered" ? "success" : item.status === "exception" ? "destructive" : item.status === "pending" ? "new" : "default"} className="text-[9px] px-1.5 py-0">{item.status}</Badge>
                       </div>
                       {isAssigned && item.status !== "delivered" && item.status !== "cancelled" && item.status !== "en-route" && (

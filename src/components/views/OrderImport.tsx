@@ -170,8 +170,21 @@ const findFirst = (idx: HeaderIndex, cands: string[]) => {
   }
   return undefined;
 };
-const coalesce = (row: any[], idx?: number) => (idx === undefined ? undefined : row[idx]);
-const safeStr = (v: any) => (v === undefined || v === null ? undefined : String(v).trim());
+const coalesce = (row: any[], idx?: number) => {
+  if (idx === undefined) return undefined;
+  const v = row[idx];
+  if (v === undefined || v === null) return undefined;
+  // xlsx with cellDates:true can return Date objects — convert to ISO string
+  if (v instanceof Date) return isNaN(v.getTime()) ? undefined : toISODate(v);
+  // If it's any other object (rich text, error, etc.), stringify it
+  if (typeof v === "object") return String(v);
+  return v;
+};
+const safeStr = (v: any) => {
+  if (v === undefined || v === null) return undefined;
+  if (v instanceof Date) return isNaN(v.getTime()) ? undefined : toISODate(v);
+  return String(v).trim();
+};
 
 const ALIASES: Record<keyof Omit<ImportedOrder, never>, string[]> = {
   ref: ["ref", "reference", "document no", "document", "order no", "so", "so number", "order number", "document number"],
@@ -264,7 +277,7 @@ const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | n
 };
 
 // ---------- Parsing (enable cellDates + raw:false) ----------
-const SHEET_TO_JSON_OPTS = { header: 1, raw: false } as const;
+const SHEET_TO_JSON_OPTS = { header: 1, raw: false, rawNumbers: false } as const;
 
 const parseCSV = (text: string): ImportedOrder[] => {
   // NOTE: cellDates is set in XLSX.read (below)

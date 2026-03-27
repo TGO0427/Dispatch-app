@@ -269,7 +269,8 @@ export const InboxView: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div>
+              <div className="flex flex-col h-full">
+                <div className="flex-1">
                 {filtered.map((msg) => {
                   const isUnread = folder === "inbox" && !msg._readAt;
                   const isSelected = selectedMessage && (selectedMessage.threadId || selectedMessage.id) === (msg.threadId || msg.id);
@@ -310,6 +311,21 @@ export const InboxView: React.FC = () => {
                     </button>
                   );
                 })}
+                </div>
+                {/* Low-volume helper */}
+                {filtered.length < 4 && (
+                  <div className="p-3 border-t border-gray-100">
+                    <button
+                      onClick={() => openCompose()}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                        <Send className="h-3 w-3 text-gray-400" />
+                      </div>
+                      Start a new conversation
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -367,25 +383,31 @@ export const InboxView: React.FC = () => {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-gray-50/50">
-                {threadMessages.map((msg) => {
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 bg-gray-50/30">
+                {threadMessages.map((msg, idx) => {
                   const isMe = msg.senderId === user?.id;
+                  const prevMsg = idx > 0 ? threadMessages[idx - 1] : null;
+                  const sameSender = prevMsg && prevMsg.senderId === msg.senderId;
                   return (
-                    <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                    <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} ${sameSender ? "" : "mt-2"}`}>
                       {!isMe && (
-                        <div className="w-6 h-6 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-[8px] font-bold mr-1.5 mt-auto mb-0.5 flex-shrink-0">
-                          {getInitials(msg.senderName)}
-                        </div>
+                        sameSender ? (
+                          <div className="w-5 mr-1.5 flex-shrink-0" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-[7px] font-bold mr-1.5 mt-auto mb-0.5 flex-shrink-0">
+                            {getInitials(msg.senderName)}
+                          </div>
+                        )
                       )}
-                      <div className={`max-w-[70%] rounded-2xl px-3 py-2 ${
+                      <div className={`max-w-[70%] rounded-2xl px-3 py-1.5 ${
                         isMe
                           ? "bg-blue-600 text-white rounded-br-md"
-                          : "bg-white border border-gray-200 text-gray-900 rounded-bl-md"
+                          : "bg-white border border-gray-100 text-gray-900 rounded-bl-md"
                       }`}>
-                        <p className={`text-[13px] whitespace-pre-wrap leading-relaxed ${isMe ? "text-white" : "text-gray-700"}`}>
+                        <p className={`text-[13px] whitespace-pre-wrap leading-snug ${isMe ? "text-white" : "text-gray-700"}`}>
                           {msg.body}
                         </p>
-                        <p className={`text-[9px] mt-0.5 text-right ${isMe ? "text-blue-200" : "text-gray-400"}`}>
+                        <p className={`text-[8px] mt-px text-right ${isMe ? "text-blue-300" : "text-gray-400"}`}>
                           {new Date(msg.createdAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                         </p>
                       </div>
@@ -396,7 +418,7 @@ export const InboxView: React.FC = () => {
               </div>
 
               {/* Composer bar */}
-              <div className="px-3 py-2.5 border-t border-gray-200 bg-white">
+              <div className="px-3 py-2 border-t border-gray-100 bg-white">
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();

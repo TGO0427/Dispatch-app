@@ -292,9 +292,6 @@ export const InboxView: React.FC = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openCompose(selectedMessage)} className="text-xs gap-1">
-                        <Send className="h-3 w-3" /> Reply
-                      </Button>
                       {folder === "sent" && (
                         <Button size="sm" variant="outline" onClick={async () => {
                           try {
@@ -336,6 +333,52 @@ export const InboxView: React.FC = () => {
                       </div>
                     );
                   })}
+                </div>
+                {/* Inline reply input */}
+                <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const input = e.currentTarget.querySelector("input") as HTMLInputElement;
+                      const text = input?.value?.trim();
+                      if (!text || !selectedMessage) return;
+                      input.value = "";
+                      const tid = selectedMessage.threadId || selectedMessage.id;
+                      // Determine recipients: reply to sender if inbox, reply to original recipients if sent
+                      const replyTo = folder === "inbox"
+                        ? [selectedMessage.senderId]
+                        : selectedMessage.recipients.map((r) => r.userId);
+                      try {
+                        await messagesAPI.send({
+                          subject: selectedMessage.subject.startsWith("Re: ") ? selectedMessage.subject : `Re: ${selectedMessage.subject}`,
+                          body: text,
+                          recipientIds: replyTo,
+                          jobRef: selectedMessage.jobRef || undefined,
+                          threadId: tid,
+                        });
+                        // Reload thread
+                        const thread = await messagesAPI.getThread(tid);
+                        setThreadMessages(thread);
+                        fetchMessages();
+                      } catch (err) {
+                        console.error("Failed to send reply:", err);
+                      }
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Type a message..."
+                      className="flex-1 h-9 px-3 text-sm border border-gray-200 rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="h-9 w-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center flex-shrink-0"
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
+                  </form>
                 </div>
               </div>
             ) : (

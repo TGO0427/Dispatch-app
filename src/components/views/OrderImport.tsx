@@ -744,55 +744,15 @@ export const OrderImport: React.FC = () => {
         )}
       </Card>
 
-      {/* Preview — simplified debug version */}
+      {/* Preview — extreme minimal test */}
       {importedOrders.length > 0 && (
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold">{String(importedOrders.length)} orders parsed</h2>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => { setImportedOrders([]); setImportStatus("idle"); }}
-                variant="outline"
-                className="text-red-600"
-              >
-                Cancel
-              </Button>
-              <Button onClick={importToDispatch} disabled={isImporting || isViewer}>
-                {isImporting ? "Importing..." : "Import to Dispatch System"}
-              </Button>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="px-3 py-2 text-left">Ref</th>
-                  <th className="px-3 py-2 text-left">Customer</th>
-                  <th className="px-3 py-2 text-left">ETA</th>
-                  <th className="px-3 py-2 text-left">Pallets</th>
-                </tr>
-              </thead>
-              <tbody>
-                {importedOrders.slice(0, 50).map((order, idx) => {
-                  // Log any non-primitive values
-                  Object.entries(order).forEach(([key, val]) => {
-                    if (val !== null && val !== undefined && typeof val === "object") {
-                      console.error(`[OrderImport] OBJECT found in field "${key}":`, val, typeof val, val.constructor?.name);
-                    }
-                  });
-                  return (
-                    <tr key={idx} className="border-b border-gray-100">
-                      <td className="px-3 py-2">{String(order.ref ?? "")}</td>
-                      <td className="px-3 py-2">{String(order.customer ?? "")}</td>
-                      <td className="px-3 py-2">{String(order.eta ?? "—")}</td>
-                      <td className="px-3 py-2">{String(order.pallets ?? "—")}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <div className="p-4 bg-green-50 rounded-lg">
+          <p className="text-green-700 font-bold">{String(importedOrders.length)} orders parsed successfully</p>
+          <button onClick={() => { setImportedOrders([]); setImportStatus("idle"); }} className="mt-2 text-sm text-red-600 underline">Clear</button>
+          <button onClick={importToDispatch} disabled={isImporting || isViewer} className="mt-2 ml-4 text-sm text-blue-600 underline">
+            {isImporting ? "Importing..." : "Import"}
+          </button>
+        </div>
       )}
 
       {/* Preview placeholder */}

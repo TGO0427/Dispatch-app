@@ -338,21 +338,27 @@ export const InboxView: React.FC = () => {
                       </span>
                     );
                   })}
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value && !composeRecipients.includes(e.target.value)) {
-                        setComposeRecipients((prev) => [...prev, e.target.value]);
-                      }
-                      e.target.value = "";
-                    }}
-                    className="text-xs border-none outline-none bg-transparent flex-1 min-w-[120px]"
-                  >
-                    <option value="">Add recipient...</option>
-                    {allUsers.filter((u) => !composeRecipients.includes(u.id)).map((u) => (
-                      <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
-                    ))}
-                  </select>
+                  {(() => {
+                    const available = allUsers.filter((u) => !composeRecipients.includes(u.id));
+                    return (
+                      <select
+                        value="__placeholder__"
+                        onChange={(e) => {
+                          const selectedId = e.target.value;
+                          console.log("[Inbox] Selected recipient:", selectedId);
+                          if (selectedId && selectedId !== "__placeholder__" && !composeRecipients.includes(selectedId)) {
+                            setComposeRecipients((prev) => [...prev, selectedId]);
+                          }
+                        }}
+                        className="text-xs border-none outline-none bg-transparent flex-1 min-w-[120px]"
+                      >
+                        <option value="__placeholder__">Add recipient...</option>
+                        {available.map((u) => (
+                          <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+                        ))}
+                      </select>
+                    );
+                  })()}
                 </div>
               )}
 

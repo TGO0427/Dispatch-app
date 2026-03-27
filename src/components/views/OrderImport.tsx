@@ -689,15 +689,15 @@ export const OrderImport: React.FC = () => {
                               className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100 text-sm"
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <span className="font-semibold text-blue-600">{order.ref}</span>
-                                <span className="text-gray-600 truncate">{order.customer}</span>
+                                <span className="font-semibold text-blue-600">{String(order.ref ?? "")}</span>
+                                <span className="text-gray-600 truncate">{String(order.customer ?? "")}</span>
                               </div>
                               <div className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
-                                {order.eta && <span>{order.eta}</span>}
+                                {order.eta && <span>{String(order.eta)}</span>}
                                 {order.warehouse && (
-                                  <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">{order.warehouse}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">{String(order.warehouse)}</span>
                                 )}
-                                {order.pallets !== undefined && <span>{order.pallets} plt</span>}
+                                {order.pallets !== undefined && <span>{String(order.pallets)} plt</span>}
                               </div>
                             </div>
                           ))}
@@ -930,18 +930,18 @@ export const OrderImport: React.FC = () => {
                 <tbody>
                   {filteredAndSortedOrders.map((order, idx) => (
                     <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{order.ref}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{order.customer}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{order.warehouse ?? "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{order.dropoff}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{String(order.ref ?? "")}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{String(order.customer ?? "")}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{order.warehouse != null ? String(order.warehouse) : "—"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{String(order.dropoff ?? "")}</td>
                       <td className="px-4 py-3">
                         <Badge variant={getBadgeVariant(order.priority) as any}>
-                          {order.priority || "normal"}
+                          {String(order.priority || "normal")}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{order.eta ?? "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{order.pallets ?? "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{order.outstandingQty ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{order.eta != null ? String(order.eta) : "—"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{order.pallets != null ? String(order.pallets) : "—"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{order.outstandingQty != null ? String(order.outstandingQty) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>

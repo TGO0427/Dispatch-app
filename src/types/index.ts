@@ -150,6 +150,7 @@ export interface Message {
   jobRef?: string | null;
   priority: "normal" | "urgent";
   broadcast: boolean;
+  threadId?: string | null;
   recipients: MessageRecipient[];
   createdAt: string;
 }

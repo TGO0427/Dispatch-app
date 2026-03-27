@@ -53,6 +53,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
+      // Thread view — all messages in a conversation
+      if (folder === "thread") {
+        const tid = req.query.threadId as string;
+        if (!tid) return res.status(400).json({ success: false, error: "threadId required" });
+        const threadMessages = await prisma.message.findMany({
+          where: {
+            OR: [
+              { id: tid },
+              { threadId: tid },
+            ],
+          },
+          include: { recipients: true },
+          orderBy: { createdAt: "asc" },
+        });
+        return res.json({
+          success: true,
+          data: threadMessages.map((m) => ({
+            ...m,
+            createdAt: formatDate(m.createdAt),
+            recipients: m.recipients.map((r) => ({ ...r, readAt: formatDate(r.readAt), createdAt: formatDate(r.createdAt) })),
+          })),
+        });
+      }
+
       if (folder === "unread-count") {
         const count = await prisma.messageRecipient.count({
           where: { userId: user.id, readAt: null },
@@ -99,7 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // POST — send a new message
   if (req.method === "POST") {
     try {
-      const { subject, body, recipientIds, jobRef, priority, broadcast } = req.body;
+      const { subject, body, recipientIds, jobRef, priority, broadcast, threadId } = req.body;
       if (!subject?.trim() || !body?.trim()) {
         return res.status(400).json({ success: false, error: "Subject and body are required" });
       }
@@ -131,6 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           jobRef: jobRef || null,
           priority: priority || "normal",
           broadcast: !!broadcast,
+          threadId: threadId || null,
           recipients: {
             create: users.map((u) => ({
               userId: u.id,

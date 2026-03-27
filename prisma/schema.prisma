@@ -100,11 +100,13 @@ model Message {
   jobRef      String?  @db.VarChar(255)  // optional link to an order
   priority    String   @default("normal") @db.VarChar(50)  // "normal" or "urgent"
   broadcast   Boolean  @default(false)  // sent to all users
+  threadId    String?  @db.VarChar(255)  // links replies to original message
   recipients  MessageRecipient[]
   createdAt   DateTime @default(now())
 
   @@index([senderId])
   @@index([jobRef])
+  @@index([threadId])
   @@index([createdAt])
   @@map("messages")
 }

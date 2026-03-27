@@ -148,8 +148,9 @@ export const flowbinsAPI = {
 export const messagesAPI = {
   getInbox: () => fetchAPI<any[]>("/api/messages"),
   getSent: () => fetchAPI<any[]>("/api/messages?folder=sent"),
+  getThread: (threadId: string) => fetchAPI<any[]>(`/api/messages?folder=thread&threadId=${threadId}`),
   getUnreadCount: () => fetchAPI<{ count: number }>("/api/messages?folder=unread-count"),
-  send: (data: { subject: string; body: string; recipientIds?: string[]; jobRef?: string; priority?: string; broadcast?: boolean }) =>
+  send: (data: { subject: string; body: string; recipientIds?: string[]; jobRef?: string; priority?: string; broadcast?: boolean; threadId?: string }) =>
     fetchAPI<any>("/api/messages", { method: "POST", body: JSON.stringify(data) }),
   markRead: (id: string) =>
     fetchAPI<void>(`/api/messages?id=${id}`, { method: "PUT" }),

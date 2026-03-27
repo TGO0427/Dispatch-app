@@ -551,9 +551,15 @@ export const OrderImport: React.FC = () => {
       // DEBUG: skip refreshData to isolate crash
       // await refreshData();
 
-      // DEBUG: test showSuccess only (no setImportResult)
-      console.log("[OrderImport] Import done. New:", newOrders.length, "Updated:", updatedCount, "Skipped:", skippedOrders.length, "Failed:", failedCount);
+      // DEBUG: test setImportResult with minimal data
       _showSuccess(`Import complete: ${newOrders.length} new, ${updatedCount} updated`);
+      setImportResult({
+        timestamp: new Date().toISOString(),
+        newOrders: [],
+        updatedOrders: [],
+        skippedOrders: [],
+        failedOrders: [],
+      });
       setImportedOrders([]);
       setImportStatus("idle");
     } catch (error) {

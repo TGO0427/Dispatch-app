@@ -227,21 +227,6 @@ export const InboxView: React.FC = () => {
     return avatarColors[Math.abs(hash) % avatarColors.length];
   };
 
-  // Quick reactions
-  const quickReactions = ["👍", "✅", "😂", "👀", "🚚", "📦"];
-  const [messageReactions, setMessageReactions] = useState<Record<string, string[]>>({});
-  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
-
-  const toggleReaction = (msgId: string, emoji: string) => {
-    setMessageReactions((prev) => {
-      const current = prev[msgId] || [];
-      if (current.includes(emoji)) {
-        return { ...prev, [msgId]: current.filter((e) => e !== emoji) };
-      }
-      return { ...prev, [msgId]: [...current, emoji] };
-    });
-    setShowReactionPicker(null);
-  };
 
   return (
     <div className="space-y-2">
@@ -425,11 +410,10 @@ export const InboxView: React.FC = () => {
                   const isMe = msg.senderId === user?.id;
                   const prevMsg = idx > 0 ? threadMessages[idx - 1] : null;
                   const sameSender = prevMsg && prevMsg.senderId === msg.senderId;
-                  const reactions = messageReactions[msg.id] || [];
                   return (
                     <div
                       key={msg.id}
-                      className={`flex ${isMe ? "justify-end" : "justify-start"} ${sameSender ? "mt-px" : idx === 0 ? "" : "mt-3"} group`}
+                      className={`flex ${isMe ? "justify-end" : "justify-start"} ${sameSender ? "mt-px" : idx === 0 ? "" : "mt-3"}`}
                       style={{ animation: idx === threadMessages.length - 1 ? "fadeInUp 0.2s ease-out" : undefined }}
                     >
                       {!isMe && (
@@ -460,41 +444,6 @@ export const InboxView: React.FC = () => {
                             {isMe && " ✓✓"}
                           </p>
                         </div>
-                        {/* Reactions */}
-                        {reactions.length > 0 && (
-                          <div className={`flex gap-0.5 mt-0.5 ${isMe ? "justify-end" : "justify-start"}`}>
-                            {reactions.map((emoji) => (
-                              <button
-                                key={emoji}
-                                onClick={() => toggleReaction(msg.id, emoji)}
-                                className="text-xs bg-white border border-gray-200 rounded-full px-1 py-px shadow-sm hover:scale-110 transition-transform"
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {/* Reaction picker trigger */}
-                        <button
-                          onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
-                          className={`absolute ${isMe ? "-left-6" : "-right-6"} top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110`}
-                        >
-                          😊
-                        </button>
-                        {/* Reaction picker */}
-                        {showReactionPicker === msg.id && (
-                          <div className={`absolute ${isMe ? "right-0" : "left-0"} -bottom-8 flex gap-0.5 bg-white border border-gray-200 rounded-full px-1.5 py-1 shadow-lg z-10`}>
-                            {quickReactions.map((emoji) => (
-                              <button
-                                key={emoji}
-                                onClick={() => toggleReaction(msg.id, emoji)}
-                                className="text-sm hover:scale-125 transition-transform px-0.5"
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     </div>
                   );

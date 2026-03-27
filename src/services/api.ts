@@ -85,7 +85,7 @@ export const jobsAPI = {
   },
 
   bulkCreate: async (jobs: Omit<Job, "id" | "createdAt" | "updatedAt">[]): Promise<Job[]> => {
-    return fetchAPI<Job[]>("/api/jobs/bulk", {
+    return fetchAPI<Job[]>("/api/jobs?action=bulk", {
       method: "POST",
       body: JSON.stringify({ jobs }),
     });
@@ -152,9 +152,9 @@ export const messagesAPI = {
   send: (data: { subject: string; body: string; recipientIds?: string[]; jobRef?: string; priority?: string; broadcast?: boolean }) =>
     fetchAPI<any>("/api/messages", { method: "POST", body: JSON.stringify(data) }),
   markRead: (id: string) =>
-    fetchAPI<void>(`/api/messages/${id}`, { method: "PUT" }),
+    fetchAPI<void>(`/api/messages?id=${id}`, { method: "PUT" }),
   remove: (id: string) =>
-    fetchAPI<void>(`/api/messages/${id}`, { method: "DELETE" }),
+    fetchAPI<void>(`/api/messages?id=${id}`, { method: "DELETE" }),
 };
 
 // ============ Health Check ============

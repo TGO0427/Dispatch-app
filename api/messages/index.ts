@@ -152,5 +152,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // PUT — mark message as read (pass ?id=xxx)
+  if (req.method === "PUT") {
+    const { id } = req.query;
+    if (!id || typeof id !== "string") return res.status(400).json({ success: false, error: "Message ID required (?id=xxx)" });
+    try {
+      const recipient = await prisma.messageRecipient.findFirst({
+        where: { messageId: id, userId: user.id },
+      });
+      if (!recipient) return res.status(404).json({ success: false, error: "Message not found" });
+      await prisma.messageRecipient.update({
+        where: { id: recipient.id },
+        data: { readAt: new Date() },
+      });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking message read:", error);
+      return res.status(500).json({ success: false, error: "Failed to update message" });
+    }
+  }
+
+  // DELETE — delete message (sender only, pass ?id=xxx)
+  if (req.method === "DELETE") {
+    const { id } = req.query;
+    if (!id || typeof id !== "string") return res.status(400).json({ success: false, error: "Message ID required (?id=xxx)" });
+    try {
+      const message = await prisma.message.findUnique({ where: { id } });
+      if (!message) return res.status(404).json({ success: false, error: "Message not found" });
+      if (message.senderId !== user.id) return res.status(403).json({ success: false, error: "Only the sender can delete a message" });
+      await prisma.message.delete({ where: { id } });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      return res.status(500).json({ success: false, error: "Failed to delete message" });
+    }
+  }
+
   return res.status(405).json({ success: false, error: "Method not allowed" });
 }

@@ -46,6 +46,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "POST") {
     if (user.role === "viewer") return res.status(403).json({ success: false, error: "Viewers cannot modify data" });
+
+    // Bulk create: POST /api/jobs?action=bulk
+    if (req.query.action === "bulk") {
+      try {
+        const MAX_BATCH_SIZE = 500;
+        if (!Array.isArray(req.body.jobs)) return res.status(400).json({ success: false, error: "Request body must include a 'jobs' array" });
+        if (req.body.jobs.length === 0) return res.status(400).json({ success: false, error: "Jobs array cannot be empty" });
+        if (req.body.jobs.length > MAX_BATCH_SIZE) return res.status(400).json({ success: false, error: `Batch size cannot exceed ${MAX_BATCH_SIZE}` });
+
+        const jobsData = req.body.jobs.map((job: Record<string, unknown>) => ({
+          ref: job.ref as string, customer: job.customer as string,
+          pickup: job.pickup as string, dropoff: job.dropoff as string,
+          warehouse: job.warehouse as string | undefined,
+          priority: (job.priority as string) || "normal",
+          status: (job.status as string) || "pending",
+          jobType: (job.jobType as string) || "order",
+          pallets: job.pallets as number | undefined, outstandingQty: job.outstandingQty as number | undefined,
+          eta: job.eta as string | undefined, scheduledAt: job.scheduledAt as string | undefined,
+          actualDeliveryAt: job.actualDeliveryAt as string | undefined, exceptionReason: job.exceptionReason as string | undefined,
+          overdueReason: job.overdueReason as string | undefined, driverId: job.driverId as string | undefined,
+          notes: job.notes as string | undefined, transporterBooked: job.transporterBooked as boolean | undefined,
+          orderPicked: job.orderPicked as boolean | undefined, coaAvailable: job.coaAvailable as boolean | undefined,
+          serviceType: job.serviceType as string | undefined, transportService: job.transportService as string | undefined,
+          truckSize: job.truckSize as string | undefined, etd: job.etd as string | undefined,
+          hasFlowbin: job.hasFlowbin as boolean | undefined, internalNotes: job.internalNotes as string | undefined,
+        }));
+
+        const result = await prisma.job.createMany({ data: jobsData });
+        const createdJobs = await prisma.job.findMany({ orderBy: { createdAt: "desc" }, take: result.count });
+        return res.status(201).json({ success: true, data: createdJobs.map(formatJob) });
+      } catch (error) {
+        console.error("Error bulk creating jobs:", error);
+        return res.status(500).json({ success: false, error: "Failed to bulk create jobs" });
+      }
+    }
+
+    // Single create
     try {
       if (!req.body.ref || !req.body.customer) {
         return res.status(400).json({ success: false, error: "Reference and customer are required" });

@@ -314,7 +314,7 @@ const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
 
 // ---------- Component ----------
 export const OrderImport: React.FC = () => {
-  const { refreshData } = useDispatch();
+  const { refreshData: _refresh } = useDispatch(); void _refresh;
   const { showSuccess, showError } = useNotification();
   const { isViewer } = useAuth();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);

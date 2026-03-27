@@ -626,24 +626,9 @@ export const OrderImport: React.FC = () => {
   // Render import summary page
   if (importResult) {
     return (
-      <div className="space-y-6">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Check className="h-8 w-8 text-green-600" />
-                <h1 className="text-3xl font-bold text-gray-900">Import Complete</h1>
-              </div>
-              <p className="text-gray-600">
-                {String(importResult.newOrders.length)} new, {String(importResult.updatedOrders.length)} updated, {String(importResult.skippedOrders.length)} skipped, {String(importResult.failedOrders.length)} failed
-              </p>
-            </div>
-            <Button onClick={() => setImportResult(null)} className="gap-2">
-              <Upload className="h-4 w-4" />
-              New Import
-            </Button>
-          </div>
-        </Card>
+      <div>
+        <p>Import done.</p>
+        <button onClick={() => setImportResult(null)}>New Import</button>
       </div>
     );
   }

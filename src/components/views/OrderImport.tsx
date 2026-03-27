@@ -242,7 +242,25 @@ const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | n
 
   if (!ref || !customer) return null;
 
-  return { ref, customer, pickup, dropoff, warehouse, priority, pallets, outstandingQty, eta, notes };
+  // Ensure all string fields are primitives (xlsx can return Date objects with cellDates:true)
+  const safe = (v: any): string | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (v instanceof Date) return toISODate(v);
+    return String(v);
+  };
+
+  return {
+    ref: safe(ref)!,
+    customer: safe(customer)!,
+    pickup: safe(pickup)!,
+    dropoff: safe(dropoff)!,
+    warehouse: safe(warehouse),
+    priority: safe(priority) as any,
+    pallets,
+    outstandingQty,
+    eta: safe(eta),
+    notes: safe(notes),
+  };
 };
 
 // ---------- Parsing (enable cellDates + raw:false) ----------

@@ -548,7 +548,8 @@ export const OrderImport: React.FC = () => {
       const failedOrdersList = existingOrders.slice(existingOrders.length - failedCount);
       const updatedOrdersList = existingOrders.slice(0, updatedCount);
 
-      await refreshData();
+      // DEBUG: skip refreshData to isolate crash
+      // await refreshData();
 
       const parts = [];
       if (newOrders.length > 0) parts.push(`${newOrders.length} new orders imported`);

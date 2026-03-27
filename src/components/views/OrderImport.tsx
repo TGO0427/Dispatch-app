@@ -1,9 +1,10 @@
 // src/components/views/OrderImport.tsx
-import React, { useState, useCallback, useRef } from "react";
-import { Upload, Check, AlertCircle, Download } from "lucide-react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
+import { Upload, Check, AlertCircle, Download, Search, X } from "lucide-react";
 import * as XLSX from "xlsx";
-import { Card } from "../ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
+import { Badge } from "../ui/Badge";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
 import { useAuth } from "../../context/AuthContext";
@@ -313,8 +314,8 @@ const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
 
 // ---------- Component ----------
 export const OrderImport: React.FC = () => {
-  const { refreshData: _refreshData } = useDispatch(); // eslint-disable-line
-  const { showSuccess: _showSuccess, showError } = useNotification();
+  const { refreshData } = useDispatch();
+  const { showSuccess, showError } = useNotification();
   const { isViewer } = useAuth();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -322,37 +323,24 @@ export const OrderImport: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Import results for summary page
-  interface ImportResult {
-    timestamp: string;
-    newOrders: ImportedOrder[];
-    updatedOrders: ImportedOrder[];
-    skippedOrders: ImportedOrder[];
-    failedOrders: ImportedOrder[];
-  }
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  // Import results summary (counts only — storing full order arrays caused React error #300)
+  const [importSummary, setImportSummary] = useState<{ newCount: number; updatedCount: number; skippedCount: number; failedCount: number } | null>(null);
 
-  /* temporarily disabled for debugging
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
-  const [selectedPriority, setSelectedPriority] = useState<string>("all");
-  const [sortField, setSortField] = useState<keyof ImportedOrder | "">("");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  */
 
   // Get unique warehouses from imported orders
-  /* temporarily disabled for debugging
-  const warehouses = useMemo(() => {
-    const uniqueWarehouses = new Set<string>();
-    importedOrders.forEach((order) => {
-      if (order.warehouse) uniqueWarehouses.add(order.warehouse);
-    });
-    return Array.from(uniqueWarehouses).sort();
-  }, [importedOrders]);
-  */
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery) return importedOrders;
+    const q = searchQuery.toLowerCase();
+    return importedOrders.filter((o) =>
+      String(o.ref).toLowerCase().includes(q) ||
+      String(o.customer).toLowerCase().includes(q) ||
+      String(o.warehouse ?? "").toLowerCase().includes(q)
+    );
+  }, [importedOrders, searchQuery]);
 
   // Filter and sort orders
-  /* temporarily disabled for debugging
+  /* removed: old complex filter/sort
   const filteredAndSortedOrders = useMemo(() => {
     let filtered = importedOrders.filter((order) => {
       // Search filter
@@ -424,9 +412,6 @@ export const OrderImport: React.FC = () => {
         }
 
         if (orders.length > 0) {
-          // Debug: log first order to check for object values
-          console.log("[OrderImport] First parsed order:", JSON.stringify(orders[0], (_, v) => v instanceof Date ? `[DATE:${v.toISOString()}]` : v));
-          console.log("[OrderImport] Raw first order:", orders[0]);
           setImportedOrders(orders);
           setImportStatus("success");
         } else {
@@ -548,10 +533,11 @@ export const OrderImport: React.FC = () => {
       void existingOrders.slice(existingOrders.length - failedCount);
       void existingOrders.slice(0, updatedCount);
 
-      // DEBUG: skip refreshData to isolate crash
-      // await refreshData();
+      await refreshData();
 
-      _showSuccess(`Import complete: ${newOrders.length} new, ${updatedCount} updated`);
+      const skippedCount = existingOrders.length - updatedCount - failedCount;
+      showSuccess(`Import complete: ${newOrders.length} new, ${updatedCount} updated`);
+      setImportSummary({ newCount: newOrders.length, updatedCount, skippedCount, failedCount });
       setImportedOrders([]);
       setImportStatus("idle");
     } catch (error) {
@@ -606,21 +592,41 @@ export const OrderImport: React.FC = () => {
     }
   };
 
-  /* temporarily disabled for debugging
-  const getBadgeVariant = (p?: string): string => {
-    const v = (p || "normal").toLowerCase();
-    if (v === "urgent" || v === "high") return "warning";
-    if (v === "low") return "secondary";
-    return "default";
-  };
-  */
 
   // Render import summary page
-  if (importResult) {
+  if (importSummary) {
+    const total = importSummary.newCount + importSummary.updatedCount + importSummary.skippedCount + importSummary.failedCount;
+    const stats = [
+      { label: "New Orders", count: importSummary.newCount, color: "text-green-600", bg: "bg-green-50 border-green-200" },
+      { label: "Updated", count: importSummary.updatedCount, color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+      { label: "Skipped", count: importSummary.skippedCount, color: "text-gray-500", bg: "bg-gray-50 border-gray-200" },
+      { label: "Failed", count: importSummary.failedCount, color: "text-red-600", bg: "bg-red-50 border-red-200" },
+    ];
     return (
-      <div>
-        <p>Import done.</p>
-        <button onClick={() => setImportResult(null)}>New Import</button>
+      <div className="space-y-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <Check className="h-7 w-7 text-green-600" />
+                <h1 className="text-2xl font-bold text-gray-900">Import Complete</h1>
+              </div>
+              <p className="text-sm text-gray-500">{String(total)} orders processed</p>
+            </div>
+            <Button onClick={() => setImportSummary(null)} className="gap-2">
+              <Upload className="h-4 w-4" />
+              New Import
+            </Button>
+          </div>
+        </Card>
+        <div className="grid gap-3 grid-cols-4">
+          {stats.map((s) => (
+            <div key={s.label} className={`rounded-lg border p-4 ${s.bg}`}>
+              <div className={`text-2xl font-bold ${s.color}`}>{String(s.count)}</div>
+              <div className="text-xs text-gray-600 mt-0.5">{s.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -700,15 +706,83 @@ export const OrderImport: React.FC = () => {
         )}
       </Card>
 
-      {/* Preview — extreme minimal test */}
+      {/* Preview Table */}
       {importedOrders.length > 0 && (
-        <div className="p-4 bg-green-50 rounded-lg">
-          <p className="text-green-700 font-bold">{String(importedOrders.length)} orders parsed successfully</p>
-          <button onClick={() => { setImportedOrders([]); setImportStatus("idle"); }} className="mt-2 text-sm text-red-600 underline">Clear</button>
-          <button onClick={importToDispatch} disabled={isImporting || isViewer} className="mt-2 ml-4 text-sm text-blue-600 underline">
-            {isImporting ? "Importing..." : "Import"}
-          </button>
-        </div>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Preview Orders ({String(importedOrders.length)})</CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => { setImportedOrders([]); setImportStatus("idle"); setSearchQuery(""); }}
+                  variant="outline"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <X className="mr-2 h-4 w-4" /> Cancel
+                </Button>
+                <Button onClick={importToDispatch} disabled={isImporting || isViewer}>
+                  {isImporting ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Importing...
+                    </span>
+                  ) : (
+                    "Import to Dispatch System"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+              <Search className="h-4 w-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search by reference, customer, warehouse..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent border-none outline-none text-sm text-gray-900 placeholder-gray-400"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+              )}
+              <span className="text-xs text-gray-400">
+                {String(filteredOrders.length)} of {String(importedOrders.length)}
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Reference</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Customer</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Warehouse</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Priority</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700">ETA</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOrders.slice(0, 100).map((order, idx) => (
+                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium text-gray-900">{String(order.ref ?? "")}</td>
+                      <td className="px-3 py-2 text-gray-700">{String(order.customer ?? "")}</td>
+                      <td className="px-3 py-2 text-gray-500">{String(order.warehouse ?? "—")}</td>
+                      <td className="px-3 py-2">
+                        <Badge variant="default" className="text-[10px]">{String(order.priority ?? "normal")}</Badge>
+                      </td>
+                      <td className="px-3 py-2 text-gray-500">{String(order.eta ?? "—")}</td>
+                      <td className="px-3 py-2 text-right text-gray-700">{order.outstandingQty != null ? String(order.outstandingQty) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredOrders.length > 100 && (
+                <p className="text-xs text-gray-400 text-center py-2">Showing first 100 of {String(filteredOrders.length)}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Preview placeholder */}

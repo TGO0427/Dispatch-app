@@ -12,7 +12,8 @@ import { HelpGuide } from "./components/HelpGuide";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useDispatch } from "./context/DispatchContext";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
+import { messagesAPI } from "./services/api";
 
 // Lazy-loaded views for code splitting
 const Dashboard = lazy(() => import("./components/views/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -52,6 +53,18 @@ function AppContent() {
   const [selectedJobFromAlert, setSelectedJobFromAlert] = useState<string | null>(null);
   const [authView, setAuthView] = useState<AuthView>("login");
   const [resetToken, setResetToken] = useState<string | null>(null);
+
+  // Unread message count
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const fetchUnread = () => {
+      messagesAPI.getUnreadCount().then((data) => setUnreadMessages(data.count)).catch(() => {});
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 15000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   // Check URL for password reset token on mount
   useEffect(() => {
@@ -158,6 +171,16 @@ function AppContent() {
         />
 
         <div className={`${sidebarCollapsed ? "ml-16" : "ml-[280px]"} min-h-screen transition-all duration-300`}>
+          {/* Floating message notification */}
+          {unreadMessages > 0 && activeNavItem !== "inbox" && (
+            <button
+              onClick={() => setActiveNavItem("inbox")}
+              className="fixed top-4 right-4 z-40 flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition-all animate-pulse hover:animate-none"
+            >
+              <Mail className="h-4 w-4" />
+              <span className="text-sm font-medium">{unreadMessages} new message{unreadMessages > 1 ? "s" : ""}</span>
+            </button>
+          )}
           <div className="mx-auto max-w-[1600px] p-8">
             {renderView()}
           </div>

@@ -171,7 +171,7 @@ export function DispatchProvider({
     if (useAPI) {
       const hasCachedData = state.jobs.length > 0 || state.drivers.length > 0;
       refreshData(hasCachedData);
-      const interval = setInterval(() => refreshData(true), 15000);
+      const interval = setInterval(() => refreshData(true), 150000); // DEBUG: 2.5 min instead of 15s
       return () => clearInterval(interval);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -310,20 +310,16 @@ export const InboxView: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {folder === "sent" && (
-                        <Button size="sm" variant="outline" onClick={async () => {
-                          try {
-                            await messagesAPI.remove(selectedMessage.id);
-                            setSelectedMessage(null);
-                            setThreadMessages([]);
-                            fetchMessages();
-                          } catch (err) { console.error("Failed to delete:", err); }
-                        }} className="text-xs gap-1 text-red-600 hover:text-red-700 hover:bg-red-50">
-                          <X className="h-3 w-3" /> Delete
-                        </Button>
-                      )}
-                    </div>
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      try {
+                        await messagesAPI.remove(selectedMessage.id);
+                        setSelectedMessage(null);
+                        setThreadMessages([]);
+                        fetchMessages();
+                      } catch (err) { console.error("Failed to delete:", err); }
+                    }} className="text-xs gap-1 text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <X className="h-3 w-3" /> Delete
+                    </Button>
                   </div>
                 </div>
                 {/* Conversation thread */}

@@ -201,15 +201,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // DELETE — delete message (sender only, pass ?id=xxx)
+  // DELETE — delete message (sender deletes entirely, recipient removes from their inbox)
   if (req.method === "DELETE") {
     const { id } = req.query;
     if (!id || typeof id !== "string") return res.status(400).json({ success: false, error: "Message ID required (?id=xxx)" });
     try {
-      const message = await prisma.message.findUnique({ where: { id } });
+      const message = await prisma.message.findUnique({ where: { id }, include: { recipients: true } });
       if (!message) return res.status(404).json({ success: false, error: "Message not found" });
-      if (message.senderId !== user.id) return res.status(403).json({ success: false, error: "Only the sender can delete a message" });
-      await prisma.message.delete({ where: { id } });
+
+      if (message.senderId === user.id) {
+        // Sender deletes the entire message
+        await prisma.message.delete({ where: { id } });
+      } else {
+        // Recipient removes it from their inbox
+        const recipient = message.recipients.find((r) => r.userId === user.id);
+        if (!recipient) return res.status(403).json({ success: false, error: "Not authorized" });
+        await prisma.messageRecipient.delete({ where: { id: recipient.id } });
+      }
       return res.json({ success: true });
     } catch (error) {
       console.error("Error deleting message:", error);

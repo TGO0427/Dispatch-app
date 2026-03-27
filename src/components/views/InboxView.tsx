@@ -276,11 +276,24 @@ export const InboxView: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    {folder === "inbox" && (
-                      <Button size="sm" variant="outline" onClick={() => openCompose(selectedMessage)} className="text-xs gap-1">
-                        <Send className="h-3 w-3" /> Reply
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {folder === "inbox" && (
+                        <Button size="sm" variant="outline" onClick={() => openCompose(selectedMessage)} className="text-xs gap-1">
+                          <Send className="h-3 w-3" /> Reply
+                        </Button>
+                      )}
+                      {folder === "sent" && (
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          try {
+                            await messagesAPI.remove(selectedMessage.id);
+                            setSelectedMessage(null);
+                            fetchMessages();
+                          } catch (err) { console.error("Failed to delete:", err); }
+                        }} className="text-xs gap-1 text-red-600 hover:text-red-700 hover:bg-red-50">
+                          <X className="h-3 w-3" /> Delete
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {/* Body */}

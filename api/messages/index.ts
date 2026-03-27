@@ -64,6 +64,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const where: Record<string, unknown> = { userId: user.id };
       if (unreadOnly === "true") where.readAt = null;
 
+      console.log(`[Messages] Inbox query for userId: ${user.id} (${user.username})`);
+
       const recipientEntries = await prisma.messageRecipient.findMany({
         where,
         include: {
@@ -86,6 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         _readAt: formatDate(r.readAt),
       }));
 
+      console.log(`[Messages] Found ${recipientEntries.length} messages for ${user.username}`);
       return res.json({ success: true, data: messages });
     } catch (error) {
       console.error("Error fetching messages:", error);
@@ -138,6 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         include: { recipients: true },
       });
 
+      console.log(`[Messages] Created message "${message.subject}" from ${user.username} to ${users.map(u => u.username).join(", ")} (${users.length} recipients)`);
       return res.status(201).json({
         success: true,
         data: {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Mail, Send, Inbox, Search, AlertCircle, Users, User, Link2, MoreHorizontal, Trash2, MessageSquare, X } from "lucide-react";
+import { Send, Inbox, Search, AlertCircle, Users, User, Link2, MoreHorizontal, Trash2, X } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
@@ -17,6 +17,16 @@ async function fetchUsers(): Promise<{ id: string; username: string; role: strin
   });
   const json = await res.json();
   return json.data || [];
+}
+
+// Inject animation keyframes
+const style = document.createElement("style");
+if (!document.querySelector("#inbox-animations")) {
+  style.id = "inbox-animations";
+  style.textContent = `
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  `;
+  document.head.appendChild(style);
 }
 
 export const InboxView: React.FC = () => {
@@ -205,6 +215,34 @@ export const InboxView: React.FC = () => {
 
   const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
+  // Consistent color per person based on name hash
+  const avatarColors = [
+    "bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-rose-500",
+    "bg-amber-500", "bg-cyan-500", "bg-pink-500", "bg-indigo-500",
+    "bg-teal-500", "bg-orange-500",
+  ];
+  const getAvatarColor = (name: string) => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return avatarColors[Math.abs(hash) % avatarColors.length];
+  };
+
+  // Quick reactions
+  const quickReactions = ["👍", "✅", "😂", "👀", "🚚", "📦"];
+  const [messageReactions, setMessageReactions] = useState<Record<string, string[]>>({});
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+
+  const toggleReaction = (msgId: string, emoji: string) => {
+    setMessageReactions((prev) => {
+      const current = prev[msgId] || [];
+      if (current.includes(emoji)) {
+        return { ...prev, [msgId]: current.filter((e) => e !== emoji) };
+      }
+      return { ...prev, [msgId]: [...current, emoji] };
+    });
+    setShowReactionPicker(null);
+  };
+
   return (
     <div className="space-y-2">
       {/* Header bar — unified toolbar */}
@@ -254,18 +292,16 @@ export const InboxView: React.FC = () => {
               <div className="text-center py-10 text-gray-400 text-sm">Loading...</div>
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full px-4 py-10">
-                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                  <MessageSquare className="h-6 w-6 text-gray-300" />
-                </div>
-                <p className="text-sm font-medium text-gray-500">{folder === "inbox" ? "No messages yet" : "No sent messages"}</p>
-                <p className="text-[10px] text-gray-400 mt-1 text-center">
-                  {folder === "inbox" ? "Messages from your team will appear here" : "Start a conversation with the New button"}
+                <div className="text-4xl mb-3">{folder === "inbox" ? "📬" : "✈️"}</div>
+                <p className="text-sm font-medium text-gray-600">{folder === "inbox" ? "All caught up!" : "No messages sent yet"}</p>
+                <p className="text-[11px] text-gray-400 mt-1 text-center max-w-[180px]">
+                  {folder === "inbox" ? "When your team sends you a message, it'll show up here" : "Messages keep dispatch moving — start a conversation"}
                 </p>
                 <button
                   onClick={() => openCompose()}
-                  className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                  className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-all hover:shadow-md"
                 >
-                  <Send className="h-3 w-3" /> Start a conversation
+                  <Send className="h-3 w-3" /> New conversation
                 </button>
               </div>
             ) : (
@@ -285,9 +321,7 @@ export const InboxView: React.FC = () => {
                     >
                       <div className="flex items-center gap-2.5">
                         {/* Avatar */}
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold ${
-                          isUnread ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
-                        }`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-white shadow-sm ${getAvatarColor(otherPerson)}`}>
                           {getInitials(otherPerson)}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -386,33 +420,81 @@ export const InboxView: React.FC = () => {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-3 py-2 bg-gray-50/30">
+              <div className="flex-1 overflow-y-auto px-3 py-2" style={{ background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)" }}>
                 {threadMessages.map((msg, idx) => {
                   const isMe = msg.senderId === user?.id;
                   const prevMsg = idx > 0 ? threadMessages[idx - 1] : null;
                   const sameSender = prevMsg && prevMsg.senderId === msg.senderId;
+                  const reactions = messageReactions[msg.id] || [];
                   return (
-                    <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} ${sameSender ? "mt-px" : idx === 0 ? "" : "mt-3"}`}>
+                    <div
+                      key={msg.id}
+                      className={`flex ${isMe ? "justify-end" : "justify-start"} ${sameSender ? "mt-px" : idx === 0 ? "" : "mt-3"} group`}
+                      style={{ animation: idx === threadMessages.length - 1 ? "fadeInUp 0.2s ease-out" : undefined }}
+                    >
                       {!isMe && (
                         sameSender ? (
                           <div className="w-5 mr-1 flex-shrink-0" />
                         ) : (
-                          <div className="w-5 h-5 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-[7px] font-bold mr-1 mt-auto mb-px flex-shrink-0">
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold mr-1 mt-auto mb-px flex-shrink-0 text-white ${getAvatarColor(msg.senderName)}`}>
                             {getInitials(msg.senderName)}
                           </div>
                         )
                       )}
-                      <div className={`max-w-[70%] px-2.5 py-1 ${
-                        isMe
-                          ? `bg-blue-600 text-white ${sameSender ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-br-md"}`
-                          : `bg-white border border-gray-100 text-gray-900 ${sameSender ? "rounded-2xl rounded-bl-md" : "rounded-2xl rounded-bl-md"}`
-                      }`}>
-                        <p className={`text-[13px] whitespace-pre-wrap leading-tight ${isMe ? "text-white" : "text-gray-700"}`}>
-                          {msg.body}
-                        </p>
-                        <p className={`text-[8px] leading-none mt-0.5 text-right ${isMe ? "text-blue-300" : "text-gray-400"}`}>
-                          {new Date(msg.createdAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
+                      <div className="relative">
+                        <div className={`max-w-[280px] px-2.5 py-1 ${
+                          isMe
+                            ? "text-white rounded-2xl rounded-br-md"
+                            : "bg-white border border-gray-100 text-gray-900 rounded-2xl rounded-bl-md shadow-sm"
+                        }`}
+                        style={isMe ? { background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" } : undefined}
+                        >
+                          {!sameSender && !isMe && (
+                            <p className="text-[9px] font-semibold text-gray-500 mb-0.5">{msg.senderName}</p>
+                          )}
+                          <p className={`text-[13px] whitespace-pre-wrap leading-tight ${isMe ? "text-white" : "text-gray-700"}`}>
+                            {msg.body}
+                          </p>
+                          <p className={`text-[8px] leading-none mt-0.5 text-right ${isMe ? "text-blue-200" : "text-gray-400"}`}>
+                            {new Date(msg.createdAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                            {isMe && " ✓✓"}
+                          </p>
+                        </div>
+                        {/* Reactions */}
+                        {reactions.length > 0 && (
+                          <div className={`flex gap-0.5 mt-0.5 ${isMe ? "justify-end" : "justify-start"}`}>
+                            {reactions.map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => toggleReaction(msg.id, emoji)}
+                                className="text-xs bg-white border border-gray-200 rounded-full px-1 py-px shadow-sm hover:scale-110 transition-transform"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {/* Reaction picker trigger */}
+                        <button
+                          onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
+                          className={`absolute ${isMe ? "-left-6" : "-right-6"} top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110`}
+                        >
+                          😊
+                        </button>
+                        {/* Reaction picker */}
+                        {showReactionPicker === msg.id && (
+                          <div className={`absolute ${isMe ? "right-0" : "left-0"} -bottom-8 flex gap-0.5 bg-white border border-gray-200 rounded-full px-1.5 py-1 shadow-lg z-10`}>
+                            {quickReactions.map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => toggleReaction(msg.id, emoji)}
+                                className="text-sm hover:scale-125 transition-transform px-0.5"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -440,7 +522,7 @@ export const InboxView: React.FC = () => {
                   />
                   <button
                     type="submit"
-                    className="h-9 w-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center flex-shrink-0 shadow-sm"
+                    className="h-9 w-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center flex-shrink-0 shadow-sm hover:shadow-md hover:scale-105 transition-all"
                   >
                     <Send className="h-4 w-4" />
                   </button>
@@ -448,13 +530,11 @@ export const InboxView: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center h-full" style={{ background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)" }}>
               <div className="text-center">
-                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                  <Mail className="h-7 w-7 text-gray-300" />
-                </div>
-                <p className="text-sm font-medium text-gray-500">Select a conversation</p>
-                <p className="text-[10px] text-gray-400 mt-1">Choose from the left or start a new one</p>
+                <div className="text-5xl mb-3">💬</div>
+                <p className="text-sm font-medium text-gray-500">Pick a conversation</p>
+                <p className="text-[11px] text-gray-400 mt-1">or start a new one to get things moving</p>
               </div>
             </div>
           )}

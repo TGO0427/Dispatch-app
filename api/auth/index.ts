@@ -165,9 +165,8 @@ async function handleForgotPassword(req: VercelRequest, res: VercelResponse) {
   });
 
   const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || "http://localhost:3000";
-  const resetUrl = `${frontendUrl}?reset-token=${resetToken}`;
-  // TODO: Send email with resetUrl instead of logging
-  console.log(`[Password Reset] Token generated for: ${user.email}`);
+  // TODO: Send email with reset link instead of logging
+  console.log(`[Password Reset] Token generated for: ${user.email} — ${frontendUrl}?reset-token=${resetToken}`);
 
   return res.json(successResponse);
 }

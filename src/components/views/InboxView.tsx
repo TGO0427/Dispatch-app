@@ -215,6 +215,19 @@ export const InboxView: React.FC = () => {
 
   const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
+  // Quick reactions (local state — not persisted to DB)
+  const quickReactions = ["👍", "✅", "😂", "👀", "🚚", "📦"];
+  const [messageReactions, setMessageReactions] = useState<Record<string, string[]>>({});
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+
+  const toggleReaction = (msgId: string, emoji: string) => {
+    setMessageReactions((prev) => {
+      const current = prev[msgId] || [];
+      return { ...prev, [msgId]: current.includes(emoji) ? current.filter((e) => e !== emoji) : [...current, emoji] };
+    });
+    setShowReactionPicker(null);
+  };
+
   // Consistent color per person based on name hash
   const avatarColors = [
     "bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-rose-500",
@@ -425,7 +438,7 @@ export const InboxView: React.FC = () => {
                           </div>
                         )
                       )}
-                      <div className="relative">
+                      <div className="group/msg">
                         <div className={`max-w-[280px] px-2.5 py-1 ${
                           isMe
                             ? "text-white rounded-2xl rounded-br-md"
@@ -439,11 +452,48 @@ export const InboxView: React.FC = () => {
                           <p className={`text-[13px] whitespace-pre-wrap leading-tight ${isMe ? "text-white" : "text-gray-700"}`}>
                             {msg.body}
                           </p>
-                          <p className={`text-[8px] leading-none mt-0.5 text-right ${isMe ? "text-blue-200" : "text-gray-400"}`}>
-                            {new Date(msg.createdAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                            {isMe && " ✓✓"}
-                          </p>
+                          <div className="flex items-center justify-between mt-0.5">
+                            <p className={`text-[8px] leading-none ${isMe ? "text-blue-200" : "text-gray-400"}`}>
+                              {new Date(msg.createdAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                              {isMe && " ✓✓"}
+                            </p>
+                            {/* Inline reaction trigger */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id); }}
+                              className={`text-[9px] ml-2 opacity-0 group-hover/msg:opacity-100 transition-opacity ${isMe ? "text-blue-200 hover:text-white" : "text-gray-400 hover:text-gray-600"}`}
+                            >
+                              +😊
+                            </button>
+                          </div>
                         </div>
+                        {/* Reactions display */}
+                        {(messageReactions[msg.id]?.length > 0) && (
+                          <div className={`flex gap-0.5 mt-0.5 ${isMe ? "justify-end" : "justify-start"} ${!isMe ? "ml-6" : ""}`}>
+                            {messageReactions[msg.id].map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => toggleReaction(msg.id, emoji)}
+                                className="text-[11px] bg-white border border-gray-200 rounded-full px-1 py-px shadow-sm hover:scale-110 transition-transform"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {/* Reaction picker — below the bubble, not overlapping */}
+                        {showReactionPicker === msg.id && (
+                          <div className={`flex gap-1 mt-1 ${isMe ? "justify-end" : "justify-start"} ${!isMe ? "ml-6" : ""}`}>
+                            {quickReactions.map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => toggleReaction(msg.id, emoji)}
+                                className="text-base bg-white border border-gray-200 rounded-full w-7 h-7 flex items-center justify-center shadow-sm hover:scale-125 hover:shadow-md transition-all"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

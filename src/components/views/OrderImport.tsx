@@ -551,15 +551,7 @@ export const OrderImport: React.FC = () => {
       // DEBUG: skip refreshData to isolate crash
       // await refreshData();
 
-      // DEBUG: test setImportResult with minimal data
       _showSuccess(`Import complete: ${newOrders.length} new, ${updatedCount} updated`);
-      setImportResult({
-        timestamp: new Date().toISOString(),
-        newOrders: [],
-        updatedOrders: [],
-        skippedOrders: [],
-        failedOrders: [],
-      });
       setImportedOrders([]);
       setImportStatus("idle");
     } catch (error) {

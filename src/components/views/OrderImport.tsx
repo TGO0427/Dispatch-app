@@ -1,11 +1,9 @@
 // src/components/views/OrderImport.tsx
-import React, { useState, useCallback, useRef, useMemo } from "react";
-import { Upload, Check, AlertCircle, Download, Search, Filter, ArrowUpDown, X } from "lucide-react";
+import React, { useState, useCallback, useRef } from "react";
+import { Upload, Check, AlertCircle, Download } from "lucide-react";
 import * as XLSX from "xlsx";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
+import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { Badge } from "../ui/Badge";
-import { Select } from "../ui/Select";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
 import { useAuth } from "../../context/AuthContext";
@@ -334,14 +332,16 @@ export const OrderImport: React.FC = () => {
   }
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
-  // Advanced filtering and search
+  /* temporarily disabled for debugging
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
   const [selectedPriority, setSelectedPriority] = useState<string>("all");
   const [sortField, setSortField] = useState<keyof ImportedOrder | "">("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  */
 
   // Get unique warehouses from imported orders
+  /* temporarily disabled for debugging
   const warehouses = useMemo(() => {
     const uniqueWarehouses = new Set<string>();
     importedOrders.forEach((order) => {
@@ -349,8 +349,10 @@ export const OrderImport: React.FC = () => {
     });
     return Array.from(uniqueWarehouses).sort();
   }, [importedOrders]);
+  */
 
   // Filter and sort orders
+  /* temporarily disabled for debugging
   const filteredAndSortedOrders = useMemo(() => {
     let filtered = importedOrders.filter((order) => {
       // Search filter
@@ -404,6 +406,7 @@ export const OrderImport: React.FC = () => {
 
     return filtered;
   }, [importedOrders, searchQuery, selectedWarehouse, selectedPriority, sortField, sortDirection]);
+  */
 
   const handleFileUpload = useCallback((file: File) => {
     const reader = new FileReader();
@@ -632,13 +635,14 @@ export const OrderImport: React.FC = () => {
     }
   };
 
+  /* temporarily disabled for debugging
   const getBadgeVariant = (p?: string): string => {
     const v = (p || "normal").toLowerCase();
     if (v === "urgent" || v === "high") return "warning";
     if (v === "low") return "secondary";
     return "default";
-    // Align with your design system as needed
   };
+  */
 
   // Render import summary page
   if (importResult) {
@@ -740,156 +744,54 @@ export const OrderImport: React.FC = () => {
         )}
       </Card>
 
-      {/* Preview Table */}
+      {/* Preview — simplified debug version */}
       {importedOrders.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Preview Orders ({importedOrders.length})</CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => {
-                    setImportedOrders([]);
-                    setImportStatus("idle");
-                    if (fileInputRef.current) {
-                      fileInputRef.current.value = "";
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold">{String(importedOrders.length)} orders parsed</h2>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => { setImportedOrders([]); setImportStatus("idle"); }}
+                variant="outline"
+                className="text-red-600"
+              >
+                Cancel
+              </Button>
+              <Button onClick={importToDispatch} disabled={isImporting || isViewer}>
+                {isImporting ? "Importing..." : "Import to Dispatch System"}
+              </Button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="px-3 py-2 text-left">Ref</th>
+                  <th className="px-3 py-2 text-left">Customer</th>
+                  <th className="px-3 py-2 text-left">ETA</th>
+                  <th className="px-3 py-2 text-left">Pallets</th>
+                </tr>
+              </thead>
+              <tbody>
+                {importedOrders.slice(0, 50).map((order, idx) => {
+                  // Log any non-primitive values
+                  Object.entries(order).forEach(([key, val]) => {
+                    if (val !== null && val !== undefined && typeof val === "object") {
+                      console.error(`[OrderImport] OBJECT found in field "${key}":`, val, typeof val, val.constructor?.name);
                     }
-                  }}
-                  variant="outline"
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <X className="mr-2 h-4 w-4" /> Cancel
-                </Button>
-                <Button onClick={importToDispatch} disabled={isImporting || isViewer}>
-                  {isImporting ? (
-                    <span className="flex items-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Importing... Please wait
-                    </span>
-                  ) : (
-                    "Import to Dispatch System"
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {/* Advanced Search & Filter Bar */}
-            <div className="mb-6 space-y-4">
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <Search className="h-5 w-5 text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search by reference, customer, warehouse..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-transparent border-none outline-none text-sm text-gray-900 placeholder-gray-500"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-700">Filters:</span>
-                </div>
-
-                <Select
-                  value={selectedWarehouse}
-                  onChange={(e) => setSelectedWarehouse(e.target.value)}
-                  className="w-auto min-w-[200px]"
-                >
-                  <option value="all">All Warehouses</option>
-                  {warehouses.map((warehouse) => (
-                    <option key={warehouse} value={warehouse}>
-                      {warehouse}
-                    </option>
-                  ))}
-                </Select>
-
-                <Select
-                  value={selectedPriority}
-                  onChange={(e) => setSelectedPriority(e.target.value)}
-                  className="w-auto"
-                >
-                  <option value="all">All Priorities</option>
-                  <option value="urgent">Urgent</option>
-                  <option value="high">High</option>
-                  <option value="normal">Normal</option>
-                  <option value="low">Low</option>
-                </Select>
-
-                <Select
-                  value={sortField}
-                  onChange={(e) => setSortField(e.target.value as keyof ImportedOrder)}
-                  className="w-auto"
-                >
-                  <option value="">Sort by...</option>
-                  <option value="ref">Reference</option>
-                  <option value="customer">Customer</option>
-                  <option value="warehouse">Warehouse</option>
-                  <option value="eta">ETA</option>
-                  <option value="pallets">Pallets</option>
-                </Select>
-
-                {sortField && (
-                  <button
-                    onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
-                    className="flex items-center gap-1 px-3 py-1 bg-white border border-gray-300 rounded-md text-sm hover:bg-gray-50"
-                  >
-                    <ArrowUpDown className="h-4 w-4" />
-                    {sortDirection === "asc" ? "Ascending" : "Descending"}
-                  </button>
-                )}
-
-                <span className="text-sm text-gray-600 ml-auto">
-                  Showing {filteredAndSortedOrders.length} of {importedOrders.length} orders
-                </span>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Reference</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Customer</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Warehouse</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Dropoff</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Priority</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">ETA</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Pallets</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Outstanding Qty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAndSortedOrders.map((order, idx) => (
-                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{String(order.ref ?? "")}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{String(order.customer ?? "")}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{order.warehouse != null ? String(order.warehouse) : "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{String(order.dropoff ?? "")}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant={getBadgeVariant(order.priority) as any}>
-                          {String(order.priority || "normal")}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{order.eta != null ? String(order.eta) : "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{order.pallets != null ? String(order.pallets) : "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{order.outstandingQty != null ? String(order.outstandingQty) : "—"}</td>
+                  });
+                  return (
+                    <tr key={idx} className="border-b border-gray-100">
+                      <td className="px-3 py-2">{String(order.ref ?? "")}</td>
+                      <td className="px-3 py-2">{String(order.customer ?? "")}</td>
+                      <td className="px-3 py-2">{String(order.eta ?? "—")}</td>
+                      <td className="px-3 py-2">{String(order.pallets ?? "—")}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 

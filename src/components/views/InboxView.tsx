@@ -91,8 +91,10 @@ export const InboxView: React.FC = () => {
   const openCompose = async (replyTo?: Message) => {
     try {
       const users = await fetchUsers();
+      console.log("[Inbox] All users fetched:", users);
+      console.log("[Inbox] Current user id:", user?.id);
       setAllUsers(users.filter((u) => u.id !== user?.id));
-    } catch { /* ignore */ }
+    } catch (err) { console.error("[Inbox] Failed to fetch users:", err); }
 
     if (replyTo) {
       setComposeSubject(`Re: ${replyTo.subject}`);

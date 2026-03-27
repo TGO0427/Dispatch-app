@@ -314,7 +314,7 @@ const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
 // ---------- Component ----------
 export const OrderImport: React.FC = () => {
   const { refreshData: _refreshData } = useDispatch(); // eslint-disable-line
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess: _showSuccess, showError } = useNotification(); // eslint-disable-line
   const { isViewer } = useAuth();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -545,43 +545,15 @@ export const OrderImport: React.FC = () => {
       }
 
       const skippedOrders = existingOrders.slice(0, existingOrders.length - updatedCount - failedCount);
-      const failedOrdersList = existingOrders.slice(existingOrders.length - failedCount);
-      const updatedOrdersList = existingOrders.slice(0, updatedCount);
+      const _failedOrdersList = existingOrders.slice(existingOrders.length - failedCount); // eslint-disable-line
+      const _updatedOrdersList = existingOrders.slice(0, updatedCount); // eslint-disable-line
 
       // DEBUG: skip refreshData to isolate crash
       // await refreshData();
 
-      const parts = [];
-      if (newOrders.length > 0) parts.push(`${newOrders.length} new orders imported`);
-      if (updatedCount > 0) parts.push(`${updatedCount} existing orders updated`);
-      if (skippedOrders.length > 0) parts.push(`${skippedOrders.length} duplicate orders skipped (no changes)`);
-      if (failedCount > 0) parts.push(`${failedCount} orders failed to update`);
-      if (parts.length === 0) parts.push("No changes needed");
-      showSuccess(parts.join(". "));
-
-      // Save import results for summary page — ensure all values are primitives
-      const sanitizeOrders = (orders: any[]): ImportedOrder[] =>
-        orders.map((o) => ({
-          ref: String(o.ref ?? ""),
-          customer: String(o.customer ?? ""),
-          pickup: String(o.pickup ?? DEFAULT_PICKUP),
-          dropoff: String(o.dropoff ?? DEFAULT_DROPOFF),
-          warehouse: o.warehouse != null ? String(o.warehouse) : undefined,
-          priority: String(o.priority ?? "normal"),
-          pallets: typeof o.pallets === "number" ? o.pallets : undefined,
-          outstandingQty: typeof o.outstandingQty === "number" ? o.outstandingQty : undefined,
-          eta: o.eta != null ? String(o.eta) : undefined,
-          notes: o.notes != null ? String(o.notes) : undefined,
-        }));
-
-      setImportResult({
-        timestamp: new Date().toISOString(),
-        newOrders: sanitizeOrders(newOrders),
-        updatedOrders: sanitizeOrders(updatedOrdersList),
-        skippedOrders: sanitizeOrders(skippedOrders),
-        failedOrders: sanitizeOrders(failedOrdersList),
-      });
-
+      // DEBUG: skip ALL post-import state changes
+      console.log("[OrderImport] Import done. New:", newOrders.length, "Updated:", updatedCount, "Skipped:", skippedOrders.length, "Failed:", failedCount);
+      alert(`Import complete: ${newOrders.length} new, ${updatedCount} updated`);
       setImportedOrders([]);
       setImportStatus("idle");
     } catch (error) {

@@ -281,7 +281,7 @@ const SHEET_TO_JSON_OPTS = { header: 1, raw: false, rawNumbers: false } as const
 
 const parseCSV = (text: string): ImportedOrder[] => {
   // NOTE: cellDates is set in XLSX.read (below)
-  const wb = XLSX.read(text, { type: "string", cellDates: true });
+  const wb = XLSX.read(text, { type: "string", cellDates: false });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json<any[]>(sheet, SHEET_TO_JSON_OPTS);
   if (!rows.length) return [];
@@ -296,7 +296,7 @@ const parseCSV = (text: string): ImportedOrder[] => {
 
 const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
   try {
-    const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
+    const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: false });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json<any[]>(sheet, SHEET_TO_JSON_OPTS);
     if (!rows.length) return [];
@@ -552,13 +552,27 @@ export const OrderImport: React.FC = () => {
       if (parts.length === 0) parts.push("No changes needed");
       showSuccess(parts.join(". "));
 
-      // Save import results for summary page
+      // Save import results for summary page — ensure all values are primitives
+      const sanitizeOrders = (orders: any[]): ImportedOrder[] =>
+        orders.map((o) => ({
+          ref: String(o.ref ?? ""),
+          customer: String(o.customer ?? ""),
+          pickup: String(o.pickup ?? DEFAULT_PICKUP),
+          dropoff: String(o.dropoff ?? DEFAULT_DROPOFF),
+          warehouse: o.warehouse != null ? String(o.warehouse) : undefined,
+          priority: String(o.priority ?? "normal"),
+          pallets: typeof o.pallets === "number" ? o.pallets : undefined,
+          outstandingQty: typeof o.outstandingQty === "number" ? o.outstandingQty : undefined,
+          eta: o.eta != null ? String(o.eta) : undefined,
+          notes: o.notes != null ? String(o.notes) : undefined,
+        }));
+
       setImportResult({
         timestamp: new Date().toISOString(),
-        newOrders,
-        updatedOrders: updatedOrdersList,
-        skippedOrders,
-        failedOrders: failedOrdersList,
+        newOrders: sanitizeOrders(newOrders),
+        updatedOrders: sanitizeOrders(updatedOrdersList),
+        skippedOrders: sanitizeOrders(skippedOrders),
+        failedOrders: sanitizeOrders(failedOrdersList),
       });
 
       setImportedOrders([]);

@@ -66,16 +66,35 @@ export const InboxView: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
+  // Group messages by conversation thread — show only the latest message per thread
+  const grouped = useMemo(() => {
+    const threadMap = new Map<string, (Message & { _readAt?: string | null })>();
+    messages.forEach((m) => {
+      const tid = m.threadId || m.id;
+      const existing = threadMap.get(tid);
+      if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
+        threadMap.set(tid, m);
+      }
+      // Also check if any unread exists in thread — preserve unread status
+      if (existing && !m._readAt && existing._readAt) {
+        threadMap.set(tid, { ...threadMap.get(tid)!, _readAt: null });
+      }
+    });
+    return Array.from(threadMap.values()).sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [messages]);
+
   const filtered = useMemo(() => {
-    if (!searchQuery) return messages;
+    if (!searchQuery) return grouped;
     const q = searchQuery.toLowerCase();
-    return messages.filter((m) =>
+    return grouped.filter((m) =>
       m.subject.toLowerCase().includes(q) ||
       m.senderName.toLowerCase().includes(q) ||
       m.body.toLowerCase().includes(q) ||
       (m.jobRef && m.jobRef.toLowerCase().includes(q))
     );
-  }, [messages, searchQuery]);
+  }, [grouped, searchQuery]);
 
   const unreadCount = useMemo(() => messages.filter((m) => !m._readAt).length, [messages]);
 

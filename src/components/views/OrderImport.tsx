@@ -314,7 +314,7 @@ const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
 
 // ---------- Component ----------
 export const OrderImport: React.FC = () => {
-  const { refreshData: _refresh } = useDispatch(); void _refresh;
+  const { refreshData } = useDispatch();
   const { showSuccess, showError } = useNotification();
   const { isViewer } = useAuth();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
@@ -323,8 +323,6 @@ export const OrderImport: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Import results summary (counts only — storing full order arrays caused React error #300)
-  const [importSummary, setImportSummary] = useState<{ newCount: number; updatedCount: number; skippedCount: number; failedCount: number } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -340,61 +338,6 @@ export const OrderImport: React.FC = () => {
   }, [importedOrders, searchQuery]);
 
   // Filter and sort orders
-  /* removed: old complex filter/sort
-  const filteredAndSortedOrders = useMemo(() => {
-    let filtered = importedOrders.filter((order) => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const searchableText = [
-          order.ref,
-          order.customer,
-          order.warehouse || "",
-          order.dropoff,
-          order.notes || "",
-        ].join(" ").toLowerCase();
-        if (!searchableText.includes(query)) return false;
-      }
-
-      // Warehouse filter
-      if (selectedWarehouse !== "all" && order.warehouse !== selectedWarehouse) {
-        return false;
-      }
-
-      // Priority filter
-      if (selectedPriority !== "all" && order.priority !== selectedPriority) {
-        return false;
-      }
-
-      return true;
-    });
-
-    // Sorting
-    if (sortField) {
-      filtered = [...filtered].sort((a, b) => {
-        const aVal = a[sortField];
-        const bVal = b[sortField];
-
-        if (aVal === undefined && bVal === undefined) return 0;
-        if (aVal === undefined) return 1;
-        if (bVal === undefined) return -1;
-
-        let comparison = 0;
-        if (typeof aVal === "string" && typeof bVal === "string") {
-          comparison = aVal.localeCompare(bVal);
-        } else if (typeof aVal === "number" && typeof bVal === "number") {
-          comparison = aVal - bVal;
-        } else {
-          comparison = String(aVal).localeCompare(String(bVal));
-        }
-
-        return sortDirection === "asc" ? comparison : -comparison;
-      });
-    }
-
-    return filtered;
-  }, [importedOrders, searchQuery, selectedWarehouse, selectedPriority, sortField, sortDirection]);
-  */
 
   const handleFileUpload = useCallback((file: File) => {
     const reader = new FileReader();
@@ -533,11 +476,9 @@ export const OrderImport: React.FC = () => {
       void existingOrders.slice(existingOrders.length - failedCount);
       void existingOrders.slice(0, updatedCount);
 
-      // await refreshData(); // DEBUG: test without refresh
+      await refreshData();
 
-      const skippedCount = existingOrders.length - updatedCount - failedCount;
-      showSuccess(`Import complete: ${newOrders.length} new, ${updatedCount} updated`);
-      setImportSummary({ newCount: newOrders.length, updatedCount, skippedCount, failedCount });
+      showSuccess(`Import complete: ${newOrders.length} new, ${updatedCount} updated, ${failedCount} failed`);
       setImportedOrders([]);
       setImportStatus("idle");
     } catch (error) {
@@ -593,43 +534,6 @@ export const OrderImport: React.FC = () => {
   };
 
 
-  // Render import summary page
-  if (importSummary) {
-    const total = importSummary.newCount + importSummary.updatedCount + importSummary.skippedCount + importSummary.failedCount;
-    const stats = [
-      { label: "New Orders", count: importSummary.newCount, color: "text-green-600", bg: "bg-green-50 border-green-200" },
-      { label: "Updated", count: importSummary.updatedCount, color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
-      { label: "Skipped", count: importSummary.skippedCount, color: "text-gray-500", bg: "bg-gray-50 border-gray-200" },
-      { label: "Failed", count: importSummary.failedCount, color: "text-red-600", bg: "bg-red-50 border-red-200" },
-    ];
-    return (
-      <div className="space-y-4">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <Check className="h-7 w-7 text-green-600" />
-                <h1 className="text-2xl font-bold text-gray-900">Import Complete</h1>
-              </div>
-              <p className="text-sm text-gray-500">{String(total)} orders processed</p>
-            </div>
-            <Button onClick={() => setImportSummary(null)} className="gap-2">
-              <Upload className="h-4 w-4" />
-              New Import
-            </Button>
-          </div>
-        </Card>
-        <div className="grid gap-3 grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.label} className={`rounded-lg border p-4 ${s.bg}`}>
-              <div className={`text-2xl font-bold ${s.color}`}>{String(s.count)}</div>
-              <div className="text-xs text-gray-600 mt-0.5">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   const [showFormatTips, setShowFormatTips] = useState(false);
 

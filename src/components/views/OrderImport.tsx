@@ -313,7 +313,7 @@ const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
 
 // ---------- Component ----------
 export const OrderImport: React.FC = () => {
-  const { refreshData } = useDispatch();
+  const { refreshData: _refreshData } = useDispatch(); // eslint-disable-line
   const { showSuccess, showError } = useNotification();
   const { isViewer } = useAuth();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);

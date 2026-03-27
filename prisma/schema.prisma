@@ -91,6 +91,39 @@ model User {
   @@map("users")
 }
 
+model Message {
+  id          String   @id @default(uuid())
+  senderId    String   @db.VarChar(255)
+  senderName  String   @db.VarChar(255)
+  subject     String   @db.VarChar(255)
+  body        String   @db.Text
+  jobRef      String?  @db.VarChar(255)  // optional link to an order
+  priority    String   @default("normal") @db.VarChar(50)  // "normal" or "urgent"
+  broadcast   Boolean  @default(false)  // sent to all users
+  recipients  MessageRecipient[]
+  createdAt   DateTime @default(now())
+
+  @@index([senderId])
+  @@index([jobRef])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model MessageRecipient {
+  id         String   @id @default(uuid())
+  messageId  String   @db.VarChar(255)
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId     String   @db.VarChar(255)
+  username   String   @db.VarChar(255)
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@index([messageId])
+  @@map("message_recipients")
+}
+
 model FlowbinBatch {
   id           String    @id @default(uuid())
   jobId        String    @db.VarChar(255)

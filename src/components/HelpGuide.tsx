@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   X, ChevronRight,
   LayoutDashboard, Home, ClipboardList, Calendar, Grid3x3, Clock,
-  BarChart3, ArrowRightLeft, Truck, Users, Search, Settings, Package,
+  BarChart3, ArrowRightLeft, Truck, Users, Search, Settings, Package, Mail,
 } from "lucide-react";
 
 interface HelpGuideProps {
@@ -143,6 +143,25 @@ const guideSections: GuideSection[] = [
       { title: "Set Time Range", detail: "Choose 7 days, 30 days, 90 days, or All to adjust the chart period." },
       { title: "Filter by Warehouse", detail: "Select a warehouse to see its specific performance data." },
       { title: "Read the Charts", detail: "Bar charts show transporter performance, line charts show job trends, and pie charts show status distribution." },
+    ],
+  },
+  {
+    id: "inbox",
+    icon: Mail,
+    title: "Messages",
+    description: "Internal messaging system for team communication. Send messages to specific users or broadcast to everyone, with optional order linking.",
+    steps: [
+      { title: "View Inbox", detail: "The Messages page shows your inbox by default. Unread messages have a blue dot and bold text. Click any message to read it." },
+      { title: "Switch to Sent", detail: "Click the 'Sent' tab to see messages you've sent and who has read them." },
+      { title: "Compose a Message", detail: "Click 'New Message' to open the compose form. Select recipients individually or use 'Broadcast to All' to message everyone." },
+      { title: "Link to an Order", detail: "Optionally enter an order reference (e.g. ASO0024525) to link the message to a specific job for context." },
+      { title: "Set Priority", detail: "Mark a message as 'Urgent' to flag it with a red indicator in the recipient's inbox." },
+      { title: "Reply to Messages", detail: "Click 'Reply' on any message to compose a response — the subject and recipient are pre-filled." },
+    ],
+    tips: [
+      "Unread message count shows as a badge on the Messages item in the sidebar.",
+      "Messages poll for updates every 15 seconds — no need to refresh.",
+      "Use Broadcast for shift handover notes or important announcements.",
     ],
   },
   {

@@ -26,6 +26,7 @@ const AdvancedAnalytics = lazy(() => import("./components/views/AdvancedAnalytic
 const HistoryView = lazy(() => import("./components/views/HistoryView").then(m => ({ default: m.HistoryView })));
 const IBTReports = lazy(() => import("./components/views/IBTReports").then(m => ({ default: m.IBTReports })));
 const FlowbinTracking = lazy(() => import("./components/views/FlowbinTracking").then(m => ({ default: m.FlowbinTracking })));
+const InboxView = lazy(() => import("./components/views/InboxView").then(m => ({ default: m.InboxView })));
 const UserManagement = lazy(() => import("./components/views/UserManagement").then(m => ({ default: m.UserManagement })));
 const SettingsView = lazy(() => import("./components/views/SettingsView").then(m => ({ default: m.SettingsView })));
 
@@ -91,6 +92,8 @@ function AppContent() {
         view = <AdvancedAnalytics />; break;
       case "clock":
         view = <HistoryView />; break;
+      case "inbox":
+        view = <InboxView />; break;
       case "settings":
         view = <SettingsView />; break;
       case "user-management":

@@ -144,6 +144,19 @@ export const flowbinsAPI = {
     fetchAPI<any>(`/api/flowbins/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 };
 
+// ============ Messages ============
+export const messagesAPI = {
+  getInbox: () => fetchAPI<any[]>("/api/messages"),
+  getSent: () => fetchAPI<any[]>("/api/messages?folder=sent"),
+  getUnreadCount: () => fetchAPI<{ count: number }>("/api/messages?folder=unread-count"),
+  send: (data: { subject: string; body: string; recipientIds?: string[]; jobRef?: string; priority?: string; broadcast?: boolean }) =>
+    fetchAPI<any>("/api/messages", { method: "POST", body: JSON.stringify(data) }),
+  markRead: (id: string) =>
+    fetchAPI<void>(`/api/messages/${id}`, { method: "PUT" }),
+  remove: (id: string) =>
+    fetchAPI<void>(`/api/messages/${id}`, { method: "DELETE" }),
+};
+
 // ============ Health Check ============
 
 export const healthCheck = async (): Promise<{ status: string; timestamp: string }> => {

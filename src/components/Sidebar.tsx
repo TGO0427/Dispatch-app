@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutDashboard,
   Home,
@@ -20,9 +20,11 @@ import {
   Moon,
   HelpCircle,
   Package,
+  Mail,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useDispatch } from "../context/DispatchContext";
+import { messagesAPI } from "../services/api";
 import { useTheme } from "../hooks/useTheme";
 
 interface SidebarProps {
@@ -58,6 +60,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
     operations: true,
   });
 
+  // Unread message count
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  useEffect(() => {
+    const fetchUnread = () => {
+      messagesAPI.getUnreadCount().then((data) => setUnreadMessages(data.count)).catch(() => {});
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const sidebarStats = useMemo(() => {
     const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
     const ibtJobs = jobs.filter((j) => j.jobType === "ibt");
@@ -90,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         { id: "ibt-reports", icon: ArrowRightLeft, label: "IBT Reports" },
         { id: "analytics", icon: BarChart3, label: "Analytics" },
         { id: "flowbin-tracking", icon: Package, label: "Flowbin Tracking" },
+        { id: "inbox", icon: Mail, label: "Messages", badge: unreadMessages, badgeType: "danger" },
         { id: "clock", icon: Clock, label: "Order History" },
       ],
     },

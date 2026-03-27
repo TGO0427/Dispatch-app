@@ -133,6 +133,27 @@ export interface FlowbinBatch {
 
 export type FlowbinStatus = "on-time" | "warning" | "overdue" | "returned";
 
+export interface MessageRecipient {
+  id: string;
+  messageId: string;
+  userId: string;
+  username: string;
+  readAt?: string | null;
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  senderName: string;
+  subject: string;
+  body: string;
+  jobRef?: string | null;
+  priority: "normal" | "urgent";
+  broadcast: boolean;
+  recipients: MessageRecipient[];
+  createdAt: string;
+}
+
 // ------------------------------
 // Sorting / Filtering
 // ------------------------------

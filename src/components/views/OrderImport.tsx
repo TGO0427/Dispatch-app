@@ -314,7 +314,7 @@ const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
 // ---------- Component ----------
 export const OrderImport: React.FC = () => {
   const { refreshData: _refreshData } = useDispatch(); // eslint-disable-line
-  const { showSuccess: _showSuccess, showError } = useNotification(); // eslint-disable-line
+  const { showSuccess: _showSuccess, showError } = useNotification();
   const { isViewer } = useAuth();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -551,9 +551,9 @@ export const OrderImport: React.FC = () => {
       // DEBUG: skip refreshData to isolate crash
       // await refreshData();
 
-      // DEBUG: skip ALL post-import state changes
+      // DEBUG: test showSuccess only (no setImportResult)
       console.log("[OrderImport] Import done. New:", newOrders.length, "Updated:", updatedCount, "Skipped:", skippedOrders.length, "Failed:", failedCount);
-      alert(`Import complete: ${newOrders.length} new, ${updatedCount} updated`);
+      _showSuccess(`Import complete: ${newOrders.length} new, ${updatedCount} updated`);
       setImportedOrders([]);
       setImportStatus("idle");
     } catch (error) {

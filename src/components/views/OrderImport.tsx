@@ -533,7 +533,7 @@ export const OrderImport: React.FC = () => {
       void existingOrders.slice(existingOrders.length - failedCount);
       void existingOrders.slice(0, updatedCount);
 
-      await refreshData();
+      // await refreshData(); // DEBUG: test without refresh
 
       const skippedCount = existingOrders.length - updatedCount - failedCount;
       showSuccess(`Import complete: ${newOrders.length} new, ${updatedCount} updated`);

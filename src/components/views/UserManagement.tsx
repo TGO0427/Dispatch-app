@@ -45,8 +45,8 @@ export const UserManagement: React.FC = () => {
         throw new Error("Failed to fetch users");
       }
 
-      const data = await response.json();
-      setUsers(data);
+      const json = await response.json();
+      setUsers(json.data || json);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load users");

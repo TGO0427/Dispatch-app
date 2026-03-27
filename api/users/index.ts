@@ -32,20 +32,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const caller = requireAdmin(req.headers.authorization, res);
-  if (!caller) return res.headersSent ? undefined : res.status(403).json({ success: false, message: "Admin access required" });
-
+  // GET — any authenticated user can list users (for recipient picker, etc.)
   if (req.method === "GET") {
+    const user = requireAuth(req.headers.authorization, res);
+    if (!user) return res.headersSent ? undefined : res.status(401).json({ success: false, message: "Unauthorized" });
     try {
       const users = await prisma.user.findMany({
         select: { id: true, username: true, email: true, role: true, createdAt: true },
       });
-      return res.json(users);
+      return res.json({ success: true, data: users });
     } catch (error) {
       console.error("Error fetching users:", error);
       return res.status(500).json({ success: false, message: "Failed to fetch users" });
     }
   }
+
+  // All other methods (POST, PUT, DELETE) require admin
+  const caller = requireAdmin(req.headers.authorization, res);
+  if (!caller) return res.headersSent ? undefined : res.status(403).json({ success: false, message: "Admin access required" });
 
   if (req.method === "POST") {
     try {

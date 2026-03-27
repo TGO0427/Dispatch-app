@@ -41,9 +41,10 @@ export const InboxView: React.FC = () => {
   const fetchMessages = useCallback(async () => {
     try {
       const data = folder === "sent" ? await messagesAPI.getSent() : await messagesAPI.getInbox();
-      setMessages(data);
+      console.log(`[Inbox] ${folder} messages:`, data?.length ?? 0, data);
+      setMessages(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Failed to fetch messages:", err);
+      console.error("[Inbox] Failed to fetch messages:", err);
     } finally {
       setIsLoading(false);
     }
@@ -113,7 +114,8 @@ export const InboxView: React.FC = () => {
     if (!composeBroadcast && composeRecipients.length === 0) return;
     setIsSending(true);
     try {
-      await messagesAPI.send({
+      console.log("[Inbox] Sending message:", { subject: composeSubject, recipients: composeRecipients, broadcast: composeBroadcast });
+      const result = await messagesAPI.send({
         subject: composeSubject.trim(),
         body: composeBody.trim(),
         recipientIds: composeBroadcast ? undefined : composeRecipients,
@@ -121,10 +123,11 @@ export const InboxView: React.FC = () => {
         priority: composePriority,
         broadcast: composeBroadcast,
       });
+      console.log("[Inbox] Send result:", result);
       setShowCompose(false);
       fetchMessages();
     } catch (err) {
-      console.error("Failed to send:", err);
+      console.error("[Inbox] Failed to send:", err);
     } finally {
       setIsSending(false);
     }

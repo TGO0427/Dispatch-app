@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Mail, Send, Inbox, Search, X, AlertCircle, Users, User, Link2 } from "lucide-react";
-import { Card, CardContent } from "../ui/Card";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { Mail, Send, Inbox, Search, AlertCircle, Users, User, Link2, MoreHorizontal, Trash2, MessageSquare, X } from "lucide-react";
+import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { useAuth } from "../../context/AuthContext";
@@ -26,9 +26,11 @@ export const InboxView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState<(Message & { _readAt?: string | null }) | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const threadEndRef = useRef<HTMLDivElement>(null);
 
   // Thread state
   const [threadMessages, setThreadMessages] = useState<(Message & { _readAt?: string | null })[]>([]);
+  const [showDeleteMenu, setShowDeleteMenu] = useState(false);
 
   // Compose state
   const [showCompose, setShowCompose] = useState(false);
@@ -45,10 +47,9 @@ export const InboxView: React.FC = () => {
   const fetchMessages = useCallback(async () => {
     try {
       const data = folder === "sent" ? await messagesAPI.getSent() : await messagesAPI.getInbox();
-      console.log(`[Inbox] ${folder} messages:`, data?.length ?? 0, data);
       setMessages(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("[Inbox] Failed to fetch messages:", err);
+      console.error("Failed to fetch messages:", err);
     } finally {
       setIsLoading(false);
     }
@@ -57,16 +58,21 @@ export const InboxView: React.FC = () => {
   useEffect(() => {
     setIsLoading(true);
     setSelectedMessage(null);
+    setThreadMessages([]);
     fetchMessages();
   }, [fetchMessages]);
 
-  // Poll for new messages every 15 seconds
   useEffect(() => {
     const interval = setInterval(() => fetchMessages(), 15000);
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
-  // Group messages by conversation thread — show only the latest message per thread
+  // Scroll to bottom of thread when messages update
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [threadMessages]);
+
+  // Group messages by conversation thread
   const grouped = useMemo(() => {
     const threadMap = new Map<string, (Message & { _readAt?: string | null })>();
     messages.forEach((m) => {
@@ -75,7 +81,6 @@ export const InboxView: React.FC = () => {
       if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
         threadMap.set(tid, m);
       }
-      // Also check if any unread exists in thread — preserve unread status
       if (existing && !m._readAt && existing._readAt) {
         threadMap.set(tid, { ...threadMap.get(tid)!, _readAt: null });
       }
@@ -100,7 +105,7 @@ export const InboxView: React.FC = () => {
 
   const handleSelectMessage = async (msg: Message & { _readAt?: string | null }) => {
     setSelectedMessage(msg);
-    // Load conversation thread
+    setShowDeleteMenu(false);
     const tid = msg.threadId || msg.id;
     try {
       const thread = await messagesAPI.getThread(tid);
@@ -108,7 +113,6 @@ export const InboxView: React.FC = () => {
     } catch {
       setThreadMessages([msg]);
     }
-    // Mark as read if unread and in inbox
     if (folder === "inbox" && !msg._readAt) {
       try {
         await messagesAPI.markRead(msg.id);
@@ -122,10 +126,8 @@ export const InboxView: React.FC = () => {
   const openCompose = async (replyTo?: Message) => {
     try {
       const users = await fetchUsers();
-      console.log("[Inbox] All users fetched:", users);
-      console.log("[Inbox] Current user id:", user?.id);
       setAllUsers(users.filter((u) => u.id !== user?.id));
-    } catch (err) { console.error("[Inbox] Failed to fetch users:", err); }
+    } catch { /* ignore */ }
 
     if (replyTo) {
       setComposeSubject(replyTo.subject.startsWith("Re: ") ? replyTo.subject : `Re: ${replyTo.subject}`);
@@ -149,8 +151,7 @@ export const InboxView: React.FC = () => {
     if (!composeBroadcast && composeRecipients.length === 0) return;
     setIsSending(true);
     try {
-      console.log("[Inbox] Sending message:", { subject: composeSubject, recipients: composeRecipients, broadcast: composeBroadcast });
-      const result = await messagesAPI.send({
+      await messagesAPI.send({
         subject: composeSubject.trim(),
         body: composeBody.trim(),
         recipientIds: composeBroadcast ? undefined : composeRecipients,
@@ -159,13 +160,34 @@ export const InboxView: React.FC = () => {
         broadcast: composeBroadcast,
         threadId: composeThreadId || undefined,
       });
-      console.log("[Inbox] Send result:", result);
       setShowCompose(false);
       fetchMessages();
     } catch (err) {
-      console.error("[Inbox] Failed to send:", err);
+      console.error("Failed to send:", err);
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleInlineReply = async (text: string) => {
+    if (!text.trim() || !selectedMessage) return;
+    const tid = selectedMessage.threadId || selectedMessage.id;
+    const replyTo = folder === "inbox"
+      ? [selectedMessage.senderId]
+      : selectedMessage.recipients.map((r) => r.userId);
+    try {
+      await messagesAPI.send({
+        subject: selectedMessage.subject.startsWith("Re: ") ? selectedMessage.subject : `Re: ${selectedMessage.subject}`,
+        body: text.trim(),
+        recipientIds: replyTo,
+        jobRef: selectedMessage.jobRef || undefined,
+        threadId: tid,
+      });
+      const thread = await messagesAPI.getThread(tid);
+      setThreadMessages(thread);
+      fetchMessages();
+    } catch (err) {
+      console.error("Failed to send reply:", err);
     }
   };
 
@@ -181,38 +203,29 @@ export const InboxView: React.FC = () => {
     return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
   };
 
-  return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Internal team communication</p>
-        </div>
-        <Button onClick={() => openCompose()} className="gap-2">
-          <Send className="h-4 w-4" /> New Message
-        </Button>
-      </div>
+  const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
-      {/* Folder tabs + search */}
-      <div className="flex items-center gap-3">
-        <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-1">
+  return (
+    <div className="space-y-2">
+      {/* Header bar — unified toolbar */}
+      <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
+        <div className="flex gap-1 bg-gray-100 rounded-md p-0.5">
           <button
             onClick={() => setFolder("inbox")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              folder === "inbox" ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all ${
+              folder === "inbox" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
             }`}
           >
             <Inbox className="h-3.5 w-3.5" />
             Inbox
-            {unreadCount > 0 && folder === "inbox" && (
-              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{unreadCount}</span>
+            {unreadCount > 0 && (
+              <span className="bg-red-500 text-white text-[9px] font-bold px-1 py-px rounded-full min-w-[16px] text-center">{unreadCount}</span>
             )}
           </button>
           <button
             onClick={() => setFolder("sent")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              folder === "sent" ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all ${
+              folder === "sent" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
             }`}
           >
             <Send className="h-3.5 w-3.5" />
@@ -220,58 +233,77 @@ export const InboxView: React.FC = () => {
           </button>
         </div>
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
           <input
             type="text" placeholder="Search messages..."
             value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 h-8 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className="w-full pl-8 pr-3 h-7 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           />
         </div>
+        <Button size="sm" onClick={() => openCompose()} className="gap-1.5 h-7 text-xs">
+          <Send className="h-3 w-3" /> New
+        </Button>
       </div>
 
       {/* Content */}
-      <div className="grid grid-cols-3 gap-3" style={{ minHeight: "500px" }}>
-        {/* Message List */}
-        <Card className="col-span-1 overflow-hidden">
-          <CardContent className="p-0">
+      <div className="grid grid-cols-3 gap-2" style={{ height: "calc(100vh - 180px)" }}>
+        {/* Conversation List */}
+        <div className="col-span-1 bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="text-center py-12 text-gray-400 text-sm">Loading...</div>
+              <div className="text-center py-10 text-gray-400 text-sm">Loading...</div>
             ) : filtered.length === 0 ? (
-              <div className="text-center py-12">
-                <Mail className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">{folder === "inbox" ? "No messages" : "No sent messages"}</p>
+              <div className="flex flex-col items-center justify-center h-full px-4 py-10">
+                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                  <MessageSquare className="h-6 w-6 text-gray-300" />
+                </div>
+                <p className="text-sm font-medium text-gray-500">{folder === "inbox" ? "No messages yet" : "No sent messages"}</p>
+                <p className="text-[10px] text-gray-400 mt-1 text-center">
+                  {folder === "inbox" ? "Messages from your team will appear here" : "Start a conversation with the New button"}
+                </p>
+                <button
+                  onClick={() => openCompose()}
+                  className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                >
+                  <Send className="h-3 w-3" /> Start a conversation
+                </button>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div>
                 {filtered.map((msg) => {
                   const isUnread = folder === "inbox" && !msg._readAt;
-                  const isSelected = selectedMessage?.id === msg.id;
+                  const isSelected = selectedMessage && (selectedMessage.threadId || selectedMessage.id) === (msg.threadId || msg.id);
+                  const otherPerson = folder === "inbox" ? msg.senderName : (msg.recipients?.[0]?.username || "Unknown");
                   return (
                     <button
                       key={msg.id}
                       onClick={() => handleSelectMessage(msg)}
-                      className={`w-full text-left px-3 py-2.5 transition-colors ${
-                        isSelected ? "bg-blue-50 border-l-2 border-blue-600" : isUnread ? "bg-white border-l-2 border-blue-400" : "bg-white border-l-2 border-transparent hover:bg-gray-50"
+                      className={`w-full text-left px-3 py-2 transition-colors border-b border-gray-50 ${
+                        isSelected ? "bg-blue-50" : isUnread ? "bg-blue-50/30 hover:bg-blue-50/50" : "hover:bg-gray-50"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            {isUnread && <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />}
-                            <span className={`text-xs truncate ${isUnread ? "font-bold text-gray-900" : "font-medium text-gray-700"}`}>
-                              {folder === "inbox" ? msg.senderName : msg.recipients.map((r) => r.username).join(", ")}
-                            </span>
-                          </div>
-                          <p className={`text-xs truncate mt-0.5 ${isUnread ? "font-semibold text-gray-800" : "text-gray-600"}`}>
-                            {msg.subject}
-                          </p>
-                          <p className="text-[10px] text-gray-400 truncate mt-0.5">{msg.body.slice(0, 60)}</p>
+                      <div className="flex items-center gap-2.5">
+                        {/* Avatar */}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold ${
+                          isUnread ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
+                        }`}>
+                          {getInitials(otherPerson)}
                         </div>
-                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                          <span className="text-[10px] text-gray-400">{formatTime(msg.createdAt)}</span>
-                          {msg.priority === "urgent" && (
-                            <AlertCircle className="h-3 w-3 text-red-500" />
-                          )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className={`text-xs truncate ${isUnread ? "font-bold text-gray-900" : "font-medium text-gray-700"}`}>
+                              {otherPerson}
+                            </span>
+                            <span className="text-[10px] text-gray-400 flex-shrink-0">{formatTime(msg.createdAt)}</span>
+                          </div>
+                          <p className={`text-[11px] truncate ${isUnread ? "font-semibold text-gray-800" : "text-gray-500"}`}>
+                            {msg.subject.replace(/^(Re: )+/, "")}
+                          </p>
+                          <p className="text-[10px] text-gray-400 truncate">{msg.body.slice(0, 50)}</p>
+                        </div>
+                        {/* Indicators */}
+                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                          {msg.priority === "urgent" && <AlertCircle className="h-3 w-3 text-red-500" />}
                           {msg.jobRef && <Link2 className="h-3 w-3 text-blue-400" />}
                         </div>
                       </div>
@@ -280,132 +312,128 @@ export const InboxView: React.FC = () => {
                 })}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Message Detail */}
-        <Card className="col-span-2 overflow-hidden">
-          <CardContent className="p-0">
-            {selectedMessage ? (
-              <div className="h-full flex flex-col">
-                {/* Header */}
-                <div className="px-5 py-3 border-b border-gray-100">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-gray-900">
-                          {selectedMessage.subject.replace(/^(Re: )+/, "")}
-                        </h3>
-                        {selectedMessage.priority === "urgent" && (
-                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Urgent</Badge>
-                        )}
-                        {threadMessages.length > 1 && (
-                          <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{threadMessages.length} messages</span>
-                        )}
-                      </div>
-                      {selectedMessage.jobRef && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Link2 className="h-3 w-3 text-blue-500" />
-                          <span className="text-xs text-blue-600 font-medium">{selectedMessage.jobRef}</span>
+        {/* Thread View */}
+        <div className="col-span-2 bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+          {selectedMessage ? (
+            <>
+              {/* Thread header */}
+              <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="text-sm font-bold text-gray-900 truncate">
+                    {selectedMessage.subject.replace(/^(Re: )+/, "")}
+                  </h3>
+                  {selectedMessage.priority === "urgent" && (
+                    <Badge variant="destructive" className="text-[9px] px-1 py-0">Urgent</Badge>
+                  )}
+                  {selectedMessage.jobRef && (
+                    <span className="flex items-center gap-0.5 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                      <Link2 className="h-2.5 w-2.5" /> {selectedMessage.jobRef}
+                    </span>
+                  )}
+                  {threadMessages.length > 1 && (
+                    <span className="text-[10px] text-gray-400">{threadMessages.length} messages</span>
+                  )}
+                </div>
+                {/* Delete — demoted to icon menu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDeleteMenu(!showDeleteMenu)}
+                    className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                  {showDeleteMenu && (
+                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[140px]">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await messagesAPI.remove(selectedMessage.id);
+                            setSelectedMessage(null);
+                            setThreadMessages([]);
+                            setShowDeleteMenu(false);
+                            fetchMessages();
+                          } catch (err) { console.error("Failed to delete:", err); }
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="h-3 w-3" /> Delete conversation
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-gray-50/50">
+                {threadMessages.map((msg) => {
+                  const isMe = msg.senderId === user?.id;
+                  return (
+                    <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                      {!isMe && (
+                        <div className="w-6 h-6 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-[8px] font-bold mr-1.5 mt-auto mb-0.5 flex-shrink-0">
+                          {getInitials(msg.senderName)}
                         </div>
                       )}
-                    </div>
-                    <Button size="sm" variant="outline" onClick={async () => {
-                      try {
-                        await messagesAPI.remove(selectedMessage.id);
-                        setSelectedMessage(null);
-                        setThreadMessages([]);
-                        fetchMessages();
-                      } catch (err) { console.error("Failed to delete:", err); }
-                    }} className="text-xs gap-1 text-red-600 hover:text-red-700 hover:bg-red-50">
-                      <X className="h-3 w-3" /> Delete
-                    </Button>
-                  </div>
-                </div>
-                {/* Conversation thread */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-                  {threadMessages.map((msg) => {
-                    const isMe = msg.senderId === user?.id;
-                    return (
-                      <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[75%] rounded-lg px-3.5 py-2.5 ${
-                          isMe
-                            ? "bg-blue-600 text-white rounded-br-sm"
-                            : "bg-gray-100 text-gray-900 rounded-bl-sm"
-                        }`}>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-[10px] font-semibold ${isMe ? "text-blue-200" : "text-gray-500"}`}>
-                              {msg.senderName}
-                            </span>
-                            <span className={`text-[10px] ${isMe ? "text-blue-200" : "text-gray-400"}`}>
-                              {new Date(msg.createdAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          </div>
-                          <p className={`text-sm whitespace-pre-wrap leading-relaxed ${isMe ? "text-white" : "text-gray-700"}`}>
-                            {msg.body}
-                          </p>
-                        </div>
+                      <div className={`max-w-[70%] rounded-2xl px-3 py-2 ${
+                        isMe
+                          ? "bg-blue-600 text-white rounded-br-md"
+                          : "bg-white border border-gray-200 text-gray-900 rounded-bl-md"
+                      }`}>
+                        <p className={`text-[13px] whitespace-pre-wrap leading-relaxed ${isMe ? "text-white" : "text-gray-700"}`}>
+                          {msg.body}
+                        </p>
+                        <p className={`text-[9px] mt-0.5 text-right ${isMe ? "text-blue-200" : "text-gray-400"}`}>
+                          {new Date(msg.createdAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
-                {/* Inline reply input */}
-                <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const input = e.currentTarget.querySelector("input") as HTMLInputElement;
-                      const text = input?.value?.trim();
-                      if (!text || !selectedMessage) return;
-                      input.value = "";
-                      const tid = selectedMessage.threadId || selectedMessage.id;
-                      // Determine recipients: reply to sender if inbox, reply to original recipients if sent
-                      const replyTo = folder === "inbox"
-                        ? [selectedMessage.senderId]
-                        : selectedMessage.recipients.map((r) => r.userId);
-                      try {
-                        await messagesAPI.send({
-                          subject: selectedMessage.subject.startsWith("Re: ") ? selectedMessage.subject : `Re: ${selectedMessage.subject}`,
-                          body: text,
-                          recipientIds: replyTo,
-                          jobRef: selectedMessage.jobRef || undefined,
-                          threadId: tid,
-                        });
-                        // Reload thread
-                        const thread = await messagesAPI.getThread(tid);
-                        setThreadMessages(thread);
-                        fetchMessages();
-                      } catch (err) {
-                        console.error("Failed to send reply:", err);
-                      }
-                    }}
-                    className="flex items-center gap-2"
+                    </div>
+                  );
+                })}
+                <div ref={threadEndRef} />
+              </div>
+
+              {/* Composer bar */}
+              <div className="px-3 py-2.5 border-t border-gray-200 bg-white">
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const input = e.currentTarget.querySelector("input") as HTMLInputElement;
+                    const text = input?.value?.trim();
+                    if (!text) return;
+                    input.value = "";
+                    await handleInlineReply(text);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="text"
+                    placeholder="Type a message..."
+                    className="flex-1 h-9 px-4 text-sm border border-gray-200 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <button
+                    type="submit"
+                    className="h-9 w-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center flex-shrink-0 shadow-sm"
                   >
-                    <input
-                      type="text"
-                      placeholder="Type a message..."
-                      className="flex-1 h-9 px-3 text-sm border border-gray-200 rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      autoFocus
-                    />
-                    <button
-                      type="submit"
-                      className="h-9 w-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center flex-shrink-0"
-                    >
-                      <Send className="h-4 w-4" />
-                    </button>
-                  </form>
-                </div>
+                    <Send className="h-4 w-4" />
+                  </button>
+                </form>
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-full py-20">
-                <div className="text-center">
-                  <Mail className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-                  <p className="text-sm text-gray-400">Select a message to read</p>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                  <Mail className="h-7 w-7 text-gray-300" />
                 </div>
+                <p className="text-sm font-medium text-gray-500">Select a conversation</p>
+                <p className="text-[10px] text-gray-400 mt-1">Choose from the left or start a new one</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Compose Modal */}
@@ -453,7 +481,6 @@ export const InboxView: React.FC = () => {
                         value="__placeholder__"
                         onChange={(e) => {
                           const selectedId = e.target.value;
-                          console.log("[Inbox] Selected recipient:", selectedId);
                           if (selectedId && selectedId !== "__placeholder__" && !composeRecipients.includes(selectedId)) {
                             setComposeRecipients((prev) => [...prev, selectedId]);
                           }
@@ -470,7 +497,6 @@ export const InboxView: React.FC = () => {
                 </div>
               )}
 
-              {/* Subject */}
               <div>
                 <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Subject</label>
                 <input
@@ -480,18 +506,16 @@ export const InboxView: React.FC = () => {
                 />
               </div>
 
-              {/* Body */}
               <div>
                 <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Message</label>
                 <textarea
                   value={composeBody} onChange={(e) => setComposeBody(e.target.value)}
                   placeholder="Type your message..."
-                  rows={5}
+                  rows={4}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
                 />
               </div>
 
-              {/* Job link + Priority */}
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Link to Order (optional)</label>
@@ -524,7 +548,6 @@ export const InboxView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Send */}
               <div className="flex items-center gap-2 pt-2">
                 <Button variant="ghost" onClick={() => setShowCompose(false)} className="flex-1 text-sm">Cancel</Button>
                 <Button

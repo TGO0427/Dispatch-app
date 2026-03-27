@@ -545,8 +545,8 @@ export const OrderImport: React.FC = () => {
       }
 
       const skippedOrders = existingOrders.slice(0, existingOrders.length - updatedCount - failedCount);
-      const _failedOrdersList = existingOrders.slice(existingOrders.length - failedCount); // eslint-disable-line
-      const _updatedOrdersList = existingOrders.slice(0, updatedCount); // eslint-disable-line
+      void existingOrders.slice(existingOrders.length - failedCount);
+      void existingOrders.slice(0, updatedCount);
 
       // DEBUG: skip refreshData to isolate crash
       // await refreshData();

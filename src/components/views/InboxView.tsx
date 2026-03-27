@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Send, Inbox, Search, AlertCircle, Users, User, Link2, MoreHorizontal, Trash2, X } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { Badge } from "../ui/Badge";
 import { useAuth } from "../../context/AuthContext";
 import { messagesAPI } from "../../services/api";
 import type { Message } from "../../types";
@@ -371,22 +370,38 @@ export const InboxView: React.FC = () => {
           {selectedMessage ? (
             <>
               {/* Thread header */}
-              <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-                <div className="flex items-center gap-2 min-w-0">
-                  <h3 className="text-sm font-bold text-gray-900 truncate">
-                    {selectedMessage.subject.replace(/^(Re: )+/, "")}
-                  </h3>
-                  {selectedMessage.priority === "urgent" && (
-                    <Badge variant="destructive" className="text-[9px] px-1 py-0">Urgent</Badge>
-                  )}
-                  {selectedMessage.jobRef && (
-                    <span className="flex items-center gap-0.5 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                      <Link2 className="h-2.5 w-2.5" /> {selectedMessage.jobRef}
-                    </span>
-                  )}
-                  {threadMessages.length > 1 && (
-                    <span className="text-[10px] text-gray-400">{threadMessages.length} messages</span>
-                  )}
+              {(() => {
+                const otherPerson = folder === "inbox" ? selectedMessage.senderName : (selectedMessage.recipients?.[0]?.username || "Unknown");
+                const participants = [...new Set(threadMessages.map((m) => m.senderName))];
+                return (
+              <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {/* Thread avatar with active dot */}
+                  <div className="relative flex-shrink-0">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${getAvatarColor(otherPerson)}`}>
+                      {getInitials(otherPerson)}
+                    </div>
+                    <div className="absolute -bottom-px -right-px w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-sm font-bold text-gray-900 truncate">
+                        {selectedMessage.subject.replace(/^(Re: )+/, "")}
+                      </h3>
+                      {selectedMessage.priority === "urgent" && (
+                        <span className="text-[9px] font-bold text-red-600 bg-red-50 px-1 py-px rounded">Urgent</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                      <span>{participants.join(", ")}</span>
+                      {threadMessages.length > 1 && <span>· {threadMessages.length} messages</span>}
+                      {selectedMessage.jobRef && (
+                        <span className="flex items-center gap-0.5 text-blue-500">
+                          <Link2 className="h-2.5 w-2.5" /> {selectedMessage.jobRef}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 {/* Delete — demoted to icon menu */}
                 <div className="relative">
@@ -416,6 +431,8 @@ export const InboxView: React.FC = () => {
                   )}
                 </div>
               </div>
+                );
+              })()}
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-3 py-2" style={{ background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)" }}>
@@ -439,12 +456,16 @@ export const InboxView: React.FC = () => {
                         )
                       )}
                       <div className="group/msg">
-                        <div className={`max-w-[280px] px-2.5 py-1 ${
-                          isMe
-                            ? "text-white rounded-2xl rounded-br-md"
-                            : "bg-white border border-gray-100 text-gray-900 rounded-2xl rounded-bl-md shadow-sm"
-                        }`}
-                        style={isMe ? { background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" } : undefined}
+                        <div
+                          className={`max-w-[280px] px-2.5 py-1 ${
+                            isMe
+                              ? "text-white rounded-2xl rounded-br-md"
+                              : "border border-gray-100 text-gray-900 rounded-2xl rounded-bl-md shadow-sm"
+                          }`}
+                          style={isMe
+                            ? { background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" }
+                            : { background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)" }
+                          }
                         >
                           {!sameSender && !isMe && (
                             <p className="text-[9px] font-semibold text-gray-500 mb-0.5">{msg.senderName}</p>
@@ -466,28 +487,29 @@ export const InboxView: React.FC = () => {
                             </button>
                           </div>
                         </div>
-                        {/* Reactions display */}
+                        {/* Reactions — anchored tight to bubble */}
                         {(messageReactions[msg.id]?.length > 0) && (
-                          <div className={`flex gap-0.5 mt-0.5 ${isMe ? "justify-end" : "justify-start"} ${!isMe ? "ml-6" : ""}`}>
+                          <div className={`flex gap-px -mt-1 ${isMe ? "justify-end pr-1" : "justify-start pl-1"}`}>
                             {messageReactions[msg.id].map((emoji) => (
                               <button
                                 key={emoji}
                                 onClick={() => toggleReaction(msg.id, emoji)}
-                                className="text-[11px] bg-white border border-gray-200 rounded-full px-1 py-px shadow-sm hover:scale-110 transition-transform"
+                                className="text-[10px] bg-white border border-gray-200 rounded-full px-1 shadow-sm hover:scale-110 transition-transform"
+                                style={{ lineHeight: "18px" }}
                               >
                                 {emoji}
                               </button>
                             ))}
                           </div>
                         )}
-                        {/* Reaction picker — below the bubble, not overlapping */}
+                        {/* Reaction picker */}
                         {showReactionPicker === msg.id && (
-                          <div className={`flex gap-1 mt-1 ${isMe ? "justify-end" : "justify-start"} ${!isMe ? "ml-6" : ""}`}>
+                          <div className={`flex gap-0.5 mt-0.5 ${isMe ? "justify-end" : "justify-start"}`}>
                             {quickReactions.map((emoji) => (
                               <button
                                 key={emoji}
                                 onClick={() => toggleReaction(msg.id, emoji)}
-                                className="text-base bg-white border border-gray-200 rounded-full w-7 h-7 flex items-center justify-center shadow-sm hover:scale-125 hover:shadow-md transition-all"
+                                className="text-sm bg-white border border-gray-200 rounded-full w-6 h-6 flex items-center justify-center shadow-sm hover:scale-125 hover:shadow-md transition-all"
                               >
                                 {emoji}
                               </button>

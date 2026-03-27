@@ -313,19 +313,22 @@ export const InboxView: React.FC = () => {
                 })}
                 </div>
                 {/* Low-volume helper */}
-                {filtered.length < 4 && (
-                  <div className="p-3 border-t border-gray-100">
-                    <button
-                      onClick={() => openCompose()}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
-                    >
-                      <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                        <Send className="h-3 w-3 text-gray-400" />
-                      </div>
-                      Start a new conversation
-                    </button>
-                  </div>
-                )}
+                <div className="p-3 border-t border-gray-50 mt-auto">
+                  {filtered.length < 5 && (
+                    <p className="text-[10px] text-gray-300 text-center mb-2">
+                      {filtered.length === 1 ? "1 conversation" : `${filtered.length} conversations`}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => openCompose()}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                      <Send className="h-2.5 w-2.5 text-gray-400" />
+                    </div>
+                    New conversation
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -383,31 +386,31 @@ export const InboxView: React.FC = () => {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 bg-gray-50/30">
+              <div className="flex-1 overflow-y-auto px-3 py-2 bg-gray-50/30">
                 {threadMessages.map((msg, idx) => {
                   const isMe = msg.senderId === user?.id;
                   const prevMsg = idx > 0 ? threadMessages[idx - 1] : null;
                   const sameSender = prevMsg && prevMsg.senderId === msg.senderId;
                   return (
-                    <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} ${sameSender ? "" : "mt-2"}`}>
+                    <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} ${sameSender ? "mt-px" : idx === 0 ? "" : "mt-3"}`}>
                       {!isMe && (
                         sameSender ? (
-                          <div className="w-5 mr-1.5 flex-shrink-0" />
+                          <div className="w-5 mr-1 flex-shrink-0" />
                         ) : (
-                          <div className="w-5 h-5 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-[7px] font-bold mr-1.5 mt-auto mb-0.5 flex-shrink-0">
+                          <div className="w-5 h-5 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-[7px] font-bold mr-1 mt-auto mb-px flex-shrink-0">
                             {getInitials(msg.senderName)}
                           </div>
                         )
                       )}
-                      <div className={`max-w-[70%] rounded-2xl px-3 py-1.5 ${
+                      <div className={`max-w-[70%] px-2.5 py-1 ${
                         isMe
-                          ? "bg-blue-600 text-white rounded-br-md"
-                          : "bg-white border border-gray-100 text-gray-900 rounded-bl-md"
+                          ? `bg-blue-600 text-white ${sameSender ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-br-md"}`
+                          : `bg-white border border-gray-100 text-gray-900 ${sameSender ? "rounded-2xl rounded-bl-md" : "rounded-2xl rounded-bl-md"}`
                       }`}>
-                        <p className={`text-[13px] whitespace-pre-wrap leading-snug ${isMe ? "text-white" : "text-gray-700"}`}>
+                        <p className={`text-[13px] whitespace-pre-wrap leading-tight ${isMe ? "text-white" : "text-gray-700"}`}>
                           {msg.body}
                         </p>
-                        <p className={`text-[8px] mt-px text-right ${isMe ? "text-blue-300" : "text-gray-400"}`}>
+                        <p className={`text-[8px] leading-none mt-0.5 text-right ${isMe ? "text-blue-300" : "text-gray-400"}`}>
                           {new Date(msg.createdAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                         </p>
                       </div>

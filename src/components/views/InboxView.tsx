@@ -343,21 +343,19 @@ export const InboxView: React.FC = () => {
                   );
                 })}
                 </div>
-                {/* Low-volume helper */}
-                <div className="p-3 border-t border-gray-50 mt-auto">
-                  {filtered.length < 5 && (
-                    <p className="text-[10px] text-gray-300 text-center mb-2">
-                      {filtered.length === 1 ? "1 conversation" : `${filtered.length} conversations`}
-                    </p>
-                  )}
+                {/* Left panel footer */}
+                <div className="mt-auto border-t border-gray-100 bg-gray-50/50">
                   <button
                     onClick={() => openCompose()}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all group/new"
                   >
-                    <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                      <Send className="h-2.5 w-2.5 text-gray-400" />
+                    <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 group-hover/new:bg-blue-200 transition-colors">
+                      <Send className="h-3 w-3 text-blue-500" />
                     </div>
-                    New conversation
+                    <div className="text-left">
+                      <p className="font-medium">New conversation</p>
+                      <p className="text-[9px] text-gray-400 group-hover/new:text-blue-400">Message your team</p>
+                    </div>
                   </button>
                 </div>
               </div>
@@ -443,7 +441,7 @@ export const InboxView: React.FC = () => {
                   return (
                     <div
                       key={msg.id}
-                      className={`flex ${isMe ? "justify-end" : "justify-start"} ${sameSender ? "mt-px" : idx === 0 ? "" : "mt-3"}`}
+                      className={`flex ${isMe ? "justify-end" : "justify-start"} ${sameSender ? "" : idx === 0 ? "" : "mt-2"}`}
                       style={{ animation: idx === threadMessages.length - 1 ? "fadeInUp 0.2s ease-out" : undefined }}
                     >
                       {!isMe && (

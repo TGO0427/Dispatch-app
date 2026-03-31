@@ -160,24 +160,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           collapsed ? "justify-center px-2 py-3" : "gap-3 px-3.5 py-[11px]"
         } ${
           isActive
-            ? "bg-blue-500/[0.12] shadow-[0_0_12px_-3px_rgba(59,130,246,0.25)]"
+            ? "bg-emerald-400/[0.15] shadow-[0_0_12px_-3px_rgba(16,185,129,0.25)]"
             : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.07]"
         }`}
         title={collapsed ? label : undefined}
       >
         {/* Left accent bar */}
         {isActive && !collapsed && (
-          <span className="absolute left-[3px] top-[25%] bottom-[25%] w-[3px] rounded-full bg-blue-400" />
+          <span className="absolute left-[3px] top-[25%] bottom-[25%] w-[3px] rounded-full bg-emerald-400" />
         )}
-        <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-blue-400" : ""}`} />
+        <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-emerald-400" : ""}`} />
         {!collapsed && (
           <>
             <span className={`text-[14px] flex-1 text-left ${isActive ? "text-slate-50 font-semibold" : "font-medium"}`}>{label}</span>
             {badge !== undefined && badge > 0 && (
               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                 isActive
-                  ? "bg-blue-500/20 text-blue-300"
-                  : badgeType === "danger" ? "bg-red-500/20 text-red-400" : "bg-blue-500/15 text-blue-400"
+                  ? "bg-emerald-500/20 text-emerald-300"
+                  : badgeType === "danger" ? "bg-red-500/20 text-red-400" : "bg-emerald-500/15 text-emerald-400"
               }`}>
                 {badge}
               </span>
@@ -193,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       className={`theme-static-dark fixed left-0 top-0 h-screen flex flex-col z-30 transition-all duration-300 ${
         collapsed ? "w-16" : "w-[280px]"
       }`}
-      style={{ background: "#0f172a" }}
+      style={{ background: "#064e3b" }}
     >
       {/* Header */}
       <div className={`flex items-center justify-between py-5 border-b border-white/[0.06] ${collapsed ? "px-3" : "px-5"}`}>
@@ -223,8 +223,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
               placeholder="Search menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-slate-200 text-sm rounded-xl pl-10 pr-3 py-3 placeholder-slate-500 border border-white/[0.1] focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20"
-              style={{ background: "#1e293b" }}
+              className="w-full text-slate-200 text-sm rounded-xl pl-10 pr-3 py-3 placeholder-slate-500 border border-white/[0.1] focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20"
+              style={{ background: "#065f46" }}
             />
           </div>
         </div>
@@ -233,7 +233,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Calendar Picker */}
       {!collapsed && (
         <div className="px-4 pb-2">
-          <div className="rounded-xl p-3" style={{ background: "#1a2744" }}>
+          <div className="rounded-xl p-3" style={{ background: "#065f46" }}>
             {/* Year nav */}
             <div className="flex items-center justify-between mb-2">
               <button onClick={() => setCalYear((y) => y - 1)} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
@@ -248,7 +248,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
             <button
               onClick={() => { setCalMonth(null); setFilters({ ...filters, etaWeek: undefined }); }}
               className={`w-full text-center text-[10px] font-semibold py-1 rounded-md mb-1.5 transition-all ${
-                calMonth === null ? "bg-blue-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
+                calMonth === null ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
               }`}
             >
               All Months
@@ -264,8 +264,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
                     key={m}
                     onClick={() => { setCalMonth(idx); }}
                     className={`text-[10px] py-1 rounded-md font-medium transition-all ${
-                      isActive ? "bg-blue-500 text-white" :
-                      isCurrent ? "text-blue-400 bg-blue-500/10" :
+                      isActive ? "bg-emerald-500 text-white" :
+                      isCurrent ? "text-emerald-400 bg-emerald-500/10" :
                       "text-slate-400 hover:text-white hover:bg-white/10"
                     }`}
                   >
@@ -281,12 +281,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Warehouse Filter */}
       {!collapsed && warehouses.length > 0 && (
         <div className="px-4 pb-2">
-          <div className="rounded-xl p-3" style={{ background: "#1a2744" }}>
+          <div className="rounded-xl p-3" style={{ background: "#065f46" }}>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Warehouse</p>
             <button
               onClick={() => setFilters({ ...filters, warehouse: undefined })}
               className={`w-full text-left text-[11px] font-medium py-1 px-2 rounded-md mb-0.5 transition-all ${
-                !filters.warehouse ? "bg-blue-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
+                !filters.warehouse ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
               }`}
             >
               All Warehouses
@@ -296,7 +296,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
                 key={wh}
                 onClick={() => setFilters({ ...filters, warehouse: filters.warehouse === wh ? undefined : wh })}
                 className={`w-full text-left text-[11px] font-medium py-1 px-2 rounded-md mb-0.5 transition-all truncate ${
-                  filters.warehouse === wh ? "bg-blue-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
+                  filters.warehouse === wh ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
                 }`}
               >
                 {wh}
@@ -311,13 +311,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         <div className="px-4 pb-3 flex gap-2">
           <button
             onClick={() => onItemChange("home")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors"
           >
             + Order
           </button>
           <button
             onClick={() => onItemChange("ibt")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors"
           >
             + IBT
           </button>
@@ -372,7 +372,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Quick Stats */}
       {!collapsed && (
-        <div className="mx-4 mb-3 p-3 rounded-xl" style={{ background: "#1a2744" }}>
+        <div className="mx-4 mb-3 p-3 rounded-xl" style={{ background: "#065f46" }}>
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.14em] mb-3">
             Quick Stats
           </p>
@@ -413,15 +413,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
                 collapsed ? "justify-center px-2 py-2.5" : "px-3.5 py-2.5"
               } ${
                 activeItem === item.id
-                  ? "bg-blue-500/[0.12] shadow-[0_0_12px_-3px_rgba(59,130,246,0.25)]"
+                  ? "bg-emerald-400/[0.15] shadow-[0_0_12px_-3px_rgba(16,185,129,0.25)]"
                   : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.06]"
               }`}
               title={collapsed ? item.label : undefined}
             >
               {activeItem === item.id && !collapsed && (
-                <span className="absolute left-[3px] top-[25%] bottom-[25%] w-[3px] rounded-full bg-blue-400" />
+                <span className="absolute left-[3px] top-[25%] bottom-[25%] w-[3px] rounded-full bg-emerald-400" />
               )}
-              <Icon className={`w-[17px] h-[17px] flex-shrink-0 ${activeItem === item.id ? "text-blue-400" : ""}`} />
+              <Icon className={`w-[17px] h-[17px] flex-shrink-0 ${activeItem === item.id ? "text-emerald-400" : ""}`} />
               {!collapsed && <span className={`text-[13px] font-medium ${activeItem === item.id ? "text-white" : ""}`}>{item.label}</span>}
             </button>
           );
@@ -431,7 +431,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         {onOpenHelp && (
           <button
             onClick={onOpenHelp}
-            className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-slate-500 hover:text-blue-400 hover:bg-white/[0.06] ${
+            className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-slate-500 hover:text-emerald-400 hover:bg-white/[0.06] ${
               collapsed ? "justify-center px-2 py-2.5" : "px-3.5 py-2.5"
             }`}
             title={collapsed ? "Help Guide" : undefined}
@@ -476,8 +476,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Profile Card */}
       {!collapsed && (
-        <div className="mx-4 mb-4 p-3.5 rounded-xl border border-white/[0.08] flex items-center gap-3" style={{ background: "#1e293b" }}>
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+        <div className="mx-4 mb-4 p-3.5 rounded-xl border border-white/[0.08] flex items-center gap-3" style={{ background: "#065f46" }}>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-sm">
             <User className="w-4 h-4 text-white" />
           </div>
           <div className="min-w-0">

@@ -170,7 +170,7 @@ function AppContent() {
           onOpenHelp={() => setHelpGuideOpen(true)}
         />
 
-        <div className={`${sidebarCollapsed ? "ml-16" : "ml-[280px]"} min-h-screen transition-all duration-300`}>
+        <div className={`${sidebarCollapsed ? "ml-16" : "ml-60"} min-h-screen transition-all duration-300`}>
           {/* Floating message notification */}
           {unreadMessages > 0 && activeNavItem !== "inbox" && (
             <button

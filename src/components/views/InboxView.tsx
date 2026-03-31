@@ -122,12 +122,19 @@ export const InboxView: React.FC = () => {
     } catch {
       setThreadMessages([msg]);
     }
-    if (folder === "inbox" && !msg._readAt) {
-      try {
-        await messagesAPI.markRead(msg.id);
-        setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, _readAt: new Date().toISOString() } : m));
-      } catch (err) {
-        console.error("Failed to mark as read:", err);
+    // Mark ALL unread messages in this thread as read
+    if (folder === "inbox") {
+      const unreadInThread = messages.filter((m) => !m._readAt && ((m.threadId || m.id) === tid || m.id === tid));
+      for (const unread of unreadInThread) {
+        try {
+          await messagesAPI.markRead(unread.id);
+        } catch { /* ignore */ }
+      }
+      if (unreadInThread.length > 0) {
+        const now = new Date().toISOString();
+        setMessages((prev) => prev.map((m) =>
+          (m.threadId || m.id) === tid || m.id === tid ? { ...m, _readAt: m._readAt || now } : m
+        ));
       }
     }
   };

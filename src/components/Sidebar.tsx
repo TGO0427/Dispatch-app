@@ -193,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       className={`theme-static-dark fixed left-0 top-0 h-screen flex flex-col z-30 transition-all duration-300 ${
         collapsed ? "w-16" : "w-[280px]"
       }`}
-      style={{ background: "#064e3b" }}
+      style={{ background: "#166534" }}
     >
       {/* Header */}
       <div className={`flex items-center justify-between py-5 border-b border-white/[0.06] ${collapsed ? "px-3" : "px-5"}`}>
@@ -224,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full text-slate-200 text-sm rounded-xl pl-10 pr-3 py-3 placeholder-slate-500 border border-white/[0.1] focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20"
-              style={{ background: "#065f46" }}
+              style={{ background: "#15803d" }}
             />
           </div>
         </div>
@@ -233,7 +233,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Calendar Picker */}
       {!collapsed && (
         <div className="px-4 pb-2">
-          <div className="rounded-xl p-3" style={{ background: "#065f46" }}>
+          <div className="rounded-xl p-3" style={{ background: "#15803d" }}>
             {/* Year nav */}
             <div className="flex items-center justify-between mb-2">
               <button onClick={() => setCalYear((y) => y - 1)} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
@@ -281,7 +281,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Warehouse Filter */}
       {!collapsed && warehouses.length > 0 && (
         <div className="px-4 pb-2">
-          <div className="rounded-xl p-3" style={{ background: "#065f46" }}>
+          <div className="rounded-xl p-3" style={{ background: "#15803d" }}>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Warehouse</p>
             <button
               onClick={() => setFilters({ ...filters, warehouse: undefined })}
@@ -372,7 +372,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Quick Stats */}
       {!collapsed && (
-        <div className="mx-4 mb-3 p-3 rounded-xl" style={{ background: "#065f46" }}>
+        <div className="mx-4 mb-3 p-3 rounded-xl" style={{ background: "#15803d" }}>
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.14em] mb-3">
             Quick Stats
           </p>
@@ -476,7 +476,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Profile Card */}
       {!collapsed && (
-        <div className="mx-4 mb-4 p-3.5 rounded-xl border border-white/[0.08] flex items-center gap-3" style={{ background: "#065f46" }}>
+        <div className="mx-4 mb-4 p-3.5 rounded-xl border border-white/[0.08] flex items-center gap-3" style={{ background: "#15803d" }}>
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-sm">
             <User className="w-4 h-4 text-white" />
           </div>

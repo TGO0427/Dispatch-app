@@ -190,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
   return (
     <div
-      className={`theme-static-dark fixed left-0 top-0 h-screen flex flex-col z-30 transition-all duration-300 ${
+      className={`fixed left-0 top-0 h-screen flex flex-col z-30 transition-all duration-300 ${
         collapsed ? "w-16" : "w-[280px]"
       }`}
       style={{ background: "#064e3b" }}

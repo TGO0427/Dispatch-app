@@ -52,18 +52,13 @@ interface NavSection {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, collapsed, onToggleCollapse, onOpenHelp }) => {
   const { user, logout } = useAuth();
-  const { jobs, filters, setFilters } = useDispatch();
+  const { jobs } = useDispatch();
   const { theme, toggle: toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     dispatch: true,
     operations: true,
   });
-
-  // Calendar state
-  const [calYear, setCalYear] = useState(new Date().getFullYear());
-  const [calMonth, setCalMonth] = useState<number | null>(null); // null = all months
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   // Unread message count
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -75,13 +70,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
     const interval = setInterval(fetchUnread, 15000);
     return () => clearInterval(interval);
   }, []);
-
-  // Warehouses for filter
-  const warehouses = useMemo(() => {
-    const set = new Set<string>();
-    jobs.forEach((j) => { if (j.warehouse) set.add(j.warehouse); });
-    return Array.from(set).sort();
-  }, [jobs]);
 
   const sidebarStats = useMemo(() => {
     const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
@@ -200,7 +188,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         {!collapsed && (
           <div>
             <h1 className="text-white font-bold text-2xl tracking-tight leading-tight">Dispatch</h1>
-            <p className="text-white/30 text-[11px] uppercase tracking-[0.14em] mt-0.5">
+            <p className="text-white/40 text-[11px] uppercase tracking-[0.14em] mt-0.5">
               K58 Dispatch
             </p>
           </div>
@@ -217,114 +205,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {!collapsed && (
         <div className="px-4 pt-4 pb-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
             <input
               type="text"
               placeholder="Search menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-white/80 text-sm rounded-xl pl-10 pr-3 py-3 placeholder-white/40 border border-white/[0.1] focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20 bg-white/10"
+              className="w-full text-white/80 text-sm rounded-xl pl-10 pr-3 py-3 placeholder-white/40 border border-white/[0.1] bg-white/10 focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20"
             />
           </div>
         </div>
       )}
 
-      {/* Calendar Picker */}
-      {!collapsed && (
-        <div className="px-4 pb-2">
-          <div className="rounded-xl p-3 bg-white/10">
-            {/* Year nav */}
-            <div className="flex items-center justify-between mb-2">
-              <button onClick={() => setCalYear((y) => y - 1)} className="w-6 h-6 rounded-md flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors">
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <span className="text-sm font-bold text-white">{calYear}</span>
-              <button onClick={() => setCalYear((y) => y + 1)} className="w-6 h-6 rounded-md flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors">
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            {/* All months button */}
-            <button
-              onClick={() => { setCalMonth(null); setFilters({ ...filters, etaWeek: undefined }); }}
-              className={`w-full text-center text-[10px] font-semibold py-1 rounded-md mb-1.5 transition-all ${
-                calMonth === null ? "bg-emerald-500 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              All Months
-            </button>
-            {/* Month grid */}
-            <div className="grid grid-cols-4 gap-1">
-              {months.map((m, idx) => {
-                const isActive = calMonth === idx;
-                const now = new Date();
-                const isCurrent = idx === now.getMonth() && calYear === now.getFullYear();
-                return (
-                  <button
-                    key={m}
-                    onClick={() => { setCalMonth(idx); }}
-                    className={`text-[10px] py-1 rounded-md font-medium transition-all ${
-                      isActive ? "bg-emerald-500 text-white" :
-                      isCurrent ? "text-emerald-400 bg-emerald-500/10" :
-                      "text-white/60 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    {m}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Warehouse Filter */}
-      {!collapsed && warehouses.length > 0 && (
-        <div className="px-4 pb-2">
-          <div className="rounded-xl p-3 bg-white/10">
-            <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1.5">Warehouse</p>
-            <button
-              onClick={() => setFilters({ ...filters, warehouse: undefined })}
-              className={`w-full text-left text-[11px] font-medium py-1 px-2 rounded-md mb-0.5 transition-all ${
-                !filters.warehouse ? "bg-emerald-500 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              All Warehouses
-            </button>
-            {warehouses.map((wh) => (
-              <button
-                key={wh}
-                onClick={() => setFilters({ ...filters, warehouse: filters.warehouse === wh ? undefined : wh })}
-                className={`w-full text-left text-[11px] font-medium py-1 px-2 rounded-md mb-0.5 transition-all truncate ${
-                  filters.warehouse === wh ? "bg-emerald-500 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                {wh}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      {!collapsed && (
-        <div className="px-4 pb-3 flex gap-2">
-          <button
-            onClick={() => onItemChange("home")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
-          >
-            + Order
-          </button>
-          <button
-            onClick={() => onItemChange("ibt")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
-          >
-            + IBT
-          </button>
-        </div>
-      )}
-
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto px-3 pt-1 pb-2 sidebar-scroll">
+      <div className="flex-1 overflow-y-auto px-3 pt-3 pb-2 sidebar-scroll">
         {/* Dashboard */}
         {matchesSearch("Dashboard") && renderNavButton({
           id: "dashboard", icon: LayoutDashboard, label: "Dashboard",
@@ -344,7 +238,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
                   onClick={() => !searchQuery && toggleSection(section.key)}
                   className="w-full flex items-center justify-between px-3 mb-2.5 group"
                 >
-                  <span className="text-[11px] font-bold text-white/40 uppercase tracking-[0.14em]">
+                  <span className="text-[11px] font-bold text-white/60 uppercase tracking-[0.14em]">
                     {section.title}
                   </span>
                   <ChevronDown
@@ -372,7 +266,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Quick Stats */}
       {!collapsed && (
         <div className="mx-4 mb-3 p-3 rounded-xl bg-white/10">
-          <p className="text-[11px] font-bold text-white/40 uppercase tracking-[0.14em] mb-3">
+          <p className="text-[11px] font-bold text-white/60 uppercase tracking-[0.14em] mb-3">
             Quick Stats
           </p>
           <div className="space-y-2.5">
@@ -389,7 +283,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className={`w-1.5 h-1.5 rounded-full ${sidebarStats.exceptions > 0 ? "bg-rose-400" : "bg-slate-600"}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${sidebarStats.exceptions > 0 ? "bg-rose-400" : "bg-white/20"}`} />
                 <span className="text-[13px] text-white/70">Exceptions</span>
               </div>
               <span className={`text-[13px] font-bold ${sidebarStats.exceptions > 0 ? "text-rose-400" : "text-white/40"}`}>

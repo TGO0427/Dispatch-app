@@ -7,7 +7,6 @@ import {
   ClipboardList,
   Clock,
   TrendingUp,
-  TrendingDown,
   Minus,
   Bell,
 } from "lucide-react";
@@ -347,10 +346,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
             </div>
             <div className="flex items-center gap-1 mt-1.5">
               {card.changeType === "up" && <TrendingUp className="w-3 h-3 text-green-500" />}
-              {card.changeType === "down" && <TrendingDown className="w-3 h-3 text-red-500" />}
               {card.changeType === "neutral" && <Minus className="w-3 h-3 text-gray-400" />}
               <span className={`text-[10px] ${
-                card.changeType === "up" ? "text-green-600" : card.changeType === "down" ? "text-red-600" : "text-gray-500"
+                card.changeType === "up" ? "text-green-600" : "text-gray-500"
               }`}>
                 {card.change}
               </span>

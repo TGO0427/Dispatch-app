@@ -227,53 +227,53 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     {
       icon: Package, value: stats.total, label: "TOTAL JOBS",
       change: stats.total > 0 ? `${stats.total} active` : "No jobs", changeType: "neutral" as const, sublabel: "",
-      color: "text-yellow-500", bgColor: "bg-yellow-500/10", nav: "clipboard", tab: "open",
+      borderColor: "border-l-blue-500", iconBg: "bg-blue-50", iconColor: "text-blue-500", nav: "clipboard", tab: "open",
     },
     {
       icon: Truck, value: stats.inTransit, label: "IN TRANSIT",
       change: `${stats.busyDrivers} drivers busy`, changeType: "neutral" as const, sublabel: "Active",
-      color: "text-red-500", bgColor: "bg-red-500/10", nav: "clipboard", tab: "assigned",
+      borderColor: "border-l-red-500", iconBg: "bg-red-50", iconColor: "text-red-500", nav: "clipboard", tab: "in-transit",
     },
     {
       icon: Archive, value: stats.delivered, label: "DELIVERED",
       change: `${stats.delivered} completed`, changeType: "up" as const, sublabel: "Completed",
-      color: "text-green-500", bgColor: "bg-green-500/10", nav: "clock", tab: undefined,
+      borderColor: "border-l-green-500", iconBg: "bg-green-50", iconColor: "text-green-500", nav: "clock", tab: undefined,
     },
     {
       icon: AlertTriangle, value: stats.exceptions, label: "EXCEPTIONS",
       change: stats.exceptions > 0 ? "Needs Attention" : "All clear",
       changeType: stats.exceptions > 0 ? ("down" as const) : ("up" as const),
       sublabel: stats.exceptions > 0 ? "Needs Attention" : "",
-      color: "text-orange-500", bgColor: "bg-orange-500/10", nav: "clipboard", tab: "open",
+      borderColor: "border-l-orange-500", iconBg: "bg-orange-50", iconColor: "text-orange-500", nav: "clipboard", tab: "open",
     },
     {
       icon: ClipboardList, value: stats.pending, label: "PENDING",
       change: `${stats.assigned} assigned`, changeType: "neutral" as const, sublabel: "",
-      color: "text-blue-500", bgColor: "bg-blue-500/10", nav: "clipboard", tab: "open",
+      borderColor: "border-l-amber-500", iconBg: "bg-amber-50", iconColor: "text-amber-500", nav: "clipboard", tab: "open",
     },
     {
       icon: Clock, value: stats.departuresThisWeek, label: "ETD THIS WEEK",
       change: "Departures scheduled",
       changeType: stats.departuresThisWeek > 0 ? "up" as const : "neutral" as const,
       sublabel: stats.departuresThisWeek > 5 ? "Busy Week" : "",
-      color: "text-purple-500", bgColor: "bg-purple-500/10", nav: "calendar", tab: undefined,
+      borderColor: "border-l-purple-500", iconBg: "bg-purple-50", iconColor: "text-purple-500", nav: "calendar", tab: undefined,
     },
     {
       icon: Truck, value: stats.availableDrivers, label: "AVAILABLE DRIVERS",
       change: `${drivers.length} total`, changeType: "neutral" as const, sublabel: "",
-      color: "text-teal-500", bgColor: "bg-teal-500/10", nav: "clipboard", tab: "open",
+      borderColor: "border-l-teal-500", iconBg: "bg-teal-50", iconColor: "text-teal-500", nav: "clipboard", tab: "open",
     },
     {
       icon: Package, value: stats.palletsThisWeek, label: "PALLETS THIS WEEK",
       change: "To dispatch",
       changeType: stats.palletsThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: "",
-      color: "text-indigo-500", bgColor: "bg-indigo-500/10", nav: "clipboard", tab: "open",
+      borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clipboard", tab: "open",
     },
     {
       icon: Archive, value: stats.weightThisWeek.toLocaleString(), label: "WEIGHT THIS WEEK",
       change: "Qty to dispatch",
       changeType: stats.weightThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: "",
-      color: "text-cyan-500", bgColor: "bg-cyan-500/10", nav: "clipboard", tab: "open",
+      borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clipboard", tab: "open",
     },
   ];
 
@@ -343,48 +343,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
         {statCards.map((card, idx) => (
           <div
             key={idx}
-            className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer active:scale-[0.97]"
+            className={`bg-white rounded-lg border border-gray-200 border-l-[3px] ${card.borderColor} px-4 py-3 hover:shadow-md transition-all cursor-pointer active:scale-[0.97] relative`}
             onClick={() => onNavigate?.(card.nav, card.tab)}
           >
-            <div className={`inline-flex p-1.5 rounded-lg ${card.bgColor} mb-2`}>
-              <card.icon className={`w-4 h-4 ${card.color}`} />
+            <div className={`absolute top-3 right-3 w-7 h-7 rounded-lg ${card.iconBg} flex items-center justify-center`}>
+              <card.icon className={`w-3.5 h-3.5 ${card.iconColor}`} />
             </div>
-            <div className="text-2xl font-bold text-gray-900">{card.value}</div>
-            <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-0.5">
+            <div className="text-2xl font-bold text-gray-900 mt-1">{card.value}</div>
+            <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mt-0.5">
               {card.label}
             </div>
-            <div className="flex items-center gap-1 mt-2">
+            <div className="flex items-center gap-1 mt-1.5">
               {card.changeType === "up" && <TrendingUp className="w-3 h-3 text-green-500" />}
               {card.changeType === "down" && <TrendingDown className="w-3 h-3 text-red-500" />}
               {card.changeType === "neutral" && <Minus className="w-3 h-3 text-gray-400" />}
-              <span
-                className={`text-xs ${
-                  card.changeType === "up"
-                    ? "text-green-600"
-                    : card.changeType === "down"
-                    ? "text-red-600"
-                    : "text-gray-500"
-                }`}
-              >
+              <span className={`text-[10px] ${
+                card.changeType === "up" ? "text-green-600" : card.changeType === "down" ? "text-red-600" : "text-gray-500"
+              }`}>
                 {card.change}
               </span>
             </div>
             {card.sublabel && (
-              <span
-                className={`inline-block mt-1 text-[10px] font-medium ${
-                  card.sublabel === "Needs Attention"
-                    ? "text-orange-600"
-                    : card.sublabel === "Completed"
-                    ? "text-green-600"
-                    : card.sublabel === "Active"
-                    ? "text-blue-600"
-                    : "text-gray-500"
-                }`}
-              >
+              <span className={`inline-block mt-1 text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                card.sublabel === "Needs Attention" ? "text-orange-700 bg-orange-50" :
+                card.sublabel === "Completed" ? "text-green-700 bg-green-50" :
+                card.sublabel === "Active" ? "text-blue-700 bg-blue-50" :
+                card.sublabel === "Busy Week" ? "text-purple-700 bg-purple-50" :
+                "text-gray-600 bg-gray-50"
+              }`}>
                 {card.sublabel}
               </span>
             )}

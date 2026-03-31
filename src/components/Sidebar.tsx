@@ -160,8 +160,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           collapsed ? "justify-center px-2 py-3" : "gap-3 px-3.5 py-[11px]"
         } ${
           isActive
-            ? "bg-emerald-400/[0.15] shadow-[0_0_12px_-3px_rgba(16,185,129,0.25)]"
-            : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.07]"
+            ? "bg-emerald-400/20 shadow-[0_0_12px_-3px_rgba(16,185,129,0.1)]"
+            : "text-white/50 hover:text-white/90 hover:bg-white/[0.08]"
         }`}
         title={collapsed ? label : undefined}
       >
@@ -172,7 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-emerald-400" : ""}`} />
         {!collapsed && (
           <>
-            <span className={`text-[14px] flex-1 text-left ${isActive ? "text-slate-50 font-semibold" : "font-medium"}`}>{label}</span>
+            <span className={`text-[14px] flex-1 text-left ${isActive ? "text-white font-semibold" : "font-medium"}`}>{label}</span>
             {badge !== undefined && badge > 0 && (
               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                 isActive
@@ -193,21 +193,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       className={`theme-static-dark fixed left-0 top-0 h-screen flex flex-col z-30 transition-all duration-300 ${
         collapsed ? "w-16" : "w-[280px]"
       }`}
-      style={{ background: "#1a2e23" }}
+      style={{ background: "#064e3b" }}
     >
       {/* Header */}
       <div className={`flex items-center justify-between py-5 border-b border-white/[0.06] ${collapsed ? "px-3" : "px-5"}`}>
         {!collapsed && (
           <div>
             <h1 className="text-white font-bold text-2xl tracking-tight leading-tight">Dispatch</h1>
-            <p className="text-slate-500 text-[11px] uppercase tracking-[0.14em] mt-0.5">
+            <p className="text-white/30 text-[11px] uppercase tracking-[0.14em] mt-0.5">
               K58 Dispatch
             </p>
           </div>
         )}
         <button
           onClick={onToggleCollapse}
-          className="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.1] transition-colors"
+          className="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.1] transition-colors"
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
@@ -217,14 +217,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {!collapsed && (
         <div className="px-4 pt-4 pb-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
             <input
               type="text"
               placeholder="Search menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-slate-200 text-sm rounded-xl pl-10 pr-3 py-3 placeholder-slate-500 border border-white/[0.1] focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20"
-              style={{ background: "#243d2e" }}
+              className="w-full text-white/80 text-sm rounded-xl pl-10 pr-3 py-3 placeholder-white/40 border border-white/[0.1] focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20 bg-white/10"
             />
           </div>
         </div>
@@ -233,14 +232,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Calendar Picker */}
       {!collapsed && (
         <div className="px-4 pb-2">
-          <div className="rounded-xl p-3" style={{ background: "#243d2e" }}>
+          <div className="rounded-xl p-3 bg-white/10">
             {/* Year nav */}
             <div className="flex items-center justify-between mb-2">
-              <button onClick={() => setCalYear((y) => y - 1)} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+              <button onClick={() => setCalYear((y) => y - 1)} className="w-6 h-6 rounded-md flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors">
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <span className="text-sm font-bold text-white">{calYear}</span>
-              <button onClick={() => setCalYear((y) => y + 1)} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+              <button onClick={() => setCalYear((y) => y + 1)} className="w-6 h-6 rounded-md flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors">
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -248,7 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
             <button
               onClick={() => { setCalMonth(null); setFilters({ ...filters, etaWeek: undefined }); }}
               className={`w-full text-center text-[10px] font-semibold py-1 rounded-md mb-1.5 transition-all ${
-                calMonth === null ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
+                calMonth === null ? "bg-emerald-500 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
               }`}
             >
               All Months
@@ -266,7 +265,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
                     className={`text-[10px] py-1 rounded-md font-medium transition-all ${
                       isActive ? "bg-emerald-500 text-white" :
                       isCurrent ? "text-emerald-400 bg-emerald-500/10" :
-                      "text-slate-400 hover:text-white hover:bg-white/10"
+                      "text-white/60 hover:text-white hover:bg-white/10"
                     }`}
                   >
                     {m}
@@ -281,12 +280,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       {/* Warehouse Filter */}
       {!collapsed && warehouses.length > 0 && (
         <div className="px-4 pb-2">
-          <div className="rounded-xl p-3" style={{ background: "#243d2e" }}>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Warehouse</p>
+          <div className="rounded-xl p-3 bg-white/10">
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1.5">Warehouse</p>
             <button
               onClick={() => setFilters({ ...filters, warehouse: undefined })}
               className={`w-full text-left text-[11px] font-medium py-1 px-2 rounded-md mb-0.5 transition-all ${
-                !filters.warehouse ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
+                !filters.warehouse ? "bg-emerald-500 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
               }`}
             >
               All Warehouses
@@ -296,7 +295,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
                 key={wh}
                 onClick={() => setFilters({ ...filters, warehouse: filters.warehouse === wh ? undefined : wh })}
                 className={`w-full text-left text-[11px] font-medium py-1 px-2 rounded-md mb-0.5 transition-all truncate ${
-                  filters.warehouse === wh ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
+                  filters.warehouse === wh ? "bg-emerald-500 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
                 }`}
               >
                 {wh}
@@ -311,13 +310,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         <div className="px-4 pb-3 flex gap-2">
           <button
             onClick={() => onItemChange("home")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
           >
             + Order
           </button>
           <button
             onClick={() => onItemChange("ibt")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
           >
             + IBT
           </button>
@@ -345,11 +344,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
                   onClick={() => !searchQuery && toggleSection(section.key)}
                   className="w-full flex items-center justify-between px-3 mb-2.5 group"
                 >
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.14em]">
+                  <span className="text-[11px] font-bold text-white/40 uppercase tracking-[0.14em]">
                     {section.title}
                   </span>
                   <ChevronDown
-                    className={`w-3.5 h-3.5 text-slate-600 transition-transform duration-200 ${
+                    className={`w-3.5 h-3.5 text-white/30 transition-transform duration-200 ${
                       isExpanded ? "" : "-rotate-90"
                     }`}
                   />
@@ -372,28 +371,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Quick Stats */}
       {!collapsed && (
-        <div className="mx-4 mb-3 p-3 rounded-xl" style={{ background: "#243d2e" }}>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.14em] mb-3">
+        <div className="mx-4 mb-3 p-3 rounded-xl bg-white/10">
+          <p className="text-[11px] font-bold text-white/40 uppercase tracking-[0.14em] mb-3">
             Quick Stats
           </p>
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-slate-300">Total Jobs</span>
+              <span className="text-[13px] text-white/70">Total Jobs</span>
               <span className="text-[13px] font-bold text-white">{sidebarStats.totalJobs}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[13px] text-slate-300">In Transit</span>
+                <span className="text-[13px] text-white/70">In Transit</span>
               </div>
               <span className="text-[13px] font-bold text-emerald-400">{sidebarStats.inTransit}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className={`w-1.5 h-1.5 rounded-full ${sidebarStats.exceptions > 0 ? "bg-rose-400" : "bg-slate-600"}`} />
-                <span className="text-[13px] text-slate-300">Exceptions</span>
+                <span className="text-[13px] text-white/70">Exceptions</span>
               </div>
-              <span className={`text-[13px] font-bold ${sidebarStats.exceptions > 0 ? "text-rose-400" : "text-slate-500"}`}>
+              <span className={`text-[13px] font-bold ${sidebarStats.exceptions > 0 ? "text-rose-400" : "text-white/40"}`}>
                 {sidebarStats.exceptions}
               </span>
             </div>
@@ -413,8 +412,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
                 collapsed ? "justify-center px-2 py-2.5" : "px-3.5 py-2.5"
               } ${
                 activeItem === item.id
-                  ? "bg-emerald-400/[0.15] shadow-[0_0_12px_-3px_rgba(16,185,129,0.25)]"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.06]"
+                  ? "bg-emerald-400/20 shadow-[0_0_12px_-3px_rgba(16,185,129,0.1)]"
+                  : "text-white/40 hover:text-white/70 hover:bg-white/[0.06]"
               }`}
               title={collapsed ? item.label : undefined}
             >
@@ -431,7 +430,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         {onOpenHelp && (
           <button
             onClick={onOpenHelp}
-            className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-slate-500 hover:text-emerald-400 hover:bg-white/[0.06] ${
+            className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-white/40 hover:text-emerald-400 hover:bg-white/[0.06] ${
               collapsed ? "justify-center px-2 py-2.5" : "px-3.5 py-2.5"
             }`}
             title={collapsed ? "Help Guide" : undefined}
@@ -444,7 +443,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
-          className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-slate-500 hover:text-amber-400 hover:bg-white/[0.06] ${
+          className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-white/40 hover:text-amber-400 hover:bg-white/[0.06] ${
             collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
           }`}
           title={collapsed ? (theme === "dark" ? "Light Mode" : "Dark Mode") : undefined}
@@ -464,7 +463,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         {/* Logout */}
         <button
           onClick={handleLogout}
-          className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-slate-500 hover:text-rose-400 hover:bg-white/[0.06] ${
+          className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 text-white/40 hover:text-rose-400 hover:bg-white/[0.06] ${
             collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
           }`}
           title={collapsed ? "Logout" : undefined}
@@ -476,13 +475,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
       {/* Profile Card */}
       {!collapsed && (
-        <div className="mx-4 mb-4 p-3.5 rounded-xl border border-white/[0.08] flex items-center gap-3" style={{ background: "#243d2e" }}>
+        <div className="mx-4 mb-4 p-3.5 rounded-xl border border-white/[0.08] flex items-center gap-3 bg-white/10">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-sm">
             <User className="w-4 h-4 text-white" />
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-slate-100 truncate">{user?.username || "User"}</p>
-            <p className="text-[11px] text-slate-300 truncate capitalize">{user?.role || "user"}</p>
+            <p className="text-[13px] font-semibold text-white/90 truncate">{user?.username || "User"}</p>
+            <p className="text-[11px] text-white/70 truncate capitalize">{user?.role || "user"}</p>
           </div>
         </div>
       )}

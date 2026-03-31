@@ -240,13 +240,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       borderColor: "border-l-green-500", iconBg: "bg-green-50", iconColor: "text-green-500", nav: "clock", tab: undefined,
     },
     {
-      icon: AlertTriangle, value: stats.exceptions, label: "EXCEPTIONS",
-      change: stats.exceptions > 0 ? "Needs Attention" : "All clear",
-      changeType: stats.exceptions > 0 ? ("down" as const) : ("up" as const),
-      sublabel: stats.exceptions > 0 ? "Needs Attention" : "",
-      borderColor: "border-l-orange-500", iconBg: "bg-orange-50", iconColor: "text-orange-500", nav: "clipboard", tab: "open",
-    },
-    {
       icon: ClipboardList, value: stats.pending, label: "PENDING",
       change: `${stats.assigned} assigned`, changeType: "neutral" as const, sublabel: "",
       borderColor: "border-l-amber-500", iconBg: "bg-amber-50", iconColor: "text-amber-500", nav: "clipboard", tab: "open",
@@ -257,11 +250,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       changeType: stats.departuresThisWeek > 0 ? "up" as const : "neutral" as const,
       sublabel: stats.departuresThisWeek > 5 ? "Busy Week" : "",
       borderColor: "border-l-purple-500", iconBg: "bg-purple-50", iconColor: "text-purple-500", nav: "calendar", tab: undefined,
-    },
-    {
-      icon: Truck, value: stats.availableDrivers, label: "AVAILABLE DRIVERS",
-      change: `${drivers.length} total`, changeType: "neutral" as const, sublabel: "",
-      borderColor: "border-l-teal-500", iconBg: "bg-teal-50", iconColor: "text-teal-500", nav: "clipboard", tab: "open",
     },
     {
       icon: Package, value: stats.palletsThisWeek, label: "PALLETS THIS WEEK",
@@ -343,7 +331,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {statCards.map((card, idx) => (
           <div
             key={idx}

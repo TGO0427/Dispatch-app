@@ -40,7 +40,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
   const [selectedTransporter, setSelectedTransporter] = useState<Driver | null>(null);
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
-  const [activeTab, setActiveTab] = useState<"open" | "assigned" | "delivered">("open");
+  const [activeTab, setActiveTab] = useState<"open" | "assigned" | "in-transit" | "delivered">("open");
   const [newJob, setNewJob] = useState({
     ref: "",
     customer: "",
@@ -95,7 +95,8 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
     return sorted.filter((job) => {
       switch (activeTab) {
         case "open": return job.status === "pending" || job.status === "exception";
-        case "assigned": return job.status === "assigned" || job.status === "en-route";
+        case "assigned": return job.status === "assigned";
+        case "in-transit": return job.status === "en-route";
         case "delivered": return job.status === "delivered" || job.status === "cancelled";
         default: return true;
       }
@@ -104,7 +105,8 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
 
   const tabCounts = useMemo(() => ({
     open: ibtJobs.filter((j) => j.status === "pending" || j.status === "exception").length,
-    assigned: ibtJobs.filter((j) => j.status === "assigned" || j.status === "en-route").length,
+    assigned: ibtJobs.filter((j) => j.status === "assigned").length,
+    inTransit: ibtJobs.filter((j) => j.status === "en-route").length,
     delivered: ibtJobs.filter((j) => j.status === "delivered" || j.status === "cancelled").length,
   }), [ibtJobs]);
 
@@ -336,7 +338,8 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
       <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1">
         {([
           { key: "open" as const, label: "Open", count: tabCounts.open, dotColor: "bg-yellow-500" },
-          { key: "assigned" as const, label: "Assigned / In Transit", count: tabCounts.assigned, dotColor: "bg-blue-500" },
+          { key: "assigned" as const, label: "Assigned", count: tabCounts.assigned, dotColor: "bg-blue-500" },
+          { key: "in-transit" as const, label: "In Transit", count: tabCounts.inTransit, dotColor: "bg-indigo-500" },
           { key: "delivered" as const, label: "Delivered / Closed", count: tabCounts.delivered, dotColor: "bg-green-500" },
         ]).map((tab) => (
           <button

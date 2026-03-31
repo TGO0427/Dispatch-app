@@ -44,7 +44,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
   const [selectedAlertDate, setSelectedAlertDate] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"open" | "assigned" | "delivered">(initialTab || "open");
+  const [activeTab, setActiveTab] = useState<"open" | "assigned" | "in-transit" | "delivered">(initialTab || "open");
   const [showPickedOnly, setShowPickedOnly] = useState(false);
   const [showOutstandingCoaOnly, setShowOutstandingCoaOnly] = useState(false);
   const [serviceFilter, setServiceFilter] = useState<"delivery" | "collection" | null>(null);
@@ -136,7 +136,9 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         case "open":
           return job.status === "pending" || job.status === "exception";
         case "assigned":
-          return job.status === "assigned" || job.status === "en-route";
+          return job.status === "assigned";
+        case "in-transit":
+          return job.status === "en-route";
         case "delivered":
           return job.status === "delivered" || job.status === "cancelled";
         default:
@@ -148,7 +150,8 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   // Tab counts (unfiltered by search/filters, so tabs always show totals)
   const tabCounts = useMemo(() => ({
     open: orderJobs.filter((j) => j.status === "pending" || j.status === "exception").length,
-    assigned: orderJobs.filter((j) => j.status === "assigned" || j.status === "en-route").length,
+    assigned: orderJobs.filter((j) => j.status === "assigned").length,
+    inTransit: orderJobs.filter((j) => j.status === "en-route").length,
     delivered: orderJobs.filter((j) => j.status === "delivered" || j.status === "cancelled").length,
   }), [orderJobs]);
 
@@ -472,7 +475,8 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1.5">
         {([
           { key: "open" as const, label: "Open Orders", count: tabCounts.open, color: "text-yellow-600", dotColor: "bg-yellow-500" },
-          { key: "assigned" as const, label: "Assigned / In Transit", count: tabCounts.assigned, color: "text-blue-600", dotColor: "bg-blue-500" },
+          { key: "assigned" as const, label: "Assigned", count: tabCounts.assigned, color: "text-blue-600", dotColor: "bg-blue-500" },
+          { key: "in-transit" as const, label: "In Transit", count: tabCounts.inTransit, color: "text-indigo-600", dotColor: "bg-indigo-500" },
           { key: "delivered" as const, label: "Delivered / Closed", count: tabCounts.delivered, color: "text-green-600", dotColor: "bg-green-500" },
         ]).map((tab) => (
           <button
@@ -543,12 +547,13 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     <div className="flex items-center gap-2">
                       <Briefcase className="h-5 w-5 text-gray-600" />
                       <CardTitle>
-                        {activeTab === "open" ? "Open Orders" : activeTab === "assigned" ? "Assigned Orders" : "Delivered Orders"} ({filteredAndSortedJobs.length})
+                        {activeTab === "open" ? "Open Orders" : activeTab === "assigned" ? "Assigned Orders" : activeTab === "in-transit" ? "In Transit" : "Delivered Orders"} ({filteredAndSortedJobs.length})
                       </CardTitle>
                     </div>
                     <p className="mt-1 text-sm text-gray-600">
                       {activeTab === "open" ? "Drag jobs to transporters to assign" :
-                       activeTab === "assigned" ? "Orders assigned to transporters or in transit" :
+                       activeTab === "assigned" ? "Orders assigned to transporters, awaiting dispatch" :
+                       activeTab === "in-transit" ? "Orders currently en route to destination" :
                        "Completed and closed orders"}
                     </p>
                   </div>

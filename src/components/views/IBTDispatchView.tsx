@@ -290,7 +290,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
   useMemo(() => { setCurrentPage(1); }, [prevFilterKey, activeTab]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header — compact */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

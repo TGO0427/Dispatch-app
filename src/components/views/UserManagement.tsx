@@ -212,8 +212,8 @@ export const UserManagement: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600 mt-1">Manage system users and their permissions</p>
+          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage system users and their permissions</p>
         </div>
         <Button onClick={() => setShowAddModal(true)} className="flex items-center gap-2">
           <UserPlus className="w-4 h-4" />

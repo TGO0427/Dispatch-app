@@ -440,14 +440,14 @@ export const HistoryView: React.FC = () => {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <Clock className="h-8 w-8 text-blue-600" />
-              <h1 className="text-3xl font-bold text-gray-900">Job History</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Job History</h1>
               {selectedWeek !== "all" && (
                 <span className="ml-2 inline-flex items-center px-3 py-1 rounded-lg bg-blue-100 text-blue-700 text-sm font-semibold">
                   {availableWeeks.find((w) => w.value === selectedWeek)?.label}
                 </span>
               )}
             </div>
-            <p className="text-gray-600">View completed and cancelled jobs with detailed tracking</p>
+            <p className="text-sm text-gray-500">View completed and cancelled jobs with detailed tracking</p>
           </div>
           <div className="flex items-center gap-2">
             <Button onClick={exportToPDF} className="gap-2 bg-slate-800 hover:bg-slate-900">

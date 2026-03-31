@@ -98,7 +98,7 @@ export const CalendarView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header — compact with nav */}
       <div className="flex items-center justify-between">
         <div>

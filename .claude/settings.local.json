@@ -41,7 +41,8 @@
       "Bash(preview orders before import\":*)",
       "Bash(ls /mnt/c/Users/Tino/dispatch-app/.env*)",
       "Bash(find /mnt/c/Users/Tino/dispatch-app -type f -name *transporter* -o -name *driver*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(Warehouses\" button to clear. Integrates with DispatchContext filters.:*)"
     ],
     "deny": [],
     "ask": []

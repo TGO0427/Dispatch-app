@@ -52,13 +52,18 @@ interface NavSection {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, collapsed, onToggleCollapse, onOpenHelp }) => {
   const { user, logout } = useAuth();
-  const { jobs } = useDispatch();
+  const { jobs, filters, setFilters } = useDispatch();
   const { theme, toggle: toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     dispatch: true,
     operations: true,
   });
+
+  // Calendar state
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState<number | null>(null); // null = all months
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   // Unread message count
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -70,6 +75,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
     const interval = setInterval(fetchUnread, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  // Warehouses for filter
+  const warehouses = useMemo(() => {
+    const set = new Set<string>();
+    jobs.forEach((j) => { if (j.warehouse) set.add(j.warehouse); });
+    return Array.from(set).sort();
+  }, [jobs]);
 
   const sidebarStats = useMemo(() => {
     const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
@@ -218,8 +230,102 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         </div>
       )}
 
+      {/* Calendar Picker */}
+      {!collapsed && (
+        <div className="px-4 pb-2">
+          <div className="rounded-xl p-3" style={{ background: "#1a2744" }}>
+            {/* Year nav */}
+            <div className="flex items-center justify-between mb-2">
+              <button onClick={() => setCalYear((y) => y - 1)} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-sm font-bold text-white">{calYear}</span>
+              <button onClick={() => setCalYear((y) => y + 1)} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {/* All months button */}
+            <button
+              onClick={() => { setCalMonth(null); setFilters({ ...filters, etaWeek: undefined }); }}
+              className={`w-full text-center text-[10px] font-semibold py-1 rounded-md mb-1.5 transition-all ${
+                calMonth === null ? "bg-blue-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              All Months
+            </button>
+            {/* Month grid */}
+            <div className="grid grid-cols-4 gap-1">
+              {months.map((m, idx) => {
+                const isActive = calMonth === idx;
+                const now = new Date();
+                const isCurrent = idx === now.getMonth() && calYear === now.getFullYear();
+                return (
+                  <button
+                    key={m}
+                    onClick={() => { setCalMonth(idx); }}
+                    className={`text-[10px] py-1 rounded-md font-medium transition-all ${
+                      isActive ? "bg-blue-500 text-white" :
+                      isCurrent ? "text-blue-400 bg-blue-500/10" :
+                      "text-slate-400 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Warehouse Filter */}
+      {!collapsed && warehouses.length > 0 && (
+        <div className="px-4 pb-2">
+          <div className="rounded-xl p-3" style={{ background: "#1a2744" }}>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Warehouse</p>
+            <button
+              onClick={() => setFilters({ ...filters, warehouse: undefined })}
+              className={`w-full text-left text-[11px] font-medium py-1 px-2 rounded-md mb-0.5 transition-all ${
+                !filters.warehouse ? "bg-blue-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              All Warehouses
+            </button>
+            {warehouses.map((wh) => (
+              <button
+                key={wh}
+                onClick={() => setFilters({ ...filters, warehouse: filters.warehouse === wh ? undefined : wh })}
+                className={`w-full text-left text-[11px] font-medium py-1 px-2 rounded-md mb-0.5 transition-all truncate ${
+                  filters.warehouse === wh ? "bg-blue-500 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                {wh}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      {!collapsed && (
+        <div className="px-4 pb-3 flex gap-2">
+          <button
+            onClick={() => onItemChange("home")}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors"
+          >
+            + Order
+          </button>
+          <button
+            onClick={() => onItemChange("ibt")}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors"
+          >
+            + IBT
+          </button>
+        </div>
+      )}
+
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto px-3 pt-3 pb-2 sidebar-scroll">
+      <div className="flex-1 overflow-y-auto px-3 pt-1 pb-2 sidebar-scroll">
         {/* Dashboard */}
         {matchesSearch("Dashboard") && renderNavButton({
           id: "dashboard", icon: LayoutDashboard, label: "Dashboard",

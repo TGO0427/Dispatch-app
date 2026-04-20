@@ -129,6 +129,37 @@ export function checkRateLimit(
 }
 
 // ---------------------------------------------------------------------------
+// CSRF / Origin validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates the request origin for state-changing methods (POST, PUT, DELETE).
+ * Returns `true` if the request is allowed, `false` if it should be rejected.
+ * GET/HEAD/OPTIONS are always allowed (safe methods).
+ */
+export function validateOrigin(req: { method?: string; headers: { origin?: string; referer?: string } }): boolean {
+  const method = (req.method || "GET").toUpperCase();
+  if (["GET", "HEAD", "OPTIONS"].includes(method)) return true;
+
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (!frontendUrl) return true; // Can't validate without a configured origin
+
+  const origin = req.headers.origin || "";
+  const referer = req.headers.referer || "";
+
+  // Allow if origin matches, or referer starts with the frontend URL
+  if (origin && origin === frontendUrl) return true;
+  if (!origin && referer && referer.startsWith(frontendUrl)) return true;
+
+  // In development, also allow localhost origins
+  if (process.env.NODE_ENV !== "production") {
+    if (origin.startsWith("http://localhost:")) return true;
+  }
+
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 export const MAX_BATCH_SIZE = 500;

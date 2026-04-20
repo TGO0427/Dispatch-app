@@ -43,6 +43,8 @@ model Job {
   notes          String?  @db.Text
   internalNotes  String?  @db.Text
 
+  createdById String?  @db.VarChar(255)
+
   flowbinBatches FlowbinBatch[]
 
   createdAt DateTime @default(now())
@@ -56,6 +58,7 @@ model Job {
   @@index([ref])
   @@index([createdAt])
   @@index([eta])
+  @@index([createdById])
   @@map("jobs")
 }
 

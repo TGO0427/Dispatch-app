@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
+import { validateOrigin } from "../_lib";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 const prisma = globalForPrisma.prisma || new PrismaClient();
@@ -32,6 +33,7 @@ const formatJob = (job: Record<string, unknown>) => ({
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
+  if (!validateOrigin(req)) return res.status(403).json({ success: false, error: "Forbidden" });
   if (req.method !== "POST") return res.status(405).json({ success: false, error: "Method not allowed" });
 
   const user = requireAuth(req.headers.authorization, res);
@@ -75,6 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       transportService: job.transportService as string | undefined,
       truckSize: job.truckSize as string | undefined,
       etd: job.etd as string | undefined,
+      createdById: user.id,
     }));
 
     const result = await prisma.$transaction(async (tx) => {

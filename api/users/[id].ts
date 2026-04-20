@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { validateOrigin } from "../_lib";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 const prisma = globalForPrisma.prisma || new PrismaClient();
@@ -31,6 +32,7 @@ function requireAdmin(authHeader: string | undefined, res: VercelResponse): JwtP
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
+  if (!validateOrigin(req)) return res.status(403).json({ success: false, message: "Forbidden" });
 
   const caller = requireAdmin(req.headers.authorization, res);
   if (!caller) return res.headersSent ? undefined : res.status(403).json({ success: false, message: "Admin access required" });

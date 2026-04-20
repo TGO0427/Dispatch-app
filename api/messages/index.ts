@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
+import { validateOrigin } from "../_lib";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 const prisma = globalForPrisma.prisma || new PrismaClient();
@@ -26,6 +27,7 @@ const formatDate = (d: unknown) => d instanceof Date ? d.toISOString() : d;
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
+  if (!validateOrigin(req)) return res.status(403).json({ success: false, error: "Forbidden" });
 
   const user = requireAuth(req.headers.authorization, res);
   if (!user) return res.headersSent ? undefined : res.status(401).json({ success: false, error: "Unauthorized" });

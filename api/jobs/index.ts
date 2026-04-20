@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
+import { validateOrigin } from "../_lib";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 const prisma = globalForPrisma.prisma || new PrismaClient();
@@ -30,6 +31,7 @@ const formatJob = (job: Record<string, unknown>) => ({
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
+  if (!validateOrigin(req)) return res.status(403).json({ success: false, error: "Forbidden" });
 
   const user = requireAuth(req.headers.authorization, res);
   if (!user) return res.headersSent ? undefined : res.status(401).json({ success: false, error: "Unauthorized" });
@@ -71,6 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           serviceType: job.serviceType as string | undefined, transportService: job.transportService as string | undefined,
           truckSize: job.truckSize as string | undefined, etd: job.etd as string | undefined,
           hasFlowbin: job.hasFlowbin as boolean | undefined, internalNotes: job.internalNotes as string | undefined,
+          createdById: user.id,
         }));
 
         const result = await prisma.job.createMany({ data: jobsData });
@@ -127,6 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           transportService: req.body.transportService,
           truckSize: req.body.truckSize,
           etd: req.body.etd,
+          createdById: user.id,
         },
       });
       return res.status(201).json({ success: true, data: formatJob(newJob) });

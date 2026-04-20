@@ -84,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === "DELETE") {
-    if (user.role === "viewer") return res.status(403).json({ success: false, error: "Viewers cannot modify data" });
+    if (!["admin", "dispatcher", "manager"].includes(user.role)) return res.status(403).json({ success: false, error: "Insufficient permissions to delete jobs" });
     try {
       const deleted = await prisma.job.delete({ where: { id } });
       return res.json({ success: true, data: formatJob(deleted) });

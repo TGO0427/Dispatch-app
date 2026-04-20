@@ -3,34 +3,11 @@ import jwt from "jsonwebtoken";
 
 const router = Router();
 
-// JWT secret - in production, use environment variable
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
-const JWT_EXPIRES_IN = "24h";
-
-// Demo users - in production, use database
-const DEMO_USERS = [
-  {
-    id: "1",
-    username: "admin",
-    password: "admin123", // In production, use bcrypt hashed passwords
-    email: "admin@dispatch.com",
-    role: "admin",
-  },
-  {
-    id: "2",
-    username: "dispatcher",
-    password: "dispatcher123",
-    email: "dispatcher@dispatch.com",
-    role: "dispatcher",
-  },
-  {
-    id: "3",
-    username: "manager",
-    password: "manager123",
-    email: "manager@dispatch.com",
-    role: "manager",
-  },
-];
+if (!process.env.JWT_SECRET) {
+  throw new Error("FATAL: JWT_SECRET environment variable is not set.");
+}
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = "8h";
 
 // Login endpoint
 router.post("/login", async (req: Request, res: Response) => {
@@ -44,37 +21,10 @@ router.post("/login", async (req: Request, res: Response) => {
       });
     }
 
-    // Find user
-    const user = DEMO_USERS.find(
-      (u) => u.username === username && u.password === password
-    );
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid username or password",
-      });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
-
-    // Return user data (without password) and token
-    const { password: _, ...userWithoutPassword } = user;
-
-    res.json({
-      success: true,
-      token,
-      user: userWithoutPassword,
+    // This backend route is deprecated — use the Vercel API endpoints instead
+    return res.status(501).json({
+      success: false,
+      message: "This endpoint is deprecated. Use the primary API.",
     });
   } catch (error) {
     console.error("Login error:", error);

@@ -9,7 +9,8 @@ const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 function setCors(res: VercelResponse, req: VercelRequest) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || req.headers?.origin || "");
+  const allowedOrigin = process.env.FRONTEND_URL || "";
+  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
@@ -46,14 +47,10 @@ function checkRateLimit(key: string, maxRequests: number, windowMs: number): boo
   return false;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-only-fallback-key";
-if (!process.env.JWT_SECRET) console.warn("WARNING: JWT_SECRET not set");
-
-// Fallback admin for initial setup (only works when DB has no admin users)
-const FALLBACK_ADMIN = {
-  id: "1", username: "admin", password: "admin123",
-  email: "admin@dispatch.com", role: "admin",
-};
+if (!process.env.JWT_SECRET) {
+  throw new Error("FATAL: JWT_SECRET environment variable is not set. Server cannot start without it.");
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // POST /api/auth?action=login
 async function handleLogin(req: VercelRequest, res: VercelResponse) {
@@ -84,13 +81,9 @@ async function handleLogin(req: VercelRequest, res: VercelResponse) {
         : false;
       if (isMatch) user = dbUser;
     }
-  } catch {
-    // DB not available, fall through to fallback admin
-  }
-
-  // Fallback admin: only if no DB user matched and credentials match
-  if (!user && username === FALLBACK_ADMIN.username && password === FALLBACK_ADMIN.password) {
-    user = FALLBACK_ADMIN;
+  } catch (dbError) {
+    console.error("Database connection error during login:", dbError);
+    return res.status(503).json({ success: false, message: "Service temporarily unavailable" });
   }
 
   if (!user) {
@@ -143,6 +136,10 @@ async function handleForgotPassword(req: VercelRequest, res: VercelResponse) {
   if (!email) {
     return res.status(400).json({ success: false, message: "Email is required" });
   }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ success: false, message: "Invalid email format" });
+  }
 
   const successResponse = {
     success: true,
@@ -164,9 +161,8 @@ async function handleForgotPassword(req: VercelRequest, res: VercelResponse) {
     data: { passwordResetToken: hashedToken, passwordResetExpires: resetExpires },
   });
 
-  const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || "http://localhost:3000";
-  // TODO: Send email with reset link instead of logging
-  console.log(`[Password Reset] Token generated for: ${user.email} — ${frontendUrl}?reset-token=${resetToken}`);
+  // TODO: Send email with reset link via email service
+  // Reset token generated and stored — awaiting email integration
 
   return res.json(successResponse);
 }

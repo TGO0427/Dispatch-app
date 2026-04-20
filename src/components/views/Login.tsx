@@ -155,12 +155,6 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
           </p>
         </div>
 
-        {/* Demo Credentials Info */}
-        <div className="mt-8 p-4 rounded-lg" style={{ background: "#eff6ff", border: "1px solid #bfdbfe" }}>
-          <p className="text-sm font-medium mb-2" style={{ color: "#1e3a5f" }}>Demo Credentials:</p>
-          <p className="text-xs" style={{ color: "#1e40af" }}>Username: <span className="font-mono">admin</span></p>
-          <p className="text-xs" style={{ color: "#1e40af" }}>Password: <span className="font-mono">admin123</span></p>
-        </div>
       </div>
     </div>
   );

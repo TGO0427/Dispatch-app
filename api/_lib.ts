@@ -28,7 +28,7 @@ export interface JwtPayload {
 // CORS helper
 // ---------------------------------------------------------------------------
 export function setCors(res: VercelResponse, req?: { headers: { origin?: string } }): void {
-  const origin = process.env.FRONTEND_URL || req?.headers?.origin || "*";
+  const origin = process.env.FRONTEND_URL || req?.headers?.origin || "";
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader(
     "Access-Control-Allow-Methods",
@@ -48,7 +48,8 @@ export function setCors(res: VercelResponse, req?: { headers: { origin?: string 
  * Throws if the JWT_SECRET environment variable is not configured.
  */
 export function requireAuth(authHeader: string | undefined): JwtPayload | null {
-  const secret = process.env.JWT_SECRET || "dev-only-fallback-key";
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return null;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;

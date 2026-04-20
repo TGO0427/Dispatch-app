@@ -88,7 +88,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const where: Record<string, unknown> = { userId: user.id };
       if (unreadOnly === "true") where.readAt = null;
 
-      console.log(`[Messages] Inbox query for userId: ${user.id} (${user.username})`);
 
       const recipientEntries = await prisma.messageRecipient.findMany({
         where,
@@ -112,7 +111,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         _readAt: formatDate(r.readAt),
       }));
 
-      console.log(`[Messages] Found ${recipientEntries.length} messages for ${user.username}`);
       return res.json({ success: true, data: messages });
     } catch (error) {
       console.error("Error fetching messages:", error);
@@ -130,8 +128,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       let targetUserIds: string[] = recipientIds || [];
 
-      // If broadcast, get all user IDs except sender
+      // If broadcast, only admin/dispatcher/manager can send
       if (broadcast) {
+        if (!["admin", "dispatcher", "manager"].includes(user.role)) {
+          return res.status(403).json({ success: false, error: "Only admin, dispatcher, or manager can send broadcast messages" });
+        }
         const allUsers = await prisma.user.findMany({ select: { id: true, username: true } });
         targetUserIds = allUsers.filter((u) => u.id !== user.id).map((u) => u.id);
       }
@@ -166,7 +167,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         include: { recipients: true },
       });
 
-      console.log(`[Messages] Created message "${message.subject}" from ${user.username} to ${users.map(u => u.username).join(", ")} (${users.length} recipients)`);
       return res.status(201).json({
         success: true,
         data: {

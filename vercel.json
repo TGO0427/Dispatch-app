@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/retention",
+      "path": "/api/health?action=retention",
       "schedule": "0 2 * * *"
     }
   ],

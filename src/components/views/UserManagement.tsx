@@ -102,7 +102,7 @@ export const UserManagement: React.FC = () => {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || ""}/api/users/${editingUser.id}`,
+        `${import.meta.env.VITE_API_URL || ""}/api/users?id=${editingUser.id}`,
         {
           method: "PUT",
           headers: {
@@ -134,7 +134,7 @@ export const UserManagement: React.FC = () => {
     try {
       const token = localStorage.getItem("authToken");
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || ""}/api/users/${userId}`,
+        `${import.meta.env.VITE_API_URL || ""}/api/users?id=${userId}`,
         {
           method: "DELETE",
           headers: {

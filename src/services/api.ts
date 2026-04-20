@@ -61,7 +61,7 @@ export const jobsAPI = {
   },
 
   getById: async (id: string): Promise<Job> => {
-    return fetchAPI<Job>(`/api/jobs/${id}`);
+    return fetchAPI<Job>(`/api/jobs?id=${id}`);
   },
 
   create: async (job: Omit<Job, "id" | "createdAt" | "updatedAt">): Promise<Job> => {
@@ -72,14 +72,14 @@ export const jobsAPI = {
   },
 
   update: async (id: string, patch: Partial<Job>): Promise<Job> => {
-    return fetchAPI<Job>(`/api/jobs/${id}`, {
+    return fetchAPI<Job>(`/api/jobs?id=${id}`, {
       method: "PUT",
       body: JSON.stringify(patch),
     });
   },
 
   delete: async (id: string): Promise<void> => {
-    return fetchAPI<void>(`/api/jobs/${id}`, {
+    return fetchAPI<void>(`/api/jobs?id=${id}`, {
       method: "DELETE",
     });
   },
@@ -92,7 +92,7 @@ export const jobsAPI = {
   },
 
   bulkReplace: async (jobs: Omit<Job, "id" | "createdAt" | "updatedAt">[], jobType: "order" | "ibt" = "order"): Promise<Job[]> => {
-    return fetchAPI<Job[]>("/api/jobs/bulk-replace", {
+    return fetchAPI<Job[]>("/api/jobs?action=bulk-replace", {
       method: "POST",
       body: JSON.stringify({ jobs, jobType }),
     });
@@ -107,7 +107,7 @@ export const driversAPI = {
   },
 
   getById: async (id: string): Promise<Driver> => {
-    return fetchAPI<Driver>(`/api/drivers/${id}`);
+    return fetchAPI<Driver>(`/api/drivers?id=${id}`);
   },
 
   create: async (driver: Omit<Driver, "id">): Promise<Driver> => {
@@ -118,14 +118,14 @@ export const driversAPI = {
   },
 
   update: async (id: string, patch: Partial<Driver>): Promise<Driver> => {
-    return fetchAPI<Driver>(`/api/drivers/${id}`, {
+    return fetchAPI<Driver>(`/api/drivers?id=${id}`, {
       method: "PUT",
       body: JSON.stringify(patch),
     });
   },
 
   delete: async (id: string): Promise<void> => {
-    return fetchAPI<void>(`/api/drivers/${id}`, {
+    return fetchAPI<void>(`/api/drivers?id=${id}`, {
       method: "DELETE",
     });
   },
@@ -137,11 +137,11 @@ export const flowbinsAPI = {
   create: (data: { jobId: string; batchNumber: string; quantity: number }) =>
     fetchAPI<any>("/api/flowbins", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: Record<string, unknown>) =>
-    fetchAPI<any>(`/api/flowbins/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    fetchAPI<any>(`/api/flowbins?id=${id}`, { method: "PUT", body: JSON.stringify(data) }),
   remove: (id: string) =>
-    fetchAPI<void>(`/api/flowbins/${id}`, { method: "DELETE" }),
+    fetchAPI<void>(`/api/flowbins?id=${id}`, { method: "DELETE" }),
   markReturned: (id: string, data: { quantityReturned: number; returnedAt: string; returnNotes?: string }) =>
-    fetchAPI<any>(`/api/flowbins/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    fetchAPI<any>(`/api/flowbins?id=${id}`, { method: "PUT", body: JSON.stringify(data) }),
 };
 
 // ============ Messages ============

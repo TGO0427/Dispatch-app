@@ -251,7 +251,7 @@ async function handleChangePassword(req: VercelRequest, res: VercelResponse) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (!validateOrigin(req)) return res.status(403).json({ success: false, message: "Forbidden" });
+  // No CSRF check on auth — login/verify/reset are public or use Bearer tokens (inherently CSRF-safe)
 
   const action = req.query.action as string;
 

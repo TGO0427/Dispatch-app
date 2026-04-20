@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/cron/retention",
+      "schedule": "0 2 * * *"
+    }
+  ],
   "buildCommand": "prisma generate && npm run build",
   "outputDirectory": "dist",
   "devCommand": "npm run dev",

@@ -164,4 +164,26 @@ export const healthCheck = async (): Promise<{ status: string; timestamp: string
   return fetchAPI<{ status: string; timestamp: string }>("/api/health");
 };
 
+export const privacyAPI = {
+  exportMyData: async (): Promise<void> => {
+    const url = `${API_URL}/api/auth?action=data-export`;
+    const response = await fetch(url, { headers: { ...getAuthHeaders() } });
+    if (!response.ok) throw new Error("Export failed");
+    const blob = await response.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `my-data-export-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  },
+  eraseUser: async (userId: string): Promise<{ message: string }> => {
+    return fetchAPI<{ message: string }>("/api/auth?action=erase-user", {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    });
+  },
+};
+
 export { API_URL };

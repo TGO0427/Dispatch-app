@@ -7,6 +7,7 @@ import { JobDetailsModal } from "./components/JobDetailsModal";
 import { Login } from "./components/views/Login";
 import { ForgotPassword } from "./components/views/ForgotPassword";
 import { ResetPassword } from "./components/views/ResetPassword";
+import { PrivacyNotice } from "./components/views/PrivacyNotice";
 import { ConnectionStatus } from "./components/ConnectionStatus";
 import { HelpGuide } from "./components/HelpGuide";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -40,7 +41,7 @@ const PageLoader = () => (
   </div>
 );
 
-type AuthView = "login" | "forgot-password" | "reset-password";
+type AuthView = "login" | "forgot-password" | "reset-password" | "privacy";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -151,10 +152,13 @@ function AppContent() {
         />
       );
     }
+    if (authView === "privacy") {
+      return <PrivacyNotice onBack={() => setAuthView("login")} />;
+    }
     if (authView === "forgot-password") {
       return <ForgotPassword onBack={() => setAuthView("login")} />;
     }
-    return <Login onForgotPassword={() => setAuthView("forgot-password")} />;
+    return <Login onForgotPassword={() => setAuthView("forgot-password")} onPrivacy={() => setAuthView("privacy")} />;
   }
 
   return (

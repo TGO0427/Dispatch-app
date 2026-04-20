@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Settings, User as UserIcon, Lock, Bell, Palette, Shield, Save, Eye, EyeOff, Check, Volume2, VolumeX } from "lucide-react";
+import { Settings, User as UserIcon, Lock, Bell, Palette, Shield, Save, Eye, EyeOff, Check, Volume2, VolumeX, Download } from "lucide-react";
+import { privacyAPI } from "../../services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { useAuth } from "../../context/AuthContext";
@@ -186,6 +187,28 @@ export const SettingsView: React.FC = () => {
                 <p className="text-xs text-gray-400">
                   To update your username or email, contact your administrator.
                 </p>
+
+                {/* Data Export — POPIA s23 */}
+                <div className="pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Your Data (POPIA s23)</h4>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Download a copy of all personal data we hold about you.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="gap-2 text-sm"
+                    onClick={async () => {
+                      try {
+                        await privacyAPI.exportMyData();
+                        showSuccess("Data export downloaded");
+                      } catch {
+                        showError("Failed to export data");
+                      }
+                    }}
+                  >
+                    <Download className="w-4 h-4" /> Export My Data
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}

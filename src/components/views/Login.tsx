@@ -6,9 +6,10 @@ import { Button } from "../ui/Button";
 
 interface LoginProps {
   onForgotPassword?: () => void;
+  onPrivacy?: () => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
+export const Login: React.FC<LoginProps> = ({ onForgotPassword, onPrivacy }) => {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -153,6 +154,13 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword }) => {
               Contact your administrator
             </button>
           </p>
+          <button
+            type="button"
+            onClick={onPrivacy}
+            className="mt-2 text-gray-400 hover:text-blue-600 text-xs transition-colors"
+          >
+            Privacy Notice
+          </button>
         </div>
 
       </div>

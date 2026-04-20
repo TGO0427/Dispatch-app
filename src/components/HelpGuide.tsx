@@ -218,6 +218,8 @@ const guideSections: GuideSection[] = [
       { title: "Notifications", detail: "Toast notifications appear in the top-right corner for success, error, and warning messages. They include sound alerts." },
       { title: "Connection Status", detail: "The indicator in the bottom-right shows if you're connected to the server. If offline, data is served from local cache." },
       { title: "Collapse Sidebar", detail: "Click the arrow button in the sidebar header to collapse it for more screen space." },
+      { title: "Privacy & Data Export", detail: "Go to Settings > Profile to download a copy of all your personal data (POPIA s23). A Privacy Notice is linked on the login page." },
+      { title: "Data Erasure", detail: "Admins can erase a user's personal information via User Management. PII is removed but audit records are preserved (POPIA s25)." },
     ],
   },
 ];

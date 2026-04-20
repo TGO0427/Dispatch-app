@@ -248,10 +248,125 @@ async function handleChangePassword(req: VercelRequest, res: VercelResponse) {
   return res.json({ success: true, message: "Password changed successfully" });
 }
 
+// GET /api/auth?action=data-export (authenticated — user downloads own data, POPIA §23)
+async function handleDataExport(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "GET") return res.status(405).json({ success: false, message: "Method not allowed" });
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+  let decoded: { id: string; username: string };
+  try {
+    decoded = jwt.verify(authHeader.substring(7), getJWTSecret()) as { id: string; username: string };
+  } catch {
+    return res.status(401).json({ success: false, message: "Invalid or expired token" });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: decoded.id },
+    select: { id: true, username: true, email: true, role: true, createdAt: true, updatedAt: true },
+  });
+  if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+  // Gather all data associated with this user
+  const [sentMessages, receivedMessages, createdJobs] = await Promise.all([
+    prisma.message.findMany({
+      where: { senderId: decoded.id },
+      select: { id: true, subject: true, body: true, jobRef: true, priority: true, broadcast: true, createdAt: true },
+    }),
+    prisma.messageRecipient.findMany({
+      where: { userId: decoded.id },
+      include: { message: { select: { id: true, subject: true, senderName: true, createdAt: true } } },
+    }),
+    prisma.job.findMany({
+      where: { createdById: decoded.id },
+      select: { id: true, ref: true, customer: true, status: true, createdAt: true },
+    }),
+  ]);
+
+  const exportData = {
+    exportedAt: new Date().toISOString(),
+    user,
+    sentMessages: sentMessages.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })),
+    receivedMessages: receivedMessages.map((r) => ({
+      messageId: r.message.id,
+      subject: r.message.subject,
+      from: r.message.senderName,
+      receivedAt: r.createdAt.toISOString(),
+      readAt: r.readAt?.toISOString() || null,
+    })),
+    createdJobs: createdJobs.map((j) => ({ ...j, createdAt: j.createdAt.toISOString() })),
+  };
+
+  res.setHeader("Content-Disposition", `attachment; filename="data-export-${user.username}-${new Date().toISOString().split("T")[0]}.json"`);
+  res.setHeader("Content-Type", "application/json");
+  return res.json({ success: true, data: exportData });
+}
+
+// POST /api/auth?action=erase-user (admin only — POPIA §25 data erasure)
+async function handleEraseUser(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "POST") return res.status(405).json({ success: false, message: "Method not allowed" });
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+  let caller: { id: string; role: string };
+  try {
+    caller = jwt.verify(authHeader.substring(7), getJWTSecret()) as { id: string; role: string };
+  } catch {
+    return res.status(401).json({ success: false, message: "Invalid or expired token" });
+  }
+  if (caller.role !== "admin") {
+    return res.status(403).json({ success: false, message: "Admin access required" });
+  }
+
+  const { userId } = req.body;
+  if (!userId || typeof userId !== "string") {
+    return res.status(400).json({ success: false, message: "userId is required" });
+  }
+  if (userId === caller.id) {
+    return res.status(400).json({ success: false, message: "Cannot erase your own account" });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+  // Tombstone PII but keep audit trail
+  const tombstone = `[erased-${Date.now()}]`;
+  await prisma.$transaction([
+    // Anonymize user record
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        username: tombstone,
+        email: `${tombstone}@erased.local`,
+        password: "",
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      },
+    }),
+    // Anonymize sender name on messages (keep message content for audit)
+    prisma.message.updateMany({
+      where: { senderId: userId },
+      data: { senderName: "[Erased User]" },
+    }),
+    // Remove message recipient entries
+    prisma.messageRecipient.deleteMany({
+      where: { userId },
+    }),
+  ]);
+
+  return res.json({
+    success: true,
+    message: `User PII erased. Audit records preserved with tombstone: ${tombstone}`,
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
-  // No CSRF check on auth — login/verify/reset are public or use Bearer tokens (inherently CSRF-safe)
 
   const action = req.query.action as string;
 
@@ -263,6 +378,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case "forgot-password": return await handleForgotPassword(req, res);
       case "reset-password": return await handleResetPassword(req, res);
       case "change-password": return await handleChangePassword(req, res);
+      case "data-export": return await handleDataExport(req, res);
+      case "erase-user": return await handleEraseUser(req, res);
       default:
         return res.status(400).json({ success: false, message: "Unknown or invalid action" });
     }

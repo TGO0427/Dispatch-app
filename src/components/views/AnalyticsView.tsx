@@ -8,7 +8,7 @@ import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
 import { JobDetailsModal } from "../JobDetailsModal";
 import type { Job } from "../../types";
-import * as XLSX from "xlsx";
+import * as XLSX from "../../lib/spreadsheet";
 
 type ReportType =
   | "job-summary"
@@ -167,7 +167,7 @@ export const AnalyticsView: React.FC = () => {
   }, [dedupedJobs, selectedStatus, selectedPriority, selectedWarehouse, selectedTransporter, etaWeekFilter, dateRange, startDate, endDate, customerSearch]);
 
   // Export functions
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     let data: any[] = [];
     let filename = "";
 
@@ -322,10 +322,10 @@ export const AnalyticsView: React.FC = () => {
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-    XLSX.writeFile(workbook, filename);
+    await XLSX.writeFile(workbook, filename);
   };
 
-  const exportToCSV = () => {
+  const exportToCSV = async () => {
     let data: any[] = [];
     let filename = "";
 
@@ -351,7 +351,7 @@ export const AnalyticsView: React.FC = () => {
         break;
 
       default:
-        exportToExcel();
+        await exportToExcel();
         return;
     }
 

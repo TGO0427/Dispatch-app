@@ -1,7 +1,7 @@
 // src/components/views/OrderImport.tsx
 import React, { useState, useCallback, useRef, useMemo } from "react";
 import { Upload, Check, AlertCircle, Download, Search, X } from "lucide-react";
-import * as XLSX from "xlsx";
+import * as XLSX from "../../lib/spreadsheet";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
@@ -278,11 +278,10 @@ const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | n
 // ---------- Parsing (enable cellDates + raw:false) ----------
 const SHEET_TO_JSON_OPTS = { header: 1, raw: false, rawNumbers: false } as const;
 
-const parseCSV = (text: string): ImportedOrder[] => {
-  // NOTE: cellDates is set in XLSX.read (below)
-  const wb = XLSX.read(text, { type: "string", cellDates: false });
+const parseCSV = async (text: string): Promise<ImportedOrder[]> => {
+  const wb = await XLSX.read(text, { type: "string" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<any[]>(sheet, SHEET_TO_JSON_OPTS);
+  const rows = XLSX.utils.sheet_to_json(sheet, SHEET_TO_JSON_OPTS) as any[][];
   if (!rows.length) return [];
   const headers = rows[0].map((h: any) => String(h).trim());
   const orders: ImportedOrder[] = [];
@@ -293,11 +292,11 @@ const parseCSV = (text: string): ImportedOrder[] => {
   return orders;
 };
 
-const parseExcel = (arrayBuffer: ArrayBuffer): ImportedOrder[] => {
+const parseExcel = async (arrayBuffer: ArrayBuffer): Promise<ImportedOrder[]> => {
   try {
-    const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: false });
+    const wb = await XLSX.read(arrayBuffer, { type: "array" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<any[]>(sheet, SHEET_TO_JSON_OPTS);
+    const rows = XLSX.utils.sheet_to_json(sheet, SHEET_TO_JSON_OPTS) as any[][];
     if (!rows.length) return [];
     const headers = rows[0].map((h: any) => String(h).trim());
     const orders: ImportedOrder[] = [];
@@ -343,15 +342,15 @@ export const OrderImport: React.FC = () => {
     const reader = new FileReader();
     const isExcel = /\.(xlsx|xls)$/i.test(file.name);
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         let orders: ImportedOrder[] = [];
         if (isExcel) {
           const arrayBuffer = e.target?.result as ArrayBuffer;
-          orders = parseExcel(arrayBuffer);
+          orders = await parseExcel(arrayBuffer);
         } else {
           const text = e.target?.result as string;
-          orders = parseCSV(text);
+          orders = await parseCSV(text);
         }
 
         if (orders.length > 0) {
@@ -501,7 +500,7 @@ export const OrderImport: React.FC = () => {
     }
   };
 
-  const downloadTemplate = (format: "csv" | "excel" = "csv") => {
+  const downloadTemplate = async (format: "csv" | "excel" = "csv") => {
     const headers = [
       "Document No",
       "Customer Name",
@@ -540,7 +539,7 @@ export const OrderImport: React.FC = () => {
       const worksheet = XLSX.utils.aoa_to_sheet(data);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "SalesOrdersTemplate");
-      XLSX.writeFile(workbook, "sales_orders_based_template.xlsx");
+      await XLSX.writeFile(workbook, "sales_orders_based_template.xlsx");
     }
   };
 

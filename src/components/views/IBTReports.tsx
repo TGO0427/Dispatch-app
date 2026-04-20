@@ -8,7 +8,7 @@ import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
 import { JobDetailsModal } from "../JobDetailsModal";
-import * as XLSX from "xlsx";
+import * as XLSX from "../../lib/spreadsheet";
 
 type ReportType =
   | "ibt-summary"
@@ -187,7 +187,7 @@ export const IBTReports: React.FC = () => {
   }, [filteredJobs, drivers]);
 
   // Export
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     const data = filteredJobs.map((job) => ({
       Reference: job.ref,
       Pickup: job.pickup,
@@ -203,7 +203,7 @@ export const IBTReports: React.FC = () => {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "IBT Report");
-    XLSX.writeFile(wb, `IBT_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+    await XLSX.writeFile(wb, `IBT_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const renderReport = () => {

@@ -11,7 +11,7 @@ import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
 import { JobDetailsModal } from "../JobDetailsModal";
-import * as XLSX from "xlsx";
+import * as XLSX from "../../lib/spreadsheet";
 
 type HistoryFilter = "all" | "delivered" | "cancelled";
 
@@ -217,7 +217,7 @@ export const HistoryView: React.FC = () => {
   };
 
   // Export to Excel
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     const data = completedJobs.map((job) => {
       const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
       return {
@@ -246,7 +246,7 @@ export const HistoryView: React.FC = () => {
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "History");
-    XLSX.writeFile(workbook, `job-history${weekSuffix}-${new Date().toISOString().split("T")[0]}.xlsx`);
+    await XLSX.writeFile(workbook, `job-history${weekSuffix}-${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   // Export to PDF

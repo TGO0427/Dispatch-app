@@ -48,10 +48,11 @@ function checkRateLimit(key: string, maxRequests: number, windowMs: number): boo
   return false;
 }
 
-if (!process.env.JWT_SECRET) {
-  throw new Error("FATAL: JWT_SECRET environment variable is not set. Server cannot start without it.");
+function getJWTSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET not set");
+  return secret;
 }
-const JWT_SECRET = process.env.JWT_SECRET;
 
 // POST /api/auth?action=login
 async function handleLogin(req: VercelRequest, res: VercelResponse) {
@@ -93,7 +94,7 @@ async function handleLogin(req: VercelRequest, res: VercelResponse) {
 
   const token = jwt.sign(
     { id: user.id, username: user.username, email: user.email, role: user.role },
-    JWT_SECRET,
+    getJWTSecret(),
     { expiresIn: "8h" }
   );
   const { password: _, ...userWithoutPassword } = user;
@@ -108,7 +109,7 @@ async function handleVerify(req: VercelRequest, res: VercelResponse) {
   }
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; username: string; email: string; role: string };
+    const decoded = jwt.verify(token, getJWTSecret()) as { id: string; username: string; email: string; role: string };
     return res.json({
       success: true,
       user: { id: decoded.id, username: decoded.username, email: decoded.email, role: decoded.role },
@@ -211,7 +212,7 @@ async function handleChangePassword(req: VercelRequest, res: VercelResponse) {
   }
   let decoded: { id: string };
   try {
-    decoded = jwt.verify(authHeader.substring(7), JWT_SECRET) as { id: string };
+    decoded = jwt.verify(authHeader.substring(7), getJWTSecret()) as { id: string };
   } catch {
     return res.status(401).json({ success: false, message: "Invalid or expired token" });
   }

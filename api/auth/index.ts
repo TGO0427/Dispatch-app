@@ -3,13 +3,12 @@ import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { validateOrigin } from "../_lib.js";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-function setCors(res: VercelResponse, req: VercelRequest) {
+function setCors(res: VercelResponse, _req: VercelRequest) {
   const allowedOrigin = process.env.FRONTEND_URL || "";
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");

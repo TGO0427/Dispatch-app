@@ -214,43 +214,37 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   const prevFilterKey = useMemo(() => JSON.stringify(filters), [filters]);
   useMemo(() => { setCurrentPage(1); }, [prevFilterKey]);
 
-  // Alert: dates with 5+ orders (including IBT) due — current month + next 2 months only
+  // Alert: dates with 5+ pending (non-delivered, non-IBT) orders due — current month + next 2 months only
   const busyDateAlerts = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfRange = new Date(now.getFullYear(), now.getMonth() + 3, 0); // end of month+2
 
-    const dateCounts: { [date: string]: { orders: number; ibts: number } } = {};
+    const dateCounts: { [date: string]: number } = {};
     jobs.forEach((job) => {
       if (!job.eta) return;
+      if (job.jobType === "ibt") return;
+      if (job.status === "delivered" || job.status === "cancelled") return;
       const dateKey = job.eta.split("T")[0];
       const etaDate = new Date(dateKey);
-      // Only include dates in current month + next 2 months
       if (etaDate < startOfMonth || etaDate > endOfRange) return;
-      if (!dateCounts[dateKey]) dateCounts[dateKey] = { orders: 0, ibts: 0 };
-      if (job.jobType === "ibt") {
-        dateCounts[dateKey].ibts++;
-      } else {
-        dateCounts[dateKey].orders++;
-      }
+      dateCounts[dateKey] = (dateCounts[dateKey] || 0) + 1;
     });
     return Object.entries(dateCounts)
-      .filter(([, counts]) => counts.orders + counts.ibts >= 5)
-      .map(([date, counts]) => ({ date, total: counts.orders + counts.ibts, ...counts }))
+      .filter(([, total]) => total >= 5)
+      .map(([date, total]) => ({ date, total }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [jobs]);
 
-  // Jobs due on selected alert date (all jobs, not deduplicated - show full detail)
+  // Pending orders due on selected alert date (matches busyDateAlerts filter)
   const alertDateJobs = useMemo(() => {
     if (!selectedAlertDate) return [];
     return jobs.filter((job) => {
       if (!job.eta) return false;
+      if (job.jobType === "ibt") return false;
+      if (job.status === "delivered" || job.status === "cancelled") return false;
       return job.eta.split("T")[0] === selectedAlertDate;
-    }).sort((a, b) => {
-      // Orders first, then IBT
-      if (a.jobType !== b.jobType) return a.jobType === "ibt" ? 1 : -1;
-      return (a.ref || "").localeCompare(b.ref || "");
-    });
+    }).sort((a, b) => (a.ref || "").localeCompare(b.ref || ""));
   }, [jobs, selectedAlertDate]);
 
   // Get unique warehouses from all jobs

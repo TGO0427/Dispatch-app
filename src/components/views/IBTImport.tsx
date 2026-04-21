@@ -523,7 +523,6 @@ export const IBTImport: React.FC = () => {
       "To Branch",
       "Due Date",
       "Priority",
-      "Pallets",
       "Outstanding Qty",
       "Description",
     ];
@@ -535,7 +534,6 @@ export const IBTImport: React.FC = () => {
         "K63 Warehouse",
         "2025-10-10",
         "Normal",
-        "10",
         "120",
         "Mixed items for K63",
       ];
@@ -550,7 +548,7 @@ export const IBTImport: React.FC = () => {
     } else {
       const data = [
         headers,
-        ["IBT-0001", "K58 Warehouse", "K63 Warehouse", "2025-10-10", "Normal", "10", "120", "Mixed items for K63"],
+        ["IBT-0001", "K58 Warehouse", "K63 Warehouse", "2025-10-10", "Normal", "120", "Mixed items for K63"],
       ];
       const worksheet = XLSX.utils.aoa_to_sheet(data);
       const workbook = XLSX.utils.book_new();

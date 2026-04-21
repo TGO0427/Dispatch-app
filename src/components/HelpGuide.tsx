@@ -80,6 +80,7 @@ const guideSections: GuideSection[] = [
     steps: [
       { title: "Upload File", detail: "Upload your IBT spreadsheet. The system maps From Branch, To Branch, Transfer Date, and other fields automatically." },
       { title: "Review & Import", detail: "Preview the data, then click Import. IBT jobs are kept separate from customer orders in the system." },
+      { title: "Add Pallets After Import", detail: "The IBT template no longer includes a Pallets column. After importing, open the job details card on the IBT Management page and enter the pallet count there." },
     ],
   },
   {

@@ -338,7 +338,7 @@ const parseExcel = async (arrayBuffer: ArrayBuffer): Promise<ImportedOrder[]> =>
 export const OrderImport: React.FC = () => {
   const { jobs, refreshData } = useDispatch();
   const { showSuccess, showError, confirm } = useNotification();
-  const { isViewer } = useAuth();
+  const { isViewer, isAdmin } = useAuth();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importStatus, setImportStatus] = useState<"idle" | "success" | "error">("idle");
@@ -630,7 +630,7 @@ export const OrderImport: React.FC = () => {
           <Button variant="outline" onClick={() => downloadTemplate("excel")} className="text-sm">
             <Download className="mr-1.5 h-3.5 w-3.5" /> Excel
           </Button>
-          {!isViewer && ignoredWarehouseJobIds.length > 0 && (
+          {isAdmin && ignoredWarehouseJobIds.length > 0 && (
             <Button
               variant="outline"
               onClick={purgeIgnoredWarehouseOrders}

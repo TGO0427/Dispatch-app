@@ -117,8 +117,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Bulk delete by ids: POST /api/jobs?action=bulk-delete  body: { ids: string[] }
     if (action === "bulk-delete") {
-      if (!["admin", "dispatcher", "manager"].includes(user.role)) {
-        return res.status(403).json({ success: false, error: "Insufficient permissions to delete jobs" });
+      if (user.role !== "admin") {
+        return res.status(403).json({ success: false, error: "Admin role required for bulk delete" });
       }
       try {
         const MAX_BATCH_SIZE = 1000;
@@ -147,6 +147,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const MAX_BATCH_SIZE = 500;
         if (!Array.isArray(req.body.jobs)) return res.status(400).json({ success: false, error: "Request body must include a 'jobs' array" });
         if (req.body.jobs.length > MAX_BATCH_SIZE) return res.status(400).json({ success: false, error: `Batch size cannot exceed ${MAX_BATCH_SIZE}` });
+
+        // Clearing (empty array wipes all jobs of this type) is admin-only
+        if (req.body.jobs.length === 0 && user.role !== "admin") {
+          return res.status(403).json({ success: false, error: "Admin role required to clear all jobs" });
+        }
 
         const jobType = req.body.jobType || "order";
         const validJobTypes = ["order", "ibt"];

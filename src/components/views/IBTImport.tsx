@@ -8,6 +8,7 @@ import { Badge } from "../ui/Badge";
 import { Select } from "../ui/Select";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
+import { useAuth } from "../../context/AuthContext";
 import { JobPriority, JobStatus } from "../../types";
 
 /**
@@ -241,6 +242,7 @@ const parseExcel = async (arrayBuffer: ArrayBuffer): Promise<ImportedOrder[]> =>
 export const IBTImport: React.FC = () => {
   const { refreshData } = useDispatch();
   const { showSuccess, showError, confirm } = useNotification();
+  const { isAdmin } = useAuth();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importStatus, setImportStatus] = useState<"idle" | "success" | "error">("idle");
@@ -611,23 +613,25 @@ export const IBTImport: React.FC = () => {
           <Button variant="outline" onClick={() => downloadTemplate("excel")} className="text-sm">
             <Download className="mr-1.5 h-3.5 w-3.5" /> Excel
           </Button>
-          <Button
-            variant="outline"
-            onClick={clearAllIbts}
-            disabled={isClearing}
-            className="text-sm text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
-          >
-            {isClearing ? (
-              <span className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                Clearing...
-              </span>
-            ) : (
-              <>
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Clear All IBTs
-              </>
-            )}
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="outline"
+              onClick={clearAllIbts}
+              disabled={isClearing}
+              className="text-sm text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+            >
+              {isClearing ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                  Clearing...
+                </span>
+              ) : (
+                <>
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Clear All IBTs
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 

@@ -97,6 +97,13 @@ export const jobsAPI = {
       body: JSON.stringify({ jobs, jobType }),
     });
   },
+
+  bulkDelete: async (ids: string[]): Promise<{ deleted: number }> => {
+    return fetchAPI<{ deleted: number }>("/api/jobs?action=bulk-delete", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    });
+  },
 };
 
 // ============ Drivers API ============

@@ -115,6 +115,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "POST") {
     if (user.role === "viewer") return res.status(403).json({ success: false, error: "Viewers cannot modify data" });
 
+    // Bulk delete by ids: POST /api/jobs?action=bulk-delete  body: { ids: string[] }
+    if (action === "bulk-delete") {
+      if (!["admin", "dispatcher", "manager"].includes(user.role)) {
+        return res.status(403).json({ success: false, error: "Insufficient permissions to delete jobs" });
+      }
+      try {
+        const MAX_BATCH_SIZE = 1000;
+        const ids = req.body?.ids;
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return res.status(400).json({ success: false, error: "Request body must include a non-empty 'ids' array" });
+        }
+        if (ids.length > MAX_BATCH_SIZE) {
+          return res.status(400).json({ success: false, error: `Batch size cannot exceed ${MAX_BATCH_SIZE}` });
+        }
+        if (!ids.every((id) => typeof id === "string")) {
+          return res.status(400).json({ success: false, error: "All ids must be strings" });
+        }
+
+        const result = await prisma.job.deleteMany({ where: { id: { in: ids } } });
+        return res.json({ success: true, data: { deleted: result.count } });
+      } catch (error) {
+        console.error("Error bulk deleting jobs:", error);
+        return res.status(500).json({ success: false, error: "Failed to bulk delete jobs" });
+      }
+    }
+
     // Bulk replace: POST /api/jobs?action=bulk-replace
     if (action === "bulk-replace") {
       try {

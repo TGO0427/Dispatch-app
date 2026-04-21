@@ -372,15 +372,16 @@ export const OrderImport: React.FC = () => {
     setIsPurgingIgnored(true);
     try {
       const { jobsAPI } = await import("../../services/api");
-      const results = await Promise.allSettled(ignoredWarehouseJobIds.map((id) => jobsAPI.delete(id)));
-      const deleted = results.filter((r) => r.status === "fulfilled").length;
-      const failed = results.length - deleted;
-      await refreshData();
-      if (failed === 0) {
-        showSuccess(`Deleted ${deleted} order${deleted === 1 ? "" : "s"}.`);
-      } else {
-        showError(`Deleted ${deleted}, failed ${failed}. Please try again for the rest.`);
+      // Batch into chunks of 500 to stay under the server-side cap and any URL/body limits
+      const CHUNK = 500;
+      let deleted = 0;
+      for (let i = 0; i < ignoredWarehouseJobIds.length; i += CHUNK) {
+        const slice = ignoredWarehouseJobIds.slice(i, i + CHUNK);
+        const { deleted: n } = await jobsAPI.bulkDelete(slice);
+        deleted += n;
       }
+      await refreshData();
+      showSuccess(`Deleted ${deleted} order${deleted === 1 ? "" : "s"}.`);
     } catch (error) {
       console.error("Error purging ignored-warehouse orders:", error);
       showError("Failed to remove orders. Please try again.");

@@ -198,6 +198,24 @@ const ALIASES: Record<keyof Omit<ImportedOrder, never>, string[]> = {
   notes: ["notes", "remarks", "comment", "inventory description", "description"],
 };
 
+// Warehouses whose rows are ignored on import (internal storage, not dispatchable).
+// Compared case-insensitively with collapsed whitespace and normalized dashes.
+const normalizeWarehouseForCompare = (s: string): string =>
+  s
+    .toLowerCase()
+    .replace(/[–—]/g, "-") // en/em dash -> hyphen
+    .replace(/\s+/g, " ")
+    .trim();
+
+const IGNORED_WAREHOUSES = new Set(
+  [
+    "Finished Goods AFi - Pretoria",
+    "Raw - AFi Pretoria",
+    "Dispatch Allmark - Pretoria",
+    "Raws - Allmark Pretoria",
+  ].map(normalizeWarehouseForCompare)
+);
+
 // ----- Row mapping with ETA normalization -----
 const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | null => {
   const idx = indexHeaders(headers);
@@ -226,6 +244,11 @@ const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | n
   let warehouse =
     safeStr(coalesce(row, idx["warehouse"])) ??
     safeStr(coalesce(row, warehouseIdx));
+
+  // Skip rows tied to internal/non-dispatch warehouses
+  if (warehouse && IGNORED_WAREHOUSES.has(normalizeWarehouseForCompare(warehouse))) {
+    return null;
+  }
 
   // Don't use "K58 Warehouse" as a warehouse value — it's the default pickup, not a warehouse
   if (warehouse === "K58 Warehouse") warehouse = undefined;

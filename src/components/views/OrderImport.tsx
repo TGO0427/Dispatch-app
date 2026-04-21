@@ -1,6 +1,6 @@
 // src/components/views/OrderImport.tsx
 import React, { useState, useCallback, useRef, useMemo } from "react";
-import { Upload, Check, AlertCircle, Download, Search, X } from "lucide-react";
+import { Upload, Check, AlertCircle, Download, Search, X, Trash2 } from "lucide-react";
 import * as XLSX from "../../lib/spreadsheet";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -336,14 +336,58 @@ const parseExcel = async (arrayBuffer: ArrayBuffer): Promise<ImportedOrder[]> =>
 
 // ---------- Component ----------
 export const OrderImport: React.FC = () => {
-  const { refreshData } = useDispatch();
-  const { showSuccess, showError } = useNotification();
+  const { jobs, refreshData } = useDispatch();
+  const { showSuccess, showError, confirm } = useNotification();
   const { isViewer } = useAuth();
   const [importedOrders, setImportedOrders] = useState<ImportedOrder[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importStatus, setImportStatus] = useState<"idle" | "success" | "error">("idle");
   const [isImporting, setIsImporting] = useState(false);
+  const [isPurgingIgnored, setIsPurgingIgnored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Existing orders that match the ignored-warehouse list (legacy rows imported before the filter)
+  const ignoredWarehouseJobIds = useMemo(() => {
+    return jobs
+      .filter((j) => j.jobType !== "ibt")
+      .filter((j) => j.warehouse && IGNORED_WAREHOUSES.has(normalizeWarehouseForCompare(j.warehouse)))
+      .map((j) => j.id);
+  }, [jobs]);
+
+  const purgeIgnoredWarehouseOrders = async () => {
+    if (isPurgingIgnored) return;
+    if (ignoredWarehouseJobIds.length === 0) {
+      showSuccess("No orders matching the ignored warehouses were found.");
+      return;
+    }
+
+    const ok = await confirm({
+      title: "Remove Ignored-Warehouse Orders?",
+      message: `This will permanently delete ${ignoredWarehouseJobIds.length} order${ignoredWarehouseJobIds.length === 1 ? "" : "s"} whose Warehouse is one of the internal storage locations (Finished Goods AFi - Pretoria, Raw - AFi Pretoria, Dispatch Allmark - Pretoria, Raws - Allmark Pretoria). This cannot be undone.`,
+      type: "danger",
+      confirmText: "Delete orders",
+    });
+    if (!ok) return;
+
+    setIsPurgingIgnored(true);
+    try {
+      const { jobsAPI } = await import("../../services/api");
+      const results = await Promise.allSettled(ignoredWarehouseJobIds.map((id) => jobsAPI.delete(id)));
+      const deleted = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.length - deleted;
+      await refreshData();
+      if (failed === 0) {
+        showSuccess(`Deleted ${deleted} order${deleted === 1 ? "" : "s"}.`);
+      } else {
+        showError(`Deleted ${deleted}, failed ${failed}. Please try again for the rest.`);
+      }
+    } catch (error) {
+      console.error("Error purging ignored-warehouse orders:", error);
+      showError("Failed to remove orders. Please try again.");
+    } finally {
+      setIsPurgingIgnored(false);
+    }
+  };
 
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -585,6 +629,27 @@ export const OrderImport: React.FC = () => {
           <Button variant="outline" onClick={() => downloadTemplate("excel")} className="text-sm">
             <Download className="mr-1.5 h-3.5 w-3.5" /> Excel
           </Button>
+          {!isViewer && ignoredWarehouseJobIds.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={purgeIgnoredWarehouseOrders}
+              disabled={isPurgingIgnored}
+              className="text-sm text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+              title="Remove orders whose Warehouse matches the internal storage locations now ignored on import"
+            >
+              {isPurgingIgnored ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                  Removing...
+                </span>
+              ) : (
+                <>
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                  Remove Ignored Warehouses ({ignoredWarehouseJobIds.length})
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 

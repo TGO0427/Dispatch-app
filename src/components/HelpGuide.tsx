@@ -52,6 +52,7 @@ const guideSections: GuideSection[] = [
       "Date formats like DD/MM/YYYY, YYYY-MM-DD, and Excel serial numbers are all supported.",
       "Orders with the same reference number will be updated, not duplicated.",
       "Rows whose Warehouse column matches internal storage locations (Finished Goods AFi - Pretoria, Raw - AFi Pretoria, Dispatch Allmark - Pretoria, Raws - Allmark Pretoria) are skipped automatically — they aren't dispatchable orders.",
+      "If the database still contains such legacy rows from earlier uploads, a red 'Remove Ignored Warehouses (N)' button appears in the header. Click it to delete them after a confirmation prompt.",
     ],
   },
   {

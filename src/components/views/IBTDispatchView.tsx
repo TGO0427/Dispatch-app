@@ -41,6 +41,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
   const [activeTab, setActiveTab] = useState<"open" | "assigned" | "in-transit" | "delivered">("open");
+  const [selectedAlertDate, setSelectedAlertDate] = useState<string | null>(null);
   const [newJob, setNewJob] = useState({
     ref: "",
     customer: "",
@@ -88,6 +89,36 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
       return etaDate >= startOfWeek && etaDate <= endOfRange;
     });
   }, [jobs]);
+
+  // High volume IBT dates — current month + next 2 months
+  const busyDateAlerts = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfRange = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+    const dateCounts: Record<string, number> = {};
+    jobs.forEach((j) => {
+      if (j.jobType !== "ibt") return;
+      if (!j.eta) return;
+      const dateKey = j.eta.split("T")[0];
+      const d = new Date(dateKey);
+      if (d < startOfMonth || d > endOfRange) return;
+      dateCounts[dateKey] = (dateCounts[dateKey] || 0) + 1;
+    });
+    return Object.entries(dateCounts)
+      .filter(([, c]) => c >= 5)
+      .map(([date, total]) => ({ date, total }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [jobs]);
+
+  // IBT jobs due on selected alert date
+  const alertDateJobs = useMemo(() => {
+    if (!selectedAlertDate) return [];
+    return jobs.filter((job) => {
+      if (job.jobType !== "ibt") return false;
+      if (!job.eta) return false;
+      return job.eta.split("T")[0] === selectedAlertDate;
+    }).sort((a, b) => (a.ref || "").localeCompare(b.ref || ""));
+  }, [jobs, selectedAlertDate]);
 
   const filteredAndSortedJobs = useMemo(() => {
     const filtered = filterJobs(ibtJobs, filters);
@@ -361,39 +392,24 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
       </div>
 
       {/* High Volume Dates — IBT only, current month + 2 months */}
-      {(() => {
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfRange = new Date(now.getFullYear(), now.getMonth() + 3, 0);
-        const dateCounts: Record<string, number> = {};
-        jobs.filter((j) => j.jobType === "ibt").forEach((j) => {
-          if (!j.eta) return;
-          const dateKey = j.eta.split("T")[0];
-          const d = new Date(dateKey);
-          if (d < startOfMonth || d > endOfRange) return;
-          dateCounts[dateKey] = (dateCounts[dateKey] || 0) + 1;
-        });
-        const alerts = Object.entries(dateCounts)
-          .filter(([, c]) => c >= 5)
-          .map(([date, total]) => ({ date, total }))
-          .sort((a, b) => a.date.localeCompare(b.date));
-
-        if (alerts.length === 0) return null;
-        return (
-          <div className="flex items-center gap-2 flex-wrap text-sm">
-            <div className="flex items-center gap-1.5 text-amber-700">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="font-semibold text-xs">High Volume:</span>
-            </div>
-            {alerts.map((a) => (
-              <span key={a.date} className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 rounded-lg text-xs border border-amber-200">
-                <span className="font-semibold text-amber-900">{a.date}</span>
-                <span className="text-amber-600">{a.total} IBTs</span>
-              </span>
-            ))}
+      {busyDateAlerts.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap text-sm">
+          <div className="flex items-center gap-1.5 text-amber-700">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="font-semibold text-xs">High Volume:</span>
           </div>
-        );
-      })()}
+          {busyDateAlerts.map((a) => (
+            <button
+              key={a.date}
+              onClick={() => setSelectedAlertDate(a.date)}
+              className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 hover:bg-amber-100 rounded-lg text-xs border border-amber-200 hover:border-amber-300 cursor-pointer transition-colors"
+            >
+              <span className="font-semibold text-amber-900">{a.date}</span>
+              <span className="text-amber-600">{a.total} IBTs</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="space-y-2">
@@ -562,6 +578,82 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Date Drill-Down Modal */}
+      {selectedAlertDate && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedAlertDate(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-amber-50">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  IBTs Due: {selectedAlertDate}
+                </h2>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  {alertDateJobs.length} IBTs due on this date
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedAlertDate(null)}
+                className="p-2 hover:bg-amber-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(85vh-80px)]">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                  <tr>
+                    <th className="text-left p-3 font-semibold text-gray-700">Reference</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Customer</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Status</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Route</th>
+                    <th className="text-right p-3 font-semibold text-gray-700">Pallets</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {alertDateJobs.map((job) => (
+                    <tr
+                      key={job.id}
+                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => { setSelectedAlertDate(null); setSelectedJob(job); }}
+                    >
+                      <td className="p-3 font-medium">
+                        <span className="text-blue-600 hover:text-blue-800 hover:underline">{job.ref}</span>
+                      </td>
+                      <td className="p-3 text-gray-700">{job.customer}</td>
+                      <td className="p-3">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                          job.status === "pending" ? "bg-yellow-100 text-yellow-700" :
+                          job.status === "assigned" ? "bg-blue-100 text-blue-700" :
+                          job.status === "en-route" ? "bg-indigo-100 text-indigo-700" :
+                          job.status === "delivered" ? "bg-green-100 text-green-700" :
+                          job.status === "exception" ? "bg-red-100 text-red-700" :
+                          "bg-gray-100 text-gray-600"
+                        }`}>
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
+                      <td className="p-3 text-right font-medium">{job.pallets ?? "—"}</td>
+                      <td className="p-3 text-gray-700">
+                        {job.driverId ? drivers.find((d) => d.id === job.driverId)?.name : "Unassigned"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Job Details Modal */}
       {selectedJob && (

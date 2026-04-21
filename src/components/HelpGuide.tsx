@@ -68,7 +68,7 @@ const guideSections: GuideSection[] = [
     ],
     tips: [
       "The green checkmark button on a card dispatches the order (marks as en-route).",
-      "High Volume Date alerts warn you when 5+ orders are due on the same day.",
+      "High Volume Date alerts warn you when 5+ pending orders are due on the same day. Click a badge to drill into the full list of orders for that date.",
       "Use the warehouse selector to focus on a specific warehouse.",
     ],
   },
@@ -90,6 +90,7 @@ const guideSections: GuideSection[] = [
     steps: [
       { title: "Assign Transporters", detail: "Drag IBT jobs to transporters to assign them, just like customer orders." },
       { title: "Track Status", detail: "Use the Open / Assigned / Delivered tabs to monitor IBT progress." },
+      { title: "High Volume Dates", detail: "When 5+ IBTs are due on the same day, a High Volume badge appears. Click any badge to drill into the list of IBTs due on that date." },
     ],
   },
   {

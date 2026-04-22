@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { UserPlus, Edit2, Trash2, X, Save, AlertCircle, Shield, Mail, User as UserIcon, Eye, EyeOff } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
+import { PasswordStrength } from "../ui/PasswordStrength";
 import { useAuth, User } from "../../context/AuthContext";
 
 interface UserFormData {
@@ -409,6 +410,7 @@ export const UserManagement: React.FC = () => {
                       )}
                     </button>
                   </div>
+                  <PasswordStrength password={formData.password} />
                 </div>
 
                 {/* Role */}

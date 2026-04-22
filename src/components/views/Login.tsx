@@ -1,12 +1,15 @@
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { Truck, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Card } from "../ui/Card";
-import { Button } from "../ui/Button";
+import synercoreLogo from "../../assets/synercore-logo.png";
 
 interface LoginProps {
   onPrivacy?: () => void;
 }
+
+const SYNERCORE_GREEN = "#52A547";
+const SYNERCORE_GREEN_DARK = "#3F8A37";
 
 export const Login: React.FC<LoginProps> = ({ onPrivacy }) => {
   const { login } = useAuth();
@@ -37,31 +40,73 @@ export const Login: React.FC<LoginProps> = ({ onPrivacy }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(to bottom right, #eff6ff, #ffffff, #eff6ff)" }}>
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        background:
+          "linear-gradient(135deg, #eaf5e6 0%, #ffffff 45%, #ffffff 55%, #eaf5e6 100%)",
+      }}
+    >
+      <style>{`
+        @keyframes synercoreFadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .synercore-login-card { animation: synercoreFadeIn 0.45s ease-out both; }
+        .synercore-input:focus {
+          outline: none;
+          border-color: ${SYNERCORE_GREEN} !important;
+          box-shadow: 0 0 0 3px rgba(82, 165, 71, 0.2);
+        }
+      `}</style>
+
       <div className="w-full max-w-md">
-        {/* Logo and Title */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg">
-            <Truck className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold mb-2" style={{ color: "#0f172a" }}>Dispatch Management</h1>
-          <p style={{ color: "#4b5563" }}>Sign in to your account to continue</p>
+        {/* Logo */}
+        <div className="text-center mb-8 synercore-login-card">
+          <img
+            src={synercoreLogo}
+            alt="Synercore — Leaders in Food Innovation"
+            className="h-14 mx-auto mb-6 select-none"
+            draggable={false}
+          />
+          <h1 className="text-2xl font-semibold mb-1" style={{ color: "#1f2937" }}>
+            Dispatch Management
+          </h1>
+          <p className="text-sm" style={{ color: "#6b7280" }}>
+            Sign in to your account to continue
+          </p>
         </div>
 
         {/* Login Card */}
-        <Card className="p-8 shadow-xl" style={{ background: "#ffffff", borderColor: "#e5e7eb" }}>
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <Card
+          className="p-8 synercore-login-card"
+          style={{
+            background: "#ffffff",
+            borderColor: "#e5e7eb",
+            boxShadow:
+              "0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 4px 10px -4px rgba(15, 23, 42, 0.05)",
+          }}
+        >
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             {/* Error Alert */}
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3"
+              >
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
                 <div className="text-sm text-red-800">{error}</div>
               </div>
             )}
 
             {/* Username Field */}
             <div>
-              <label htmlFor="username" className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium mb-2"
+                style={{ color: "#374151" }}
+              >
                 Username
               </label>
               <input
@@ -69,17 +114,27 @@ export const Login: React.FC<LoginProps> = ({ onPrivacy }) => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                style={{ background: "#ffffff", border: "1px solid #d1d5db", color: "#0f172a" }}
+                className="synercore-input w-full px-4 py-3.5 rounded-lg transition-all text-base"
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #d1d5db",
+                  color: "#0f172a",
+                }}
                 placeholder="Enter your username"
                 disabled={isLoading}
                 autoComplete="username"
+                aria-required="true"
+                aria-invalid={!!error}
               />
             </div>
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium mb-2"
+                style={{ color: "#374151" }}
+              >
                 Password
               </label>
               <div className="relative">
@@ -88,22 +143,29 @@ export const Login: React.FC<LoginProps> = ({ onPrivacy }) => {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  style={{ background: "#ffffff", border: "1px solid #d1d5db", color: "#0f172a" }}
+                  className="synercore-input w-full px-4 py-3.5 pr-12 rounded-lg transition-all text-base"
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #d1d5db",
+                    color: "#0f172a",
+                  }}
                   placeholder="Enter your password"
                   disabled={isLoading}
                   autoComplete="current-password"
+                  aria-required="true"
+                  aria-invalid={!!error}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-100"
                   tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-5 h-5" aria-hidden="true" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-5 h-5" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -111,20 +173,32 @@ export const Login: React.FC<LoginProps> = ({ onPrivacy }) => {
 
             {/* Remember Me */}
             <div className="flex items-center">
-              <label className="flex items-center">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 border-gray-300 rounded"
+                  style={{ accentColor: SYNERCORE_GREEN }}
                 />
-                <span className="ml-2 text-sm" style={{ color: "#4b5563" }}>Remember me</span>
+                <span className="ml-2 text-sm" style={{ color: "#4b5563" }}>
+                  Remember me
+                </span>
               </label>
             </div>
 
             {/* Submit Button */}
-            <Button
+            <button
               type="submit"
-              className="w-full py-3 text-base font-medium"
               disabled={isLoading}
+              className="w-full py-3.5 text-base font-medium rounded-lg text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              style={{
+                background: isLoading ? SYNERCORE_GREEN_DARK : SYNERCORE_GREEN,
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoading) e.currentTarget.style.background = SYNERCORE_GREEN_DARK;
+              }}
+              onMouseLeave={(e) => {
+                if (!isLoading) e.currentTarget.style.background = SYNERCORE_GREEN;
+              }}
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -134,29 +208,40 @@ export const Login: React.FC<LoginProps> = ({ onPrivacy }) => {
               ) : (
                 "Sign In"
               )}
-            </Button>
+            </button>
           </form>
         </Card>
 
+        {/* Security reassurance */}
+        <div className="mt-5 flex items-center justify-center gap-2 text-xs" style={{ color: "#6b7280" }}>
+          <ShieldCheck className="w-3.5 h-3.5" style={{ color: SYNERCORE_GREEN }} aria-hidden="true" />
+          <span>Your session is encrypted. Credentials are never shared.</span>
+        </div>
+
         {/* Footer */}
-        <div className="mt-6 text-center text-sm" style={{ color: "#4b5563" }}>
+        <div className="mt-4 text-center text-sm" style={{ color: "#4b5563" }}>
           <p>
             Need an account?{" "}
-            <span className="text-blue-600 font-medium">Contact your administrator</span>
+            <span className="font-medium" style={{ color: SYNERCORE_GREEN }}>
+              Contact your administrator
+            </span>
           </p>
           <p className="mt-1">
             Forgot password?{" "}
-            <span className="text-blue-600 font-medium">Contact your administrator</span>
+            <span className="font-medium" style={{ color: SYNERCORE_GREEN }}>
+              Contact your administrator
+            </span>
           </p>
           <button
             type="button"
             onClick={onPrivacy}
-            className="mt-2 text-gray-400 hover:text-blue-600 text-xs transition-colors"
+            className="mt-3 text-gray-400 hover:opacity-80 text-xs transition-colors"
+            onMouseEnter={(e) => (e.currentTarget.style.color = SYNERCORE_GREEN)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "")}
           >
             Privacy Notice
           </button>
         </div>
-
       </div>
     </div>
   );

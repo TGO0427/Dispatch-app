@@ -62,6 +62,8 @@ const guideSections: GuideSection[] = [
     description: "The main dispatch hub. Assign transporters, track workflow, and manage all customer orders.",
     steps: [
       { title: "View Orders by Tab", detail: "Use the Open / Assigned / Delivered tabs to filter orders by stage. Each tab shows its count." },
+      { title: "Change the ETA Range", detail: "The order list defaults to the Next 5 Weeks by ETA to keep things fast. Use the 'Next 5 Weeks / 3 Months / 6 Months / All Dates' dropdown in the filter bar to widen the window when you need to see orders further out." },
+      { title: "Search Across All Dates", detail: "Typing in the search box ignores the ETA Range filter — it searches every imported order regardless of date, so you can always find an order by reference or customer name." },
       { title: "Assign a Transporter", detail: "Drag an order card from the left panel and drop it onto a transporter card on the right to assign. The system checks pallet capacity automatically." },
       { title: "Open Job Details", detail: "Click 'Details' on any order card to view full details, edit fields, change status, set truck size, and manage the dispatch workflow." },
       { title: "Dispatch Workflow", detail: "Each order has 3 workflow checkboxes: Transporter Booked (TB), Order Picked (OP), and COA Available (COA). All three must be checked before dispatching." },

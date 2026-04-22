@@ -63,7 +63,8 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   });
 
   // Filter to show only customer order jobs, deduplicated by ASO ref,
-  // and only orders due within current week + 4 weeks
+  // and only orders due within the selected ETA range (default: current week + 4 weeks).
+  // When a search query is active, the ETA range is bypassed so users can find any order.
   const orderJobs = useMemo(() => {
     const allOrders = jobs.filter((job) => job.jobType === "order" || job.jobType === undefined);
 
@@ -88,14 +89,31 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       }
     });
 
-    // Filter to current week + 4 weeks by ETA
+    // Bypass the ETA window entirely when searching — users expect to find any
+    // matching order regardless of date.
+    if (filters.searchQuery && filters.searchQuery.trim()) {
+      return Array.from(refMap.values());
+    }
+
+    // "all" skips the window too
+    const range = filters.etaRange || "5weeks";
+    if (range === "all") {
+      return Array.from(refMap.values());
+    }
+
     const now = new Date();
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
     startOfWeek.setHours(0, 0, 0, 0);
 
     const endOfRange = new Date(startOfWeek);
-    endOfRange.setDate(endOfRange.getDate() + 5 * 7); // 5 weeks total (current + 4)
+    if (range === "3months") {
+      endOfRange.setMonth(endOfRange.getMonth() + 3);
+    } else if (range === "6months") {
+      endOfRange.setMonth(endOfRange.getMonth() + 6);
+    } else {
+      endOfRange.setDate(endOfRange.getDate() + 5 * 7); // 5 weeks (current + 4)
+    }
     endOfRange.setHours(23, 59, 59, 999);
 
     return Array.from(refMap.values()).filter((job) => {
@@ -104,7 +122,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       const etaDate = new Date(job.eta);
       return etaDate >= startOfWeek && etaDate <= endOfRange;
     });
-  }, [jobs]);
+  }, [jobs, filters.searchQuery, filters.etaRange]);
 
   const filteredAndSortedJobs = useMemo(() => {
     const filtered = filterJobs(orderJobs, filters);

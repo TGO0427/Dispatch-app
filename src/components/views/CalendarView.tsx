@@ -175,7 +175,7 @@ export const CalendarView: React.FC = () => {
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className={`text-xs font-bold ${
-                      today ? "text-blue-600" : isHighVolume ? "text-amber-700" : "text-gray-600"
+                      today ? "text-resilinc-primary" : isHighVolume ? "text-amber-700" : "text-gray-600"
                     }`}>
                       {day}
                     </span>

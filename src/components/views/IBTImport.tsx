@@ -649,7 +649,7 @@ export const IBTImport: React.FC = () => {
           <Upload className="h-10 w-10 text-gray-300 mb-3" />
           <p className="text-sm font-medium text-gray-700">
             Drag & drop your file here, or{" "}
-            <button onClick={() => fileInputRef.current?.click()} className="text-blue-600 hover:text-blue-700 underline">browse</button>
+            <button onClick={() => fileInputRef.current?.click()} className="text-resilinc-primary hover:text-resilinc-primary-dark underline">browse</button>
           </p>
           <p className="text-xs text-gray-400 mt-1">CSV, XLSX, XLS</p>
           <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileSelect} className="hidden" id="file-upload" />
@@ -880,7 +880,7 @@ export const IBTImport: React.FC = () => {
                     type="text"
                     value={manualOrder.ref}
                     onChange={(e) => setManualOrder({ ...manualOrder, ref: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="IBT-0001"
                     required
                   />
@@ -896,7 +896,7 @@ export const IBTImport: React.FC = () => {
                     type="text"
                     value={manualOrder.warehouse || ""}
                     onChange={(e) => setManualOrder({ ...manualOrder, warehouse: e.target.value, pickup: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="K58 Warehouse"
                   />
                 </div>
@@ -911,7 +911,7 @@ export const IBTImport: React.FC = () => {
                     type="text"
                     value={manualOrder.dropoff}
                     onChange={(e) => setManualOrder({ ...manualOrder, dropoff: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="K63 Warehouse"
                   />
                 </div>
@@ -925,7 +925,7 @@ export const IBTImport: React.FC = () => {
                     id="manual-priority"
                     value={manualOrder.priority}
                     onChange={(e) => setManualOrder({ ...manualOrder, priority: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   >
                     <option value="low">Low</option>
                     <option value="normal">Normal</option>
@@ -943,7 +943,7 @@ export const IBTImport: React.FC = () => {
                     type="date"
                     value={manualOrder.eta || ""}
                     onChange={(e) => setManualOrder({ ...manualOrder, eta: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   />
                 </div>
 
@@ -957,7 +957,7 @@ export const IBTImport: React.FC = () => {
                     type="number"
                     value={manualOrder.pallets || ""}
                     onChange={(e) => setManualOrder({ ...manualOrder, pallets: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="0"
                     min="0"
                   />
@@ -973,7 +973,7 @@ export const IBTImport: React.FC = () => {
                     type="number"
                     value={manualOrder.outstandingQty || ""}
                     onChange={(e) => setManualOrder({ ...manualOrder, outstandingQty: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="0"
                     min="0"
                   />
@@ -988,7 +988,7 @@ export const IBTImport: React.FC = () => {
                     id="manual-notes"
                     value={manualOrder.notes || ""}
                     onChange={(e) => setManualOrder({ ...manualOrder, notes: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="Items being transferred"
                     rows={3}
                   />

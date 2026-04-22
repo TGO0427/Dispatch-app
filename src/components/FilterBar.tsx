@@ -37,7 +37,7 @@ export const FilterBar: React.FC<{ showMore?: boolean }> = ({ showMore }) => {
     filters.orderPicked !== undefined ||
     filters.coaAvailable !== undefined;
 
-  const selCls = "h-7 text-[11px] border border-gray-300 rounded-md bg-white px-2 py-0 focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const selCls = "h-7 text-[11px] border border-gray-300 rounded-md bg-white px-2 py-0 focus:outline-none focus:ring-2 focus:ring-resilinc-primary";
 
   return (
     <div className="flex items-center gap-1.5">
@@ -49,7 +49,7 @@ export const FilterBar: React.FC<{ showMore?: boolean }> = ({ showMore }) => {
           placeholder="Search ref, customer..."
           value={filters.searchQuery || ""}
           onChange={(e) => setFilters({ ...filters, searchQuery: e.target.value })}
-          className="h-7 text-[11px] w-full pl-7 pr-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+          className="h-7 text-[11px] w-full pl-7 pr-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-resilinc-primary placeholder:text-gray-400"
         />
       </div>
 

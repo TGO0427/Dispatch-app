@@ -33,7 +33,7 @@ const SettingsView = lazy(() => import("./components/views/SettingsView").then(m
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[400px]">
     <div className="text-center">
-      <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-3" />
+      <Loader2 className="w-8 h-8 text-resilinc-primary animate-spin mx-auto mb-3" />
       <p className="text-sm text-gray-500">Loading...</p>
     </div>
   </div>
@@ -120,7 +120,7 @@ function AppContent() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 text-resilinc-primary animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -152,7 +152,7 @@ function AppContent() {
           {unreadMessages > 0 && activeNavItem !== "inbox" && (
             <button
               onClick={() => setActiveNavItem("inbox")}
-              className="fixed top-4 right-4 z-40 flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition-all animate-pulse hover:animate-none"
+              className="fixed top-4 right-4 z-40 flex items-center gap-2 px-3 py-2 bg-resilinc-primary text-white rounded-lg shadow-lg hover:bg-resilinc-primary-dark transition-all animate-pulse hover:animate-none"
             >
               <Mail className="h-4 w-4" />
               <span className="text-sm font-medium">{unreadMessages} new message{unreadMessages > 1 ? "s" : ""}</span>

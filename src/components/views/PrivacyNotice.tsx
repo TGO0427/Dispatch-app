@@ -10,13 +10,13 @@ export const PrivacyNotice: React.FC<PrivacyNoticeProps> = ({ onBack }) => {
     <div className="min-h-screen p-4" style={{ background: "linear-gradient(to bottom right, #eff6ff, #ffffff, #eff6ff)" }}>
       <div className="max-w-3xl mx-auto py-12">
         {onBack && (
-          <button onClick={onBack} className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-6 text-sm font-medium">
+          <button onClick={onBack} className="flex items-center gap-2 text-resilinc-primary hover:text-resilinc-primary-dark mb-6 text-sm font-medium">
             <ArrowLeft className="w-4 h-4" /> Back to login
           </button>
         )}
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="inline-flex items-center justify-center w-10 h-10 bg-blue-600 rounded-xl">
+          <div className="inline-flex items-center justify-center w-10 h-10 bg-resilinc-primary rounded-xl">
             <Shield className="w-5 h-5 text-white" />
           </div>
           <h1 className="text-2xl font-bold" style={{ color: "#0f172a" }}>Privacy Notice</h1>

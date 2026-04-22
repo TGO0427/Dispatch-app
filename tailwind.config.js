@@ -41,8 +41,8 @@ export default {
           50: 'rgb(var(--color-amber-subtle) / <alpha-value>)',
         },
         resilinc: {
-          primary: '#2563EB',
-          'primary-dark': '#1D4ED8',
+          primary: '#52A547',       // Synercore brand green
+          'primary-dark': '#3F8A37', // Synercore brand green (hover)
           alert: '#EF4444',
           warning: '#F97316',
         },

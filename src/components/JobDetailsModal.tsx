@@ -161,7 +161,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
   };
 
   // Common input classes
-  const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50";
+  const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-resilinc-primary focus:border-transparent bg-gray-50";
   const labelCls = "text-[11px] font-semibold text-gray-400 uppercase tracking-wider";
 
   return (
@@ -435,7 +435,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                             type="number"
                             value={item.pallets ?? ""}
                             onChange={(e) => updateJob(item.id, { pallets: e.target.value !== "" ? Number(e.target.value) : undefined })}
-                            className="w-14 border border-gray-200 rounded px-1.5 py-0.5 text-xs text-center bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-14 border border-gray-200 rounded px-1.5 py-0.5 text-xs text-center bg-white focus:outline-none focus:ring-1 focus:ring-resilinc-primary"
                             placeholder="plt"
                             min="0"
                           />
@@ -477,7 +477,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                     updateField("hasFlowbin", newVal);
                     updateJob(job.id, { hasFlowbin: newVal });
                   }}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${editedJob.hasFlowbin ? "bg-blue-600" : "bg-gray-300"}`}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${editedJob.hasFlowbin ? "bg-resilinc-primary" : "bg-gray-300"}`}
                 >
                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${editedJob.hasFlowbin ? "translate-x-5" : "translate-x-0.5"}`} />
                 </button>
@@ -523,12 +523,12 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                     <input
                       type="text" placeholder="Batch number" value={newBatchNumber}
                       onChange={(e) => setNewBatchNumber(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-resilinc-primary"
                     />
                     <input
                       type="number" placeholder="Qty" value={newBatchQty}
                       onChange={(e) => setNewBatchQty(e.target.value)}
-                      className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-resilinc-primary"
                       min="1"
                     />
                     <Button size="sm" onClick={handleAddBatch} disabled={!newBatchNumber.trim() || !newBatchQty} className="text-xs h-7">

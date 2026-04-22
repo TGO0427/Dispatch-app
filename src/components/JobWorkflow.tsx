@@ -171,7 +171,7 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
               checked={item.checked}
               onChange={() => handleToggle(item.id)}
               disabled={isLocked}
-              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-5 h-5 text-resilinc-primary border-gray-300 rounded focus:ring-2 focus:ring-resilinc-primary disabled:opacity-50"
             />
             <span className={`text-sm ${item.checked ? "text-gray-900 font-medium" : "text-gray-600"}`}>
               {item.label}

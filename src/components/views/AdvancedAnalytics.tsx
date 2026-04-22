@@ -282,7 +282,7 @@ export const AdvancedAnalytics: React.FC = () => {
       {/* KPI Strip — tighter, stronger hierarchy */}
       <div className="grid gap-3 grid-cols-3 lg:grid-cols-6">
         {([
-          { icon: Package, label: "Total Jobs", value: String(kpis.totalJobs), color: "text-gray-900", iconColor: "text-blue-600", bg: "bg-blue-50" },
+          { icon: Package, label: "Total Jobs", value: String(kpis.totalJobs), color: "text-gray-900", iconColor: "text-resilinc-primary", bg: "bg-green-50" },
           { icon: TrendingUp, label: "Delivered", value: String(kpis.deliveredJobs), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
           { icon: BarChart3, label: "Delivery Rate", value: `${kpis.deliveryRate}%`, color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
           { icon: Calendar, label: "Exceptions", value: String(kpis.exceptionsCount), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },

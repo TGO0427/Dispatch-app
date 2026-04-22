@@ -445,7 +445,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
             serviceFilter === "delivery" ? "border-gray-900 bg-gray-900 text-white shadow-sm" : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
           }`}
         >
-          <div className={`text-sm font-bold ${serviceFilter === "delivery" ? "text-white" : "text-blue-600"}`}>{stats.delivery}</div>
+          <div className={`text-sm font-bold ${serviceFilter === "delivery" ? "text-white" : "text-resilinc-primary"}`}>{stats.delivery}</div>
           <div className={`text-[10px] uppercase tracking-wider font-medium ${serviceFilter === "delivery" ? "text-gray-300" : "text-gray-400"}`}>Delivery</div>
         </button>
         <button
@@ -539,7 +539,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         </div>
         <div className="flex items-center gap-2">
           <SortBar />
-          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-[10px] text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors whitespace-nowrap">{showMoreFilters ? "Less" : "More"}</button>
+          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-[10px] text-resilinc-primary hover:text-resilinc-primary-dark font-medium px-2 py-1 rounded hover:bg-green-50 transition-colors whitespace-nowrap">{showMoreFilters ? "Less" : "More"}</button>
         </div>
       </div>
 
@@ -627,7 +627,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                             onClick={() => setCurrentPage(page)}
                             className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
                               currentPage === page
-                                ? "bg-blue-600 text-white"
+                                ? "bg-resilinc-primary text-white"
                                 : "text-gray-600 hover:bg-gray-100"
                             }`}
                           >
@@ -754,7 +754,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                       onClick={() => { setSelectedAlertDate(null); setSelectedJob(job); }}
                     >
                       <td className="p-3 font-medium">
-                        <span className="text-blue-600 hover:text-blue-800 hover:underline">{job.ref}</span>
+                        <span className="text-resilinc-primary hover:text-resilinc-primary-dark hover:underline">{job.ref}</span>
                       </td>
                       <td className="p-3">
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
@@ -842,7 +842,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     type="text"
                     value={newJob.ref}
                     onChange={(e) => setNewJob({ ...newJob, ref: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="SO-0001"
                     required
                   />
@@ -858,7 +858,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     type="text"
                     value={newJob.customer}
                     onChange={(e) => setNewJob({ ...newJob, customer: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="Customer Name"
                     required
                   />
@@ -873,7 +873,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     id="job-warehouse"
                     value={newJob.warehouse}
                     onChange={(e) => setNewJob({ ...newJob, warehouse: e.target.value, pickup: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   >
                     <option value="">Select Warehouse</option>
                     {warehouses.map((warehouse) => (
@@ -893,7 +893,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     id="job-service-type"
                     value={newJob.serviceType}
                     onChange={(e) => setNewJob({ ...newJob, serviceType: e.target.value as "collection" | "delivery" })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   >
                     <option value="delivery">Delivery</option>
                     <option value="collection">Collection</option>
@@ -910,7 +910,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     type="text"
                     value={newJob.dropoff}
                     onChange={(e) => setNewJob({ ...newJob, dropoff: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="Delivery address"
                   />
                 </div>
@@ -924,7 +924,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     id="job-priority"
                     value={newJob.priority}
                     onChange={(e) => setNewJob({ ...newJob, priority: e.target.value as JobPriority })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   >
                     <option value="low">Low</option>
                     <option value="normal">Normal</option>
@@ -942,7 +942,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     type="date"
                     value={newJob.eta}
                     onChange={(e) => setNewJob({ ...newJob, eta: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   />
                 </div>
 
@@ -956,7 +956,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     type="number"
                     value={newJob.pallets || ""}
                     onChange={(e) => setNewJob({ ...newJob, pallets: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="0"
                     min="0"
                   />
@@ -972,7 +972,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     type="number"
                     value={newJob.outstandingQty || ""}
                     onChange={(e) => setNewJob({ ...newJob, outstandingQty: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="0"
                     min="0"
                   />
@@ -987,7 +987,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     id="job-notes"
                     value={newJob.notes}
                     onChange={(e) => setNewJob({ ...newJob, notes: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="Additional notes or item description"
                     rows={3}
                   />

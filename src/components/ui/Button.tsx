@@ -19,7 +19,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variants = {
     default: "bg-resilinc-primary text-white hover:bg-resilinc-primary-dark",
-    outline: "border border-resilinc-primary bg-white text-resilinc-primary hover:bg-blue-50",
+    outline: "border border-resilinc-primary bg-white text-resilinc-primary hover:bg-green-50",
     destructive: "bg-resilinc-alert text-white hover:bg-red-600",
     ghost: "hover:bg-gray-50 text-gray-700",
   };

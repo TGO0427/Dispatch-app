@@ -236,7 +236,7 @@ export const IBTReports: React.FC = () => {
                       const etaWeekInfo = getWeekInfo(job.eta);
                       return (
                         <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="p-3 font-medium"><button className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" onClick={() => setSelectedJob(job)}>{job.ref}</button></td>
+                          <td className="p-3 font-medium"><button className="text-resilinc-primary hover:text-resilinc-primary-dark hover:underline cursor-pointer" onClick={() => setSelectedJob(job)}>{job.ref}</button></td>
                           <td className="p-3">
                             <Badge variant={
                               job.status === "delivered" ? "success" :
@@ -458,7 +458,7 @@ export const IBTReports: React.FC = () => {
                   <tbody>
                     {exceptionJobs.map((job) => (
                       <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-3 font-medium"><button className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" onClick={() => setSelectedJob(job)}>{job.ref}</button></td>
+                        <td className="p-3 font-medium"><button className="text-resilinc-primary hover:text-resilinc-primary-dark hover:underline cursor-pointer" onClick={() => setSelectedJob(job)}>{job.ref}</button></td>
                         <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
                         <td className="p-3 text-gray-700">
                           {job.driverId ? drivers.find((d) => d.id === job.driverId)?.name : "Unassigned"}
@@ -512,7 +512,7 @@ export const IBTReports: React.FC = () => {
                     <tbody>
                       {overdueJobs.map((job) => (
                         <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="p-3"><button className="font-medium text-blue-600 hover:text-blue-800 hover:underline" onClick={() => setSelectedJob(job)}>{job.ref}</button></td>
+                          <td className="p-3"><button className="font-medium text-resilinc-primary hover:text-resilinc-primary-dark hover:underline" onClick={() => setSelectedJob(job)}>{job.ref}</button></td>
                           <td className="p-3 text-gray-700">{job.customer}</td>
                           <td className="p-3"><Badge variant={job.status === "exception" ? "destructive" : "secondary"}>{job.status}</Badge></td>
                           <td className="p-3 text-gray-700 text-xs">{job.eta}</td>
@@ -614,7 +614,7 @@ export const IBTReports: React.FC = () => {
         )}
 
         <div className="mt-2 text-right">
-          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-resilinc-primary hover:text-resilinc-primary-dark font-medium">
             {showMoreFilters ? "Less filters" : "More filters (warehouse, transporter)"}
           </button>
         </div>
@@ -623,7 +623,7 @@ export const IBTReports: React.FC = () => {
       {/* KPI Strip — with icons, matches Order Reports */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {([
-          { icon: Package, label: "Total IBTs", value: String(stats.total), color: "text-gray-900", iconColor: "text-blue-600", bg: "bg-blue-50" },
+          { icon: Package, label: "Total IBTs", value: String(stats.total), color: "text-gray-900", iconColor: "text-resilinc-primary", bg: "bg-green-50" },
           { icon: TrendingUp, label: "Delivered", value: String(stats.delivered), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
           { icon: Truck, label: "In Transit", value: String(stats.inTransit), color: "text-blue-600", iconColor: "text-blue-600", bg: "bg-blue-50" },
           { icon: AlertCircle, label: "Exceptions", value: String(stats.exceptions), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },

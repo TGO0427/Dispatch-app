@@ -423,7 +423,7 @@ export const AnalyticsView: React.FC = () => {
                           <td className="p-3">
                             <button
                               onClick={() => setSelectedJob(job)}
-                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                              className="font-medium text-resilinc-primary hover:text-resilinc-primary-dark hover:underline cursor-pointer"
                               title="View order details"
                             >
                               {job.ref}
@@ -668,7 +668,7 @@ export const AnalyticsView: React.FC = () => {
                           <td className="p-3">
                             <button
                               onClick={() => setSelectedJob(job)}
-                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                              className="font-medium text-resilinc-primary hover:text-resilinc-primary-dark hover:underline cursor-pointer"
                               title="View order details"
                             >
                               {job.ref}
@@ -893,7 +893,7 @@ export const AnalyticsView: React.FC = () => {
                       {overdueJobs.map((job) => (
                         <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="p-3">
-                            <button className="font-medium text-blue-600 hover:text-blue-800 hover:underline" onClick={() => setSelectedJob(job)}>
+                            <button className="font-medium text-resilinc-primary hover:text-resilinc-primary-dark hover:underline" onClick={() => setSelectedJob(job)}>
                               {job.ref}
                             </button>
                           </td>
@@ -1052,7 +1052,7 @@ export const AnalyticsView: React.FC = () => {
         )}
 
         <div className="mt-2 text-right">
-          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-resilinc-primary hover:text-resilinc-primary-dark font-medium">
             {showMoreFilters ? "Less filters" : "More filters (priority, warehouse, transporter, week)"}
           </button>
         </div>
@@ -1062,7 +1062,7 @@ export const AnalyticsView: React.FC = () => {
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Card className="p-3">
           <div className="flex items-center gap-3">
-            <Package className="h-6 w-6 text-blue-600" />
+            <Package className="h-6 w-6 text-resilinc-primary" />
             <div>
               <div className="text-xl font-bold text-gray-900">{metrics.total}</div>
               <div className="text-[10px] uppercase tracking-wide text-gray-500">Total Jobs</div>

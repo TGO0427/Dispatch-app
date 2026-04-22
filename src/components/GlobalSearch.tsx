@@ -165,7 +165,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
           }}
           onFocus={() => query.length >= 2 && setOpen(true)}
           onKeyDown={handleKeyDown}
-          className="w-full bg-white border border-gray-200 rounded-full pl-10 pr-8 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+          className="w-full bg-white border border-gray-200 rounded-full pl-10 pr-8 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-resilinc-primary focus:border-transparent shadow-sm"
         />
         {query && (
           <button

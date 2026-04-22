@@ -273,7 +273,7 @@ export const HelpGuide: React.FC<HelpGuideProps> = ({ open, onClose, onNavigateT
                       : "text-gray-600 hover:bg-gray-100"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-blue-600" : "text-gray-400"}`} />
+                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-resilinc-primary" : "text-gray-400"}`} />
                   <span className={`text-[13px] ${isActive ? "font-semibold" : "font-medium"}`}>{section.title}</span>
                 </button>
               );
@@ -311,7 +311,7 @@ export const HelpGuide: React.FC<HelpGuideProps> = ({ open, onClose, onNavigateT
             {!activeSection ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center mx-auto mb-4">
-                  <Search className="w-8 h-8 text-blue-600" />
+                  <Search className="w-8 h-8 text-resilinc-primary" />
                 </div>
                 <h4 className="text-lg font-semibold" style={{ color: "#0f172a" }}>Explore the Guide</h4>
                 <p className="text-sm mt-2 max-w-md mx-auto" style={{ color: "#64748b" }}>
@@ -324,7 +324,7 @@ export const HelpGuide: React.FC<HelpGuideProps> = ({ open, onClose, onNavigateT
                       <button
                         key={s.id}
                         onClick={() => setSelectedSection(s.id)}
-                        className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all"
+                        className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-resilinc-primary hover:bg-green-50 transition-all"
                       >
                         <Icon className="w-5 h-5 text-gray-500" />
                         <span className="text-xs font-medium" style={{ color: "#334155" }}>{s.title}</span>
@@ -370,7 +370,7 @@ export const HelpGuide: React.FC<HelpGuideProps> = ({ open, onClose, onNavigateT
                       onNavigateTo(activeSection.id);
                       onClose();
                     }}
-                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-resilinc-primary text-white text-sm font-medium rounded-lg hover:bg-resilinc-primary-dark transition-colors"
                   >
                     Go to {activeSection.title}
                     <ChevronRight className="w-4 h-4" />

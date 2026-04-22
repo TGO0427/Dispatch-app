@@ -279,7 +279,7 @@ export const InboxView: React.FC = () => {
           <input
             type="text" placeholder="Search messages..."
             value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 h-7 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className="w-full pl-8 pr-3 h-7 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-resilinc-primary bg-white"
           />
         </div>
         <Button size="sm" onClick={() => openCompose()} className="gap-1.5 h-7 text-xs">
@@ -303,7 +303,7 @@ export const InboxView: React.FC = () => {
                 </p>
                 <button
                   onClick={() => openCompose()}
-                  className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-all hover:shadow-md"
+                  className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-full bg-resilinc-primary text-white text-xs font-medium hover:bg-resilinc-primary-dark transition-all hover:shadow-md"
                 >
                   <Send className="h-3 w-3" /> New conversation
                 </button>
@@ -354,7 +354,7 @@ export const InboxView: React.FC = () => {
                 <div className="mt-auto border-t border-gray-100 bg-gray-50/50">
                   <button
                     onClick={() => openCompose()}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all group/new"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-gray-500 hover:bg-green-50 hover:text-resilinc-primary transition-all group/new"
                   >
                     <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 group-hover/new:bg-blue-200 transition-colors">
                       <Send className="h-3 w-3 text-blue-500" />
@@ -544,11 +544,11 @@ export const InboxView: React.FC = () => {
                   <input
                     type="text"
                     placeholder="Type a message..."
-                    className="flex-1 h-9 px-4 text-sm border border-gray-200 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 h-9 px-4 text-sm border border-gray-200 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   />
                   <button
                     type="submit"
-                    className="h-9 w-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center flex-shrink-0 shadow-sm hover:shadow-md hover:scale-105 transition-all"
+                    className="h-9 w-9 rounded-full bg-resilinc-primary hover:bg-resilinc-primary-dark text-white flex items-center justify-center flex-shrink-0 shadow-sm hover:shadow-md hover:scale-105 transition-all"
                   >
                     <Send className="h-4 w-4" />
                   </button>
@@ -584,7 +584,7 @@ export const InboxView: React.FC = () => {
                 <button
                   onClick={() => setComposeBroadcast(!composeBroadcast)}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                    composeBroadcast ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    composeBroadcast ? "bg-resilinc-primary text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
                   <Users className="h-3 w-3" /> Broadcast to All
@@ -633,7 +633,7 @@ export const InboxView: React.FC = () => {
                 <input
                   type="text" value={composeSubject} onChange={(e) => setComposeSubject(e.target.value)}
                   placeholder="Message subject..."
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-resilinc-primary mt-1"
                 />
               </div>
 
@@ -643,7 +643,7 @@ export const InboxView: React.FC = () => {
                   value={composeBody} onChange={(e) => setComposeBody(e.target.value)}
                   placeholder="Type your message..."
                   rows={4}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-resilinc-primary mt-1"
                 />
               </div>
 
@@ -653,7 +653,7 @@ export const InboxView: React.FC = () => {
                   <input
                     type="text" value={composeJobRef} onChange={(e) => setComposeJobRef(e.target.value)}
                     placeholder="e.g. ASO0024525"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-resilinc-primary mt-1"
                   />
                 </div>
                 <div>

@@ -668,7 +668,7 @@ export const OrderImport: React.FC = () => {
           <Upload className="h-10 w-10 text-gray-300 mb-3" />
           <p className="text-sm font-medium text-gray-700">
             Drag & drop your file here, or{" "}
-            <button onClick={() => fileInputRef.current?.click()} className="text-blue-600 hover:text-blue-700 underline">browse</button>
+            <button onClick={() => fileInputRef.current?.click()} className="text-resilinc-primary hover:text-resilinc-primary-dark underline">browse</button>
           </p>
           <p className="text-xs text-gray-400 mt-1">CSV, XLSX, XLS</p>
           <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileSelect} className="hidden" id="file-upload" />

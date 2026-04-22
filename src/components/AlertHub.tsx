@@ -248,7 +248,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
       >
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
-          <Bell className="w-5 h-5 text-blue-600" />
+          <Bell className="w-5 h-5 text-resilinc-primary" />
           <span className="font-bold text-gray-900">Alert Hub</span>
           {alerts.length > 0 && (
             <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
@@ -272,7 +272,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
             onClick={() => setTab("alerts")}
             className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               tab === "alerts"
-                ? "border-blue-600 text-blue-600"
+                ? "border-resilinc-primary text-resilinc-primary"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
@@ -282,7 +282,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
             onClick={() => setTab("upcoming")}
             className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               tab === "upcoming"
-                ? "border-blue-600 text-blue-600"
+                ? "border-resilinc-primary text-resilinc-primary"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
@@ -302,7 +302,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
                   placeholder="Search alerts..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-resilinc-primary"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -386,7 +386,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
                               </div>
                               <div className="flex items-center gap-2 mt-1.5 pl-3.5" onClick={(e) => e.stopPropagation()}>
                                 {alert.jobId && onSelectJob && (
-                                  <button onClick={() => { onSelectJob(alert.jobId!); onClose(); }} className="text-[10px] px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">View</button>
+                                  <button onClick={() => { onSelectJob(alert.jobId!); onClose(); }} className="text-[10px] px-2 py-0.5 bg-resilinc-primary text-white rounded hover:bg-resilinc-primary-dark transition-colors">View</button>
                                 )}
                                 <button onClick={() => dismiss(alert.id)} className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded hover:bg-gray-200 transition-colors">Dismiss</button>
                               </div>
@@ -425,7 +425,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-blue-600">{job.ref}</span>
+                  <span className="text-sm font-semibold text-resilinc-primary">{job.ref}</span>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                     daysUntil(job.eta!) === "Today" ? "bg-red-100 text-red-700" :
                     daysUntil(job.eta!) === "Tomorrow" ? "bg-yellow-100 text-yellow-700" :

@@ -102,7 +102,7 @@ export const SettingsView: React.FC = () => {
       {/* Header */}
       <Card className="p-6">
         <div className="flex items-center gap-3">
-          <Settings className="h-8 w-8 text-blue-600" />
+          <Settings className="h-8 w-8 text-resilinc-primary" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
             <p className="text-sm text-gray-500">Manage your account, preferences, and application settings</p>
@@ -127,7 +127,7 @@ export const SettingsView: React.FC = () => {
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${activeTab === tab.key ? "text-blue-600" : "text-gray-400"}`} />
+                  <Icon className={`w-4 h-4 ${activeTab === tab.key ? "text-resilinc-primary" : "text-gray-400"}`} />
                   <span className="text-sm">{tab.label}</span>
                 </button>
               );
@@ -227,7 +227,7 @@ export const SettingsView: React.FC = () => {
                       type={showCurrentPwd ? "text" : "password"}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent text-sm"
                       placeholder="Enter your current password"
                     />
                     <button
@@ -247,7 +247,7 @@ export const SettingsView: React.FC = () => {
                       type={showNewPwd ? "text" : "password"}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent text-sm"
                       placeholder="Enter new password (min 12 characters)"
                     />
                     <button
@@ -277,7 +277,7 @@ export const SettingsView: React.FC = () => {
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent text-sm"
                     placeholder="Confirm new password"
                   />
                   {confirmPassword && newPassword !== confirmPassword && (
@@ -326,7 +326,7 @@ export const SettingsView: React.FC = () => {
                     <button
                       onClick={toggleTheme}
                       className={`relative w-14 h-7 rounded-full transition-colors ${
-                        theme === "dark" ? "bg-blue-600" : "bg-gray-300"
+                        theme === "dark" ? "bg-resilinc-primary" : "bg-gray-300"
                       }`}
                     >
                       <span
@@ -363,7 +363,7 @@ export const SettingsView: React.FC = () => {
                     <button
                       onClick={handleSoundToggle}
                       className={`relative w-14 h-7 rounded-full transition-colors ${
-                        soundEnabled ? "bg-blue-600" : "bg-gray-300"
+                        soundEnabled ? "bg-resilinc-primary" : "bg-gray-300"
                       }`}
                     >
                       <span

@@ -325,7 +325,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
       {/* Header — compact */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <ArrowRightLeft className="h-6 w-6 text-blue-600" />
+          <ArrowRightLeft className="h-6 w-6 text-resilinc-primary" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">IBT Management</h1>
             <p className="text-sm text-gray-500">Manage Internal Branch Transfers and track deliveries</p>
@@ -352,7 +352,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
         {([
           { label: "Total", value: stats.total, color: "text-gray-900" },
           { label: "Pending", value: stats.pending, color: "text-resilinc-warning" },
-          { label: "En Route", value: stats.inRoute, color: "text-resilinc-primary" },
+          { label: "En Route", value: stats.inRoute, color: "text-blue-600" },
           { label: "Delivered", value: stats.delivered, color: "text-green-600" },
           { label: "Exceptions", value: stats.exceptions, color: "text-resilinc-alert" },
           { label: "Available", value: stats.availableDrivers, color: "text-green-600" },
@@ -419,7 +419,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
         </div>
         <div className="flex items-center gap-2">
           <SortBar />
-          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors">{showMoreFilters ? "Less filters" : "More filters"}</button>
+          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-resilinc-primary hover:text-resilinc-primary-dark font-medium px-2 py-1 rounded hover:bg-green-50 transition-colors">{showMoreFilters ? "Less filters" : "More filters"}</button>
         </div>
       </div>
 
@@ -498,7 +498,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                             onClick={() => setCurrentPage(page)}
                             className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
                               currentPage === page
-                                ? "bg-blue-600 text-white"
+                                ? "bg-resilinc-primary text-white"
                                 : "text-gray-600 hover:bg-gray-100"
                             }`}
                           >
@@ -626,7 +626,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                       onClick={() => { setSelectedAlertDate(null); setSelectedJob(job); }}
                     >
                       <td className="p-3 font-medium">
-                        <span className="text-blue-600 hover:text-blue-800 hover:underline">{job.ref}</span>
+                        <span className="text-resilinc-primary hover:text-resilinc-primary-dark hover:underline">{job.ref}</span>
                       </td>
                       <td className="p-3 text-gray-700">{job.customer}</td>
                       <td className="p-3">
@@ -707,7 +707,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     type="text"
                     value={newJob.ref}
                     onChange={(e) => setNewJob({ ...newJob, ref: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="IBT-0001"
                     required
                   />
@@ -723,7 +723,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     type="text"
                     value={newJob.customer}
                     onChange={(e) => setNewJob({ ...newJob, customer: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="Branch Name"
                     required
                   />
@@ -738,7 +738,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     id="ibt-pickup"
                     value={newJob.warehouse}
                     onChange={(e) => setNewJob({ ...newJob, pickup: e.target.value, warehouse: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   >
                     <option value="">Select Warehouse</option>
                     {warehouses.map((warehouse) => (
@@ -758,7 +758,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     id="ibt-service-type"
                     value={newJob.serviceType}
                     onChange={(e) => setNewJob({ ...newJob, serviceType: e.target.value as "collection" | "delivery" })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   >
                     <option value="delivery">Delivery</option>
                     <option value="collection">Collection</option>
@@ -775,7 +775,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     type="text"
                     value={newJob.dropoff}
                     onChange={(e) => setNewJob({ ...newJob, dropoff: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="Destination address"
                   />
                 </div>
@@ -789,7 +789,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     id="ibt-priority"
                     value={newJob.priority}
                     onChange={(e) => setNewJob({ ...newJob, priority: e.target.value as JobPriority })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   >
                     <option value="low">Low</option>
                     <option value="normal">Normal</option>
@@ -807,7 +807,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     type="date"
                     value={newJob.eta}
                     onChange={(e) => setNewJob({ ...newJob, eta: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                   />
                 </div>
 
@@ -821,7 +821,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     type="number"
                     value={newJob.pallets || ""}
                     onChange={(e) => setNewJob({ ...newJob, pallets: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="0"
                     min="0"
                   />
@@ -837,7 +837,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     type="number"
                     value={newJob.outstandingQty || ""}
                     onChange={(e) => setNewJob({ ...newJob, outstandingQty: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="0"
                     min="0"
                   />
@@ -852,7 +852,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
                     id="ibt-notes"
                     value={newJob.notes}
                     onChange={(e) => setNewJob({ ...newJob, notes: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
                     placeholder="Additional notes or item description"
                     rows={3}
                   />
@@ -861,7 +861,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
 
               {/* Actions */}
               <div className="flex items-center gap-3 mt-6">
-                <Button onClick={handleAddJob} className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">
+                <Button onClick={handleAddJob} className="flex-1 flex items-center justify-center gap-2 bg-resilinc-primary hover:bg-resilinc-primary-dark">
                   <Save className="w-4 h-4" />
                   Add IBT Job
                 </Button>

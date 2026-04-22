@@ -240,7 +240,7 @@ export const FlowbinTracking: React.FC = () => {
                     <div key={name} className="flex items-center gap-2.5">
                       <span className="text-[10px] text-gray-600 w-[5.5rem] truncate flex-shrink-0" title={name}>{name}</span>
                       <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${Math.max(pct, 8)}%` }} />
+                        <div className="h-full rounded-full bg-resilinc-primary transition-all" style={{ width: `${Math.max(pct, 8)}%` }} />
                       </div>
                       <span className="text-xs font-bold text-gray-700 w-6 text-right tabular-nums">{count}</span>
                     </div>
@@ -258,7 +258,7 @@ export const FlowbinTracking: React.FC = () => {
         <input
           type="text" placeholder="Search by reference, customer, or destination..."
           value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-9 pr-3 h-8 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+          className="w-full pl-9 pr-3 h-8 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-resilinc-primary focus:border-transparent bg-white"
         />
       </div>
 
@@ -313,7 +313,7 @@ export const FlowbinTracking: React.FC = () => {
                         >
                           <td className="px-3 py-2.5">
                             <button
-                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                              className="font-medium text-resilinc-primary hover:text-resilinc-primary-dark hover:underline"
                               onClick={(e) => { e.stopPropagation(); setSelectedJob(job); }}
                             >
                               {job.ref}
@@ -344,7 +344,7 @@ export const FlowbinTracking: React.FC = () => {
                             <div className={`inline-flex items-center justify-center w-6 h-6 rounded-md transition-colors ${
                               isExpanded
                                 ? "bg-gray-200 text-gray-700"
-                                : "bg-gray-100 text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-600"
+                                : "bg-gray-100 text-gray-400 group-hover:bg-blue-100 group-hover:text-resilinc-primary"
                             }`}>
                               {isExpanded ? (
                                 <ChevronUp className="h-3.5 w-3.5" />
@@ -376,7 +376,7 @@ export const FlowbinTracking: React.FC = () => {
                                                   {batchOutstanding} outstanding
                                                 </span>
                                               )}
-                                              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                                              <span className="text-[10px] font-bold text-resilinc-primary bg-green-50 px-1.5 py-0.5 rounded">
                                                 {new Date(b.returnedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
                                               </span>
                                               {b.returnNotes && (
@@ -459,7 +459,7 @@ export const FlowbinTracking: React.FC = () => {
                   onChange={(e) => setReturnQty(e.target.value)}
                   min="0"
                   max={returnModal.batch.quantity}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-resilinc-primary mt-1"
                 />
                 {Number(returnQty) < returnModal.batch.quantity && Number(returnQty) >= 0 && (
                   <p className="text-[10px] text-amber-600 mt-1">
@@ -474,7 +474,7 @@ export const FlowbinTracking: React.FC = () => {
                   type="date"
                   value={returnDate}
                   onChange={(e) => setReturnDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-resilinc-primary mt-1"
                 />
               </div>
 
@@ -485,7 +485,7 @@ export const FlowbinTracking: React.FC = () => {
                   onChange={(e) => setReturnNotes(e.target.value)}
                   placeholder="Damage, missing units, condition..."
                   rows={2}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-resilinc-primary mt-1"
                 />
               </div>
 

@@ -21,7 +21,7 @@ export const WarehouseSelector: React.FC = () => {
     <select
       value={filters.warehouse || "all"}
       onChange={handleWarehouseChange}
-      className="h-7 text-[11px] border border-gray-300 rounded-md bg-white px-2 py-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="h-7 text-[11px] border border-gray-300 rounded-md bg-white px-2 py-0 focus:outline-none focus:ring-2 focus:ring-resilinc-primary"
     >
       <option value="all">All Warehouses</option>
       {warehouses.map((warehouse) => (

@@ -11,7 +11,7 @@ export const SortBar: React.FC = () => {
       <select
         value={sortOptions.field}
         onChange={(e) => setSortOptions({ ...sortOptions, field: e.target.value as SortField })}
-        className="h-7 text-[11px] border border-gray-300 rounded-md bg-white px-2 py-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="h-7 text-[11px] border border-gray-300 rounded-md bg-white px-2 py-0 focus:outline-none focus:ring-2 focus:ring-resilinc-primary"
       >
         <option value="createdAt">Sort: Date</option>
         <option value="ref">Sort: Ref</option>

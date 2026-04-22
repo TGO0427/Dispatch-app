@@ -307,7 +307,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       {/* Progress Bar */}
       <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
         <div
-          className="h-full bg-blue-600 rounded-full transition-all duration-1000"
+          className="h-full bg-resilinc-primary rounded-full transition-all duration-1000"
           style={{
             width: `${stats.total > 0 ? (stats.delivered / stats.total) * 100 : 0}%`,
           }}
@@ -486,7 +486,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
                       <div
-                        className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                        className="h-full bg-resilinc-primary rounded-full transition-all duration-500"
                         style={{ width: `${pct}%` }}
                       />
                     </div>

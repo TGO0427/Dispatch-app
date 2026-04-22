@@ -178,7 +178,7 @@ const Toast: React.FC<{ notification: Notification; onClose: (id: string) => voi
 const confirmTypeStyles = {
   danger: { button: "bg-red-600 hover:bg-red-700 text-white", icon: "text-red-600" },
   warning: { button: "bg-yellow-500 hover:bg-yellow-600 text-white", icon: "text-yellow-600" },
-  info: { button: "bg-blue-600 hover:bg-blue-700 text-white", icon: "text-blue-600" },
+  info: { button: "bg-resilinc-primary hover:bg-resilinc-primary-dark text-white", icon: "text-resilinc-primary" },
 };
 
 const ConfirmModal: React.FC<{ state: ConfirmState; onClose: () => void }> = ({ state, onClose }) => {

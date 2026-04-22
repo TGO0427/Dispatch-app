@@ -439,7 +439,7 @@ export const HistoryView: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <Clock className="h-8 w-8 text-blue-600" />
+              <Clock className="h-8 w-8 text-resilinc-primary" />
               <h1 className="text-2xl font-bold text-gray-900">Job History</h1>
               {selectedWeek !== "all" && (
                 <span className="ml-2 inline-flex items-center px-3 py-1 rounded-lg bg-blue-100 text-blue-700 text-sm font-semibold">
@@ -467,7 +467,7 @@ export const HistoryView: React.FC = () => {
         <Card className="p-5 border-l-4 border-l-blue-600">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center">
+              <div className="w-14 h-14 rounded-xl bg-resilinc-primary flex items-center justify-center">
                 <span className="text-white font-bold text-xl">
                   W{selectedWeek.split("-W")[1]}
                 </span>
@@ -494,7 +494,7 @@ export const HistoryView: React.FC = () => {
       {/* Statistics Cards — intentional color system */}
       <div className="grid gap-3 grid-cols-3 lg:grid-cols-7">
         {([
-          { icon: Clock, label: "Total Jobs", value: String(stats.total), color: "text-gray-900", iconColor: "text-blue-600", bg: "bg-blue-50" },
+          { icon: Clock, label: "Total Jobs", value: String(stats.total), color: "text-gray-900", iconColor: "text-resilinc-primary", bg: "bg-green-50" },
           { icon: CheckCircle2, label: "Delivered", value: String(stats.delivered), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
           { icon: XCircle, label: "Cancelled", value: String(stats.cancelled), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },
           { icon: CalendarIcon, label: "Success Rate", value: `${stats.successRate}%`, color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
@@ -528,7 +528,7 @@ export const HistoryView: React.FC = () => {
             placeholder="Search ref, customer, location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 h-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-8 pr-3 h-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-resilinc-primary focus:border-transparent"
           />
         </div>
         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as HistoryFilter)} className="w-auto text-sm">
@@ -573,7 +573,7 @@ export const HistoryView: React.FC = () => {
           <CardTitle>
             Completed Jobs History
             {selectedWeek !== "all" && (
-              <span className="ml-2 text-sm font-normal text-blue-600">
+              <span className="ml-2 text-sm font-normal text-resilinc-primary">
                 — {availableWeeks.find((w) => w.value === selectedWeek)?.label}
               </span>
             )}
@@ -611,7 +611,7 @@ export const HistoryView: React.FC = () => {
                       <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="p-3 font-medium">
                           <button
-                            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                            className="text-resilinc-primary hover:text-resilinc-primary-dark hover:underline cursor-pointer"
                             onClick={() => setSelectedJob(job)}
                           >
                             {job.ref}

@@ -94,7 +94,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
       <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2">
           <p
-            className="truncate font-semibold text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+            className="truncate font-semibold text-sm text-resilinc-primary hover:text-resilinc-primary-dark hover:underline cursor-pointer"
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
           >
             {job.ref}
@@ -167,7 +167,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
-        <button onClick={(e) => { e.stopPropagation(); onSelect(); }} className="h-8 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1 shadow-sm">
+        <button onClick={(e) => { e.stopPropagation(); onSelect(); }} className="h-8 px-3.5 rounded-lg bg-resilinc-primary hover:bg-resilinc-primary-dark text-white text-xs font-semibold flex items-center gap-1 shadow-sm">
           Details <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>

@@ -20,7 +20,7 @@ export const Badge: React.FC<BadgeProps> = ({
     secondary: "bg-gray-100 text-gray-900",
     destructive: "bg-resilinc-alert text-white",
     outline: "border border-gray-300 text-gray-700",
-    new: "bg-blue-50 text-resilinc-primary",
+    new: "bg-green-50 text-resilinc-primary",
     "past-due": "bg-red-50 text-resilinc-alert",
     success: "bg-green-50 text-green-600",
   };

@@ -5,8 +5,6 @@ import { Sidebar } from "./components/Sidebar";
 import { AlertHub } from "./components/AlertHub";
 import { JobDetailsModal } from "./components/JobDetailsModal";
 import { Login } from "./components/views/Login";
-import { ForgotPassword } from "./components/views/ForgotPassword";
-import { ResetPassword } from "./components/views/ResetPassword";
 import { PrivacyNotice } from "./components/views/PrivacyNotice";
 import { ConnectionStatus } from "./components/ConnectionStatus";
 import { HelpGuide } from "./components/HelpGuide";
@@ -41,7 +39,7 @@ const PageLoader = () => (
   </div>
 );
 
-type AuthView = "login" | "forgot-password" | "reset-password" | "privacy";
+type AuthView = "login" | "privacy";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -53,7 +51,6 @@ function AppContent() {
   const [dispatchTab, setDispatchTab] = useState<string | undefined>(undefined);
   const [selectedJobFromAlert, setSelectedJobFromAlert] = useState<string | null>(null);
   const [authView, setAuthView] = useState<AuthView>("login");
-  const [resetToken, setResetToken] = useState<string | null>(null);
 
   // Unread message count
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -66,16 +63,6 @@ function AppContent() {
     const interval = setInterval(fetchUnread, 15000);
     return () => clearInterval(interval);
   }, [isAuthenticated]);
-
-  // Check URL for password reset token on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("reset-token");
-    if (token) {
-      setResetToken(token);
-      setAuthView("reset-password");
-    }
-  }, []);
 
   // Find job by ID for the modal triggered from AlertHub
   const alertJob = useMemo(() => selectedJobFromAlert ? jobs.find(j => j.id === selectedJobFromAlert) ?? null : null, [selectedJobFromAlert, jobs]);
@@ -141,24 +128,10 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
-    if (authView === "reset-password" && resetToken) {
-      return (
-        <ResetPassword
-          token={resetToken}
-          onBack={() => {
-            setResetToken(null);
-            setAuthView("login");
-          }}
-        />
-      );
-    }
     if (authView === "privacy") {
       return <PrivacyNotice onBack={() => setAuthView("login")} />;
     }
-    if (authView === "forgot-password") {
-      return <ForgotPassword onBack={() => setAuthView("login")} />;
-    }
-    return <Login onForgotPassword={() => setAuthView("forgot-password")} onPrivacy={() => setAuthView("privacy")} />;
+    return <Login onPrivacy={() => setAuthView("privacy")} />;
   }
 
   return (

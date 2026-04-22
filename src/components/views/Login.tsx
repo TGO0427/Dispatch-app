@@ -5,11 +5,10 @@ import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 
 interface LoginProps {
-  onForgotPassword?: () => void;
   onPrivacy?: () => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onForgotPassword, onPrivacy }) => {
+export const Login: React.FC<LoginProps> = ({ onPrivacy }) => {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -111,7 +110,7 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword, onPrivacy }) => 
             </div>
 
             {/* Remember Me */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center">
               <label className="flex items-center">
                 <input
                   type="checkbox"
@@ -119,13 +118,6 @@ export const Login: React.FC<LoginProps> = ({ onForgotPassword, onPrivacy }) => 
                 />
                 <span className="ml-2 text-sm" style={{ color: "#4b5563" }}>Remember me</span>
               </label>
-              <button
-                type="button"
-                onClick={onForgotPassword}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Forgot password?
-              </button>
             </div>
 
             {/* Submit Button */}

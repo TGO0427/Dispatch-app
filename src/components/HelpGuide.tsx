@@ -211,6 +211,7 @@ const guideSections: GuideSection[] = [
     tips: [
       "Only admin users can access this page.",
       "Passwords are securely hashed — they cannot be viewed after creation.",
+      "Password resets are admin-only: if a user is locked out, an admin opens Edit User here and sets a new password. There is no self-serve 'Forgot Password' flow.",
     ],
   },
   {

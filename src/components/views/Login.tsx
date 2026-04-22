@@ -142,9 +142,11 @@ export const Login: React.FC<LoginProps> = ({ onPrivacy }) => {
         <div className="mt-6 text-center text-sm" style={{ color: "#4b5563" }}>
           <p>
             Need an account?{" "}
-            <button className="text-blue-600 hover:text-blue-700 font-medium">
-              Contact your administrator
-            </button>
+            <span className="text-blue-600 font-medium">Contact your administrator</span>
+          </p>
+          <p className="mt-1">
+            Forgot password?{" "}
+            <span className="text-blue-600 font-medium">Contact your administrator</span>
           </p>
           <button
             type="button"

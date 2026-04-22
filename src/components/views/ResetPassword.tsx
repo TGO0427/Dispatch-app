@@ -114,6 +114,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onBack }) =
                     placeholder="Enter new password"
                     disabled={isLoading}
                     autoFocus
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -154,6 +155,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onBack }) =
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   placeholder="Confirm new password"
                   disabled={isLoading}
+                  autoComplete="new-password"
                 />
               </div>
 

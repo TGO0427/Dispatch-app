@@ -59,6 +59,11 @@ export const UserManagement: React.FC = () => {
     e.preventDefault();
     setError(null);
 
+    if (formData.password.length < 12) {
+      setError("Password must be at least 12 characters");
+      return;
+    }
+
     try {
       const token = localStorage.getItem("authToken");
       const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/users`, {
@@ -87,6 +92,12 @@ export const UserManagement: React.FC = () => {
     e.preventDefault();
     if (!editingUser) return;
     setError(null);
+
+    // Only validate length when a new password is being set
+    if (formData.password.trim() && formData.password.length < 12) {
+      setError("Password must be at least 12 characters");
+      return;
+    }
 
     try {
       const token = localStorage.getItem("authToken");
@@ -371,7 +382,7 @@ export const UserManagement: React.FC = () => {
                 {/* Password */}
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                    Password {editingUser && <span className="text-gray-500 text-xs">(leave blank to keep current)</span>}
+                    Password <span className="text-gray-500 text-xs">(min 12 characters{editingUser ? ", leave blank to keep current" : ""})</span>
                   </label>
                   <div className="relative">
                     <input
@@ -382,6 +393,8 @@ export const UserManagement: React.FC = () => {
                       className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter password"
                       required={!editingUser}
+                      minLength={editingUser ? undefined : 12}
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"

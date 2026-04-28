@@ -232,13 +232,14 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   const prevFilterKey = useMemo(() => JSON.stringify(filters), [filters]);
   useMemo(() => { setCurrentPage(1); }, [prevFilterKey]);
 
-  // Alert: dates with 5+ pending (non-delivered, non-IBT) orders due — current month + next 2 months only
+  // Alert: dates with 5+ distinct pending (non-delivered, non-IBT) orders due — current month + next 2 months only.
+  // Counts distinct order refs, not order lines — multiple lines on the same ref count once.
   const busyDateAlerts = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfRange = new Date(now.getFullYear(), now.getMonth() + 3, 0); // end of month+2
 
-    const dateCounts: { [date: string]: number } = {};
+    const dateRefs: { [date: string]: Set<string> } = {};
     jobs.forEach((job) => {
       if (!job.eta) return;
       if (job.jobType === "ibt") return;
@@ -246,24 +247,49 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       const dateKey = job.eta.split("T")[0];
       const etaDate = new Date(dateKey);
       if (etaDate < startOfMonth || etaDate > endOfRange) return;
-      dateCounts[dateKey] = (dateCounts[dateKey] || 0) + 1;
+      if (!dateRefs[dateKey]) dateRefs[dateKey] = new Set();
+      dateRefs[dateKey].add(job.ref || job.id);
     });
-    return Object.entries(dateCounts)
-      .filter(([, total]) => total >= 5)
-      .map(([date, total]) => ({ date, total }))
+    return Object.entries(dateRefs)
+      .filter(([, refs]) => refs.size >= 5)
+      .map(([date, refs]) => ({ date, total: refs.size }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [jobs]);
 
-  // Pending orders due on selected alert date (matches busyDateAlerts filter)
-  const alertDateJobs = useMemo(() => {
+  // Pending orders due on selected alert date, grouped by order ref (one row per order, lines aggregated).
+  const alertDateOrders = useMemo(() => {
     if (!selectedAlertDate) return [];
-    return jobs.filter((job) => {
+    const matching = jobs.filter((job) => {
       if (!job.eta) return false;
       if (job.jobType === "ibt") return false;
       if (job.status === "delivered" || job.status === "cancelled") return false;
       return job.eta.split("T")[0] === selectedAlertDate;
-    }).sort((a, b) => (a.ref || "").localeCompare(b.ref || ""));
+    });
+    const groups = new Map<string, { ref: string; primary: Job; lineCount: number; totalPallets: number; hasPalletData: boolean }>();
+    matching.forEach((job) => {
+      const key = job.ref || job.id;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.lineCount += 1;
+        existing.totalPallets += job.pallets ?? 0;
+        if (job.pallets != null) existing.hasPalletData = true;
+      } else {
+        groups.set(key, {
+          ref: key,
+          primary: job,
+          lineCount: 1,
+          totalPallets: job.pallets ?? 0,
+          hasPalletData: job.pallets != null,
+        });
+      }
+    });
+    return Array.from(groups.values()).sort((a, b) => a.ref.localeCompare(b.ref));
   }, [jobs, selectedAlertDate]);
+
+  const alertDateLineCount = useMemo(
+    () => alertDateOrders.reduce((sum, o) => sum + o.lineCount, 0),
+    [alertDateOrders],
+  );
 
   // Get unique warehouses from all jobs
   const warehouses = useMemo(() => {
@@ -723,7 +749,9 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                   Orders Due: {selectedAlertDate}
                 </h2>
                 <p className="text-sm text-gray-600 mt-0.5">
-                  {alertDateJobs.length} orders due on this date
+                  {alertDateOrders.length} {alertDateOrders.length === 1 ? "order" : "orders"}
+                  {alertDateLineCount !== alertDateOrders.length && ` (${alertDateLineCount} lines)`}
+                  {" "}due on this date
                 </p>
               </div>
               <button
@@ -739,6 +767,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                   <tr>
                     <th className="text-left p-3 font-semibold text-gray-700">Reference</th>
                     <th className="text-left p-3 font-semibold text-gray-700">Type</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Lines</th>
                     <th className="text-left p-3 font-semibold text-gray-700">Customer</th>
                     <th className="text-left p-3 font-semibold text-gray-700">Status</th>
                     <th className="text-left p-3 font-semibold text-gray-700">Route</th>
@@ -747,39 +776,44 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                   </tr>
                 </thead>
                 <tbody>
-                  {alertDateJobs.map((job) => (
+                  {alertDateOrders.map(({ ref, primary, lineCount, totalPallets, hasPalletData }) => (
                     <tr
-                      key={job.id}
+                      key={ref}
                       className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => { setSelectedAlertDate(null); setSelectedJob(job); }}
+                      onClick={() => { setSelectedAlertDate(null); setSelectedJob(primary); }}
                     >
                       <td className="p-3 font-medium">
-                        <span className="text-resilinc-primary hover:text-resilinc-primary-dark hover:underline">{job.ref}</span>
+                        <span className="text-resilinc-primary hover:text-resilinc-primary-dark hover:underline">{ref}</span>
                       </td>
                       <td className="p-3">
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                          job.jobType === "ibt" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                          primary.jobType === "ibt" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
                         }`}>
-                          {job.jobType === "ibt" ? "IBT" : "ORDER"}
+                          {primary.jobType === "ibt" ? "IBT" : "ORDER"}
                         </span>
                       </td>
-                      <td className="p-3 text-gray-700">{job.customer}</td>
+                      <td className="p-3">
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+                          {lineCount} {lineCount === 1 ? "line" : "lines"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-gray-700">{primary.customer}</td>
                       <td className="p-3">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                          job.status === "pending" ? "bg-yellow-100 text-yellow-700" :
-                          job.status === "assigned" ? "bg-blue-100 text-blue-700" :
-                          job.status === "en-route" ? "bg-indigo-100 text-indigo-700" :
-                          job.status === "delivered" ? "bg-green-100 text-green-700" :
-                          job.status === "exception" ? "bg-red-100 text-red-700" :
+                          primary.status === "pending" ? "bg-yellow-100 text-yellow-700" :
+                          primary.status === "assigned" ? "bg-blue-100 text-blue-700" :
+                          primary.status === "en-route" ? "bg-indigo-100 text-indigo-700" :
+                          primary.status === "delivered" ? "bg-green-100 text-green-700" :
+                          primary.status === "exception" ? "bg-red-100 text-red-700" :
                           "bg-gray-100 text-gray-600"
                         }`}>
-                          {job.status}
+                          {primary.status}
                         </span>
                       </td>
-                      <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
-                      <td className="p-3 text-right font-medium">{job.pallets ?? "—"}</td>
+                      <td className="p-3 text-gray-700 text-xs">{primary.pickup} → {primary.dropoff}</td>
+                      <td className="p-3 text-right font-medium">{hasPalletData ? totalPallets : "—"}</td>
                       <td className="p-3 text-gray-700">
-                        {job.driverId ? drivers.find((d) => d.id === job.driverId)?.name : "Unassigned"}
+                        {primary.driverId ? drivers.find((d) => d.id === primary.driverId)?.name : "Unassigned"}
                       </td>
                     </tr>
                   ))}

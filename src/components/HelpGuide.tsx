@@ -96,7 +96,7 @@ const guideSections: GuideSection[] = [
     steps: [
       { title: "Assign Transporters", detail: "Drag IBT jobs to transporters to assign them, just like customer orders." },
       { title: "Track Status", detail: "Use the Open / Assigned / Delivered tabs to monitor IBT progress." },
-      { title: "High Volume Dates", detail: "When 5+ IBTs are due on the same day, a High Volume badge appears. Click any badge to drill into the list of IBTs due on that date." },
+      { title: "High Volume Dates", detail: "When 5+ distinct IBTs are due on the same day (counted by reference, not by line), a High Volume badge appears. Click any badge to drill into the list — multi-line IBTs appear as a single row with a 'lines' badge and pallet totals are summed across lines." },
     ],
   },
   {

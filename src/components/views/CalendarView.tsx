@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useDispatch } from "../../context/DispatchContext";
 import { Card, CardContent } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -10,6 +10,7 @@ export const CalendarView: React.FC = () => {
   const { jobs, drivers } = useDispatch();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
   const firstDayOfMonth = useMemo(() => {
     return new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -56,11 +57,6 @@ export const CalendarView: React.FC = () => {
   const goToNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const goToToday = () => setCurrentDate(new Date());
 
-  const getJobsForDay = (day: number): Job[] => {
-    const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return jobsByDate[dateKey] || [];
-  };
-
   const isToday = (day: number): boolean => {
     const today = new Date();
     return day === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
@@ -90,6 +86,44 @@ export const CalendarView: React.FC = () => {
     });
     return { orders, ibts, totalLines, datesWithJobs };
   }, [jobsByDate, currentDate]);
+
+  // Orders for the day clicked in the day-detail modal — grouped by ref.
+  const selectedDayOrders = useMemo(() => {
+    if (!selectedDayKey) return [];
+    const dayJobs = jobsByDate[selectedDayKey] || [];
+    const groups = new Map<string, { ref: string; primary: Job; lineCount: number; totalPallets: number; hasPalletData: boolean }>();
+    dayJobs.forEach((job) => {
+      const key = job.ref || job.id;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.lineCount += 1;
+        existing.totalPallets += job.pallets ?? 0;
+        if (job.pallets != null) existing.hasPalletData = true;
+      } else {
+        groups.set(key, {
+          ref: key,
+          primary: job,
+          lineCount: 1,
+          totalPallets: job.pallets ?? 0,
+          hasPalletData: job.pallets != null,
+        });
+      }
+    });
+    return Array.from(groups.values()).sort((a, b) => a.ref.localeCompare(b.ref));
+  }, [selectedDayKey, jobsByDate]);
+
+  const selectedDayLineCount = useMemo(
+    () => selectedDayOrders.reduce((sum, o) => sum + o.lineCount, 0),
+    [selectedDayOrders],
+  );
+
+  // Esc closes the day-detail modal.
+  useEffect(() => {
+    if (!selectedDayKey) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedDayKey(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedDayKey]);
 
   const getChipStyle = (job: Job): { bg: string; text: string; dot: string } => {
     // IBT = purple, Customer orders by status
@@ -160,7 +194,8 @@ export const CalendarView: React.FC = () => {
                 return <div key={`empty-${index}`} className="min-h-[80px]" />;
               }
 
-              const dayJobs = getJobsForDay(day);
+              const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+              const dayJobs = jobsByDate[dateKey] || [];
               const today = isToday(day);
 
               // Deduplicate by ref for display + counting; same ref = same order regardless of line count.
@@ -172,6 +207,7 @@ export const CalendarView: React.FC = () => {
               });
               const uniqueJobs = Array.from(refMap.values());
               const isHighVolume = uniqueJobs.length >= 5;
+              const hasJobs = uniqueJobs.length > 0;
 
               return (
                 <div
@@ -184,13 +220,19 @@ export const CalendarView: React.FC = () => {
                         : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <button
+                    type="button"
+                    onClick={() => hasJobs && setSelectedDayKey(dateKey)}
+                    disabled={!hasJobs}
+                    className={`flex items-center justify-between w-full mb-1 ${hasJobs ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
+                    title={hasJobs ? "View all orders for this day" : undefined}
+                  >
                     <span className={`text-xs font-bold ${
                       today ? "text-resilinc-primary" : isHighVolume ? "text-amber-700" : "text-gray-600"
                     }`}>
                       {day}
                     </span>
-                    {uniqueJobs.length > 0 && (
+                    {hasJobs && (
                       <span
                         className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                           isHighVolume
@@ -202,7 +244,7 @@ export const CalendarView: React.FC = () => {
                         {uniqueJobs.length}
                       </span>
                     )}
-                  </div>
+                  </button>
 
                   <div className="space-y-0.5">
                     {uniqueJobs.slice(0, 3).map(({ job, count }) => {
@@ -221,9 +263,13 @@ export const CalendarView: React.FC = () => {
                       );
                     })}
                     {uniqueJobs.length > 3 && (
-                      <div className="text-[10px] text-gray-400 px-1">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDayKey(dateKey)}
+                        className="text-[10px] text-resilinc-primary hover:text-resilinc-primary-dark hover:underline px-1 font-medium cursor-pointer"
+                      >
                         +{uniqueJobs.length - 3} more
-                      </div>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -232,6 +278,96 @@ export const CalendarView: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Day-detail modal — full list of orders for the selected day */}
+      {selectedDayKey && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedDayKey(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  Orders on {new Date(`${selectedDayKey}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                </h2>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  {selectedDayOrders.length} {selectedDayOrders.length === 1 ? "order" : "orders"}
+                  {selectedDayLineCount !== selectedDayOrders.length && ` (${selectedDayLineCount} lines)`}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedDayKey(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(85vh-80px)]">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                  <tr>
+                    <th className="text-left p-3 font-semibold text-gray-700">Reference</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Type</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Lines</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Customer</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Status</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Route</th>
+                    <th className="text-right p-3 font-semibold text-gray-700">Pallets</th>
+                    <th className="text-left p-3 font-semibold text-gray-700">Transporter</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedDayOrders.map(({ ref, primary, lineCount, totalPallets, hasPalletData }) => (
+                    <tr
+                      key={ref}
+                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => { setSelectedDayKey(null); setSelectedJob(primary); }}
+                    >
+                      <td className="p-3 font-medium">
+                        <span className="text-resilinc-primary hover:text-resilinc-primary-dark hover:underline">{ref}</span>
+                      </td>
+                      <td className="p-3">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                          primary.jobType === "ibt" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                        }`}>
+                          {primary.jobType === "ibt" ? "IBT" : "ORDER"}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+                          {lineCount} {lineCount === 1 ? "line" : "lines"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-gray-700">{primary.customer}</td>
+                      <td className="p-3">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                          primary.status === "pending" ? "bg-yellow-100 text-yellow-700" :
+                          primary.status === "assigned" ? "bg-blue-100 text-blue-700" :
+                          primary.status === "en-route" ? "bg-indigo-100 text-indigo-700" :
+                          primary.status === "delivered" ? "bg-green-100 text-green-700" :
+                          primary.status === "exception" ? "bg-red-100 text-red-700" :
+                          "bg-gray-100 text-gray-600"
+                        }`}>
+                          {primary.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-gray-700 text-xs">{primary.pickup} → {primary.dropoff}</td>
+                      <td className="p-3 text-right font-medium">{hasPalletData ? totalPallets : "—"}</td>
+                      <td className="p-3 text-gray-700">
+                        {primary.driverId ? drivers.find((d) => d.id === primary.driverId)?.name ?? "Unassigned" : "Unassigned"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Job Details Modal */}
       {selectedJob && (

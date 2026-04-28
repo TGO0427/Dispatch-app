@@ -126,7 +126,7 @@ const guideSections: GuideSection[] = [
     description: "Monthly calendar view showing all jobs grouped by their scheduled delivery date.",
     steps: [
       { title: "Browse Months", detail: "Use the arrow buttons to navigate between months." },
-      { title: "View Day Details", detail: "Click on a day with job badges to see the list of orders due that day. The number badge counts distinct orders, not lines — multi-line orders show as one entry with a '×N' suffix. Hover the badge to see line count." },
+      { title: "View Day Details", detail: "Click the day number, the count badge, or the '+N more' link to open a full list of every order due that day. The number badge counts distinct orders, not lines — multi-line orders show as one entry with a '×N' suffix on the calendar tile and a 'lines' badge in the day-detail modal. Hover the badge to see line count. Press Esc or click outside to close." },
       { title: "Open Job Details", detail: "Click any job in the day list to open its full details modal." },
     ],
   },

@@ -68,17 +68,27 @@ export const CalendarView: React.FC = () => {
 
   const monthName = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  // Monthly summary
+  // Monthly summary — counts distinct order refs (not lines) per type per day,
+  // plus total line count for context. Same ref on same day counts once.
   const monthStats = useMemo(() => {
-    let orders = 0, ibts = 0, datesWithJobs = 0;
+    let orders = 0, ibts = 0, totalLines = 0, datesWithJobs = 0;
     Object.entries(jobsByDate).forEach(([dateKey, dayJobs]) => {
-      const d = new Date(dateKey);
+      // Local-midnight parse; `new Date("YYYY-MM-DD")` is UTC and shifts west of UTC.
+      const d = new Date(`${dateKey}T00:00:00`);
       if (d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear()) {
         datesWithJobs++;
-        dayJobs.forEach((j) => { if (j.jobType === "ibt") ibts++; else orders++; });
+        const orderRefs = new Set<string>();
+        const ibtRefs = new Set<string>();
+        dayJobs.forEach((j) => {
+          totalLines++;
+          if (j.jobType === "ibt") ibtRefs.add(j.ref || j.id);
+          else orderRefs.add(j.ref || j.id);
+        });
+        orders += orderRefs.size;
+        ibts += ibtRefs.size;
       }
     });
-    return { orders, ibts, total: orders + ibts, datesWithJobs };
+    return { orders, ibts, totalLines, datesWithJobs };
   }, [jobsByDate, currentDate]);
 
   const getChipStyle = (job: Job): { bg: string; text: string; dot: string } => {
@@ -104,7 +114,8 @@ export const CalendarView: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Scheduling</h1>
           <p className="text-sm text-gray-500">
-            {monthStats.total} jobs this month ({monthStats.orders} orders, {monthStats.ibts} IBT) across {monthStats.datesWithJobs} dates
+            {monthStats.orders} orders, {monthStats.ibts} IBT this month across {monthStats.datesWithJobs} dates
+            {monthStats.totalLines !== monthStats.orders + monthStats.ibts && ` (${monthStats.totalLines} lines total)`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -151,9 +162,8 @@ export const CalendarView: React.FC = () => {
 
               const dayJobs = getJobsForDay(day);
               const today = isToday(day);
-              const isHighVolume = dayJobs.length >= 5;
 
-              // Deduplicate by ref for display, show count
+              // Deduplicate by ref for display + counting; same ref = same order regardless of line count.
               const refMap = new Map<string, { job: Job; count: number }>();
               dayJobs.forEach((j) => {
                 const existing = refMap.get(j.ref);
@@ -161,6 +171,7 @@ export const CalendarView: React.FC = () => {
                 else existing.count++;
               });
               const uniqueJobs = Array.from(refMap.values());
+              const isHighVolume = uniqueJobs.length >= 5;
 
               return (
                 <div
@@ -179,13 +190,16 @@ export const CalendarView: React.FC = () => {
                     }`}>
                       {day}
                     </span>
-                    {dayJobs.length > 0 && (
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                        isHighVolume
-                          ? "bg-amber-200 text-amber-800"
-                          : "bg-gray-100 text-gray-500"
-                      }`}>
-                        {dayJobs.length}
+                    {uniqueJobs.length > 0 && (
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                          isHighVolume
+                            ? "bg-amber-200 text-amber-800"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                        title={dayJobs.length !== uniqueJobs.length ? `${uniqueJobs.length} orders (${dayJobs.length} lines)` : `${uniqueJobs.length} orders`}
+                      >
+                        {uniqueJobs.length}
                       </span>
                     )}
                   </div>

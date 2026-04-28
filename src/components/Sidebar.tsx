@@ -64,7 +64,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
   const [unreadMessages, setUnreadMessages] = useState(0);
   useEffect(() => {
     const fetchUnread = () => {
-      messagesAPI.getUnreadCount().then((data) => setUnreadMessages(data.count)).catch(() => {});
+      messagesAPI.getUnreadCount().then((data) => setUnreadMessages(data.count)).catch((err) => {
+        console.warn("Failed to fetch unread message count", err);
+      });
     };
     fetchUnread();
     const interval = setInterval(fetchUnread, 15000);

@@ -43,7 +43,10 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       flowbinsAPI.getAll().then((data) => {
         const jobBatches = data.find((j: any) => j.id === job.id)?.flowbinBatches || [];
         setFlowbinBatches(jobBatches);
-      }).catch(() => {});
+      }).catch((err) => {
+        console.error("Failed to fetch flowbin batches", err);
+        showWarning("Could not load flowbin batches");
+      });
     }
   }, [job.id, job.hasFlowbin]);
 

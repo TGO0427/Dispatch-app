@@ -30,6 +30,15 @@ async function fetchAPI<T>(
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        // Token rejected mid-session (expired or revoked). Drop it and surface
+        // an event so AuthProvider clears user state and prompts re-login.
+        // Login itself bypasses fetchAPI, so this never fires on bad credentials.
+        localStorage.removeItem("authToken");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("auth:expired"));
+        }
+      }
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
         errorData.error || errorData.message || `API Error: ${response.status} ${response.statusText}`

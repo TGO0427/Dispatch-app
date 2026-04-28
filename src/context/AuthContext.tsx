@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useNotification } from "./NotificationContext";
 
 export interface User {
   id: string;
@@ -37,6 +38,20 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showWarning } = useNotification();
+
+  // Listen for mid-session 401s from any API call (services/api.ts dispatches
+  // `auth:expired` after clearing the token). Drop user state and toast once.
+  useEffect(() => {
+    const handler = () => {
+      if (user) {
+        showWarning("Session expired — please log in again.");
+        setUser(null);
+      }
+    };
+    window.addEventListener("auth:expired", handler);
+    return () => window.removeEventListener("auth:expired", handler);
+  }, [user, showWarning]);
 
   useEffect(() => {
     const checkAuth = async () => {

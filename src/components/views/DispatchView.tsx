@@ -1,5 +1,5 @@
 // src/components/views/DispatchView.tsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -184,20 +184,25 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         const now = new Date(); now.setHours(0, 0, 0, 0);
         const refSeen = new Set<string>();
         let count = 0;
-        // Use ALL jobs (not date-filtered orderJobs) so overdue orders aren't missed
+        // Use ALL jobs (not date-filtered orderJobs) so overdue orders aren't missed.
+        // One ref counts at most once even if it trips multiple alert conditions.
         jobs.filter((j) => j.jobType === "order" || j.jobType === undefined).forEach((j) => {
           if (refSeen.has(j.ref)) return;
           refSeen.add(j.ref);
-          if (j.status === "exception") count++;
-          if (j.eta && j.status !== "delivered" && j.status !== "cancelled") {
+          const notDone = j.status !== "delivered" && j.status !== "cancelled";
+          let isAlert = j.status === "exception";
+          if (!isAlert && j.eta && notDone) {
             const eta = new Date(j.eta); eta.setHours(0, 0, 0, 0);
-            if (eta < now) count++;
+            if (eta < now) isAlert = true;
           }
-          if (j.etd && j.status !== "delivered" && j.status !== "cancelled" && j.status !== "en-route") {
+          if (!isAlert && j.etd && notDone && j.status !== "en-route") {
             const etd = new Date(j.etd); etd.setHours(0, 0, 0, 0);
-            if (Math.floor((etd.getTime() - now.getTime()) / 86400000) <= 1) count++;
+            if (Math.floor((etd.getTime() - now.getTime()) / 86400000) <= 1) isAlert = true;
           }
-          if ((j.priority === "urgent" || j.priority === "high") && j.status === "pending") count++;
+          if (!isAlert && (j.priority === "urgent" || j.priority === "high") && j.status === "pending") {
+            isAlert = true;
+          }
+          if (isAlert) count++;
         });
         return count;
       })(),
@@ -230,7 +235,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
 
   // Reset to page 1 when filters change
   const prevFilterKey = useMemo(() => JSON.stringify(filters), [filters]);
-  useMemo(() => { setCurrentPage(1); }, [prevFilterKey]);
+  useEffect(() => { setCurrentPage(1); }, [prevFilterKey]);
 
   // Alert: dates with 5+ distinct pending (non-delivered, non-IBT) orders due — current month + next 2 months only.
   // Counts distinct order refs, not order lines — multiple lines on the same ref count once.
@@ -245,7 +250,9 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       if (job.jobType === "ibt") return;
       if (job.status === "delivered" || job.status === "cancelled") return;
       const dateKey = job.eta.split("T")[0];
-      const etaDate = new Date(dateKey);
+      // Parse as local midnight, not UTC — `new Date("YYYY-MM-DD")` is UTC and
+      // can shift the day west of UTC (e.g. May 1 entries get excluded on May 1 in PST).
+      const etaDate = new Date(`${dateKey}T00:00:00`);
       if (etaDate < startOfMonth || etaDate > endOfRange) return;
       if (!dateRefs[dateKey]) dateRefs[dateKey] = new Set();
       dateRefs[dateKey].add(job.ref || job.id);

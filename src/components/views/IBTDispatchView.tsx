@@ -1,5 +1,5 @@
 // src/components/views/IBTDispatchView.tsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -99,8 +99,10 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
     jobs.forEach((j) => {
       if (j.jobType !== "ibt") return;
       if (!j.eta) return;
+      if (j.status === "delivered" || j.status === "cancelled") return;
       const dateKey = j.eta.split("T")[0];
-      const d = new Date(dateKey);
+      // Local-midnight parse (see DispatchView.busyDateAlerts comment).
+      const d = new Date(`${dateKey}T00:00:00`);
       if (d < startOfMonth || d > endOfRange) return;
       if (!dateRefs[dateKey]) dateRefs[dateKey] = new Set();
       dateRefs[dateKey].add(j.ref || j.id);
@@ -117,6 +119,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
     const matching = jobs.filter((job) => {
       if (job.jobType !== "ibt") return false;
       if (!job.eta) return false;
+      if (job.status === "delivered" || job.status === "cancelled") return false;
       return job.eta.split("T")[0] === selectedAlertDate;
     });
     const groups = new Map<string, { ref: string; primary: Job; lineCount: number; totalPallets: number; hasPalletData: boolean }>();
@@ -179,20 +182,25 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
         const now = new Date(); now.setHours(0, 0, 0, 0);
         const refSeen = new Set<string>();
         let count = 0;
-        // Use ALL IBT jobs (not filtered) so overdue IBTs aren't missed
+        // Use ALL IBT jobs (not filtered) so overdue IBTs aren't missed.
+        // One ref counts at most once even if it trips multiple alert conditions.
         jobs.filter((j) => j.jobType === "ibt").forEach((j) => {
           if (refSeen.has(j.ref)) return;
           refSeen.add(j.ref);
-          if (j.status === "exception") count++;
-          if (j.eta && j.status !== "delivered" && j.status !== "cancelled") {
+          const notDone = j.status !== "delivered" && j.status !== "cancelled";
+          let isAlert = j.status === "exception";
+          if (!isAlert && j.eta && notDone) {
             const eta = new Date(j.eta); eta.setHours(0, 0, 0, 0);
-            if (eta < now) count++;
+            if (eta < now) isAlert = true;
           }
-          if (j.etd && j.status !== "delivered" && j.status !== "cancelled" && j.status !== "en-route") {
+          if (!isAlert && j.etd && notDone && j.status !== "en-route") {
             const etd = new Date(j.etd); etd.setHours(0, 0, 0, 0);
-            if (Math.floor((etd.getTime() - now.getTime()) / 86400000) <= 1) count++;
+            if (Math.floor((etd.getTime() - now.getTime()) / 86400000) <= 1) isAlert = true;
           }
-          if ((j.priority === "urgent" || j.priority === "high") && j.status === "pending") count++;
+          if (!isAlert && (j.priority === "urgent" || j.priority === "high") && j.status === "pending") {
+            isAlert = true;
+          }
+          if (isAlert) count++;
         });
         return count;
       })(),
@@ -343,7 +351,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
 
   // Reset to page 1 when filters change
   const prevFilterKey = useMemo(() => JSON.stringify(filters), [filters]);
-  useMemo(() => { setCurrentPage(1); }, [prevFilterKey, activeTab]);
+  useEffect(() => { setCurrentPage(1); }, [prevFilterKey, activeTab]);
 
   return (
     <div className="space-y-3">

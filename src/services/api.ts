@@ -104,6 +104,13 @@ export const jobsAPI = {
       body: JSON.stringify({ ids }),
     });
   },
+
+  bulkUpdate: async (ids: string[], patch: Partial<Job>): Promise<Job[]> => {
+    return fetchAPI<Job[]>("/api/jobs?action=bulk-update", {
+      method: "POST",
+      body: JSON.stringify({ ids, patch }),
+    });
+  },
 };
 
 // ============ Drivers API ============

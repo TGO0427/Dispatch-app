@@ -34,7 +34,7 @@ interface DispatchViewProps {
 }
 
 export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initialTab }) => {
-  const { jobs, drivers, updateJob, updateDriver, addDriver, refreshData, filters, sortOptions } = useDispatch();
+  const { jobs, drivers, updateJobs, updateDriver, addDriver, refreshData, filters, sortOptions } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
   const { isViewer } = useAuth();
 
@@ -330,14 +330,9 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       if (!proceed) return;
     }
 
-    // Assign ALL line items sharing this ASO ref to the transporter
-    const allLineItems = jobs.filter((j) => j.ref === job.ref);
-    allLineItems.forEach((lineItem) => {
-      updateJob(lineItem.id, {
-        driverId: driver.id,
-        status: "assigned",
-      });
-    });
+    // Assign ALL line items sharing this ASO ref to the transporter — single request.
+    const allLineItemIds = jobs.filter((j) => j.ref === job.ref).map((j) => j.id);
+    await updateJobs(allLineItemIds, { driverId: driver.id, status: "assigned" });
     showSuccess(`${job.ref} assigned to ${driver.name}`);
   };
 

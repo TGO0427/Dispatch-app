@@ -25,7 +25,7 @@ const formatHumanDate = (dateStr: string) => {
 };
 
 export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, driverName }) => {
-  const { updateJob, jobs, drivers } = useDispatch();
+  const { updateJob, updateJobs, jobs, drivers } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
   const { isViewer } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -72,7 +72,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
   const hasMultipleLineItems = lineItems.length > 1;
 
   const updateAllLineItems = (updates: Partial<Job>) => {
-    lineItems.forEach((li) => updateJob(li.id, updates));
+    updateJobs(lineItems.map((li) => li.id), updates);
   };
 
   const handleWorkflowUpdate = (_jobId: string, updates: Partial<Job>) => {
@@ -142,8 +142,10 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     updateJob(job.id, updates);
 
     if (Object.keys(sharedUpdates).length > 0) {
-      jobs.filter((j) => j.ref === job.ref && j.id !== job.id && j.status !== "pending")
-        .forEach((sibling) => updateJob(sibling.id, sharedUpdates));
+      const siblingIds = jobs
+        .filter((j) => j.ref === job.ref && j.id !== job.id && j.status !== "pending")
+        .map((j) => j.id);
+      if (siblingIds.length > 0) updateJobs(siblingIds, sharedUpdates);
     }
 
     const isAmend = job.status === "delivered" || job.status === "cancelled";

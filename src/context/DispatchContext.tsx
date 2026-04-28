@@ -32,6 +32,7 @@ type DispatchContextValue = {
   addJobs: (jobs: Job[]) => Promise<void>;
   setJobs: (jobs: Job[]) => void;
   updateJob: (id: string, patch: Partial<Job>) => Promise<void>;
+  updateJobs: (ids: string[], patch: Partial<Job>) => Promise<void>;
   removeJob: (id: string) => Promise<void>;
 
   // drivers
@@ -273,6 +274,34 @@ export function DispatchProvider({
     }
   }, [useAPI, refreshData]);
 
+  // Apply the same patch to many jobs in one round trip — used when assigning
+  // a multi-line order (all line items share a ref) so we don't fire N PUTs.
+  const updateJobs = useCallback(async (ids: string[], patch: Partial<Job>) => {
+    if (ids.length === 0) return;
+    try {
+      dispatch({ type: "SET_LOADING", loading: true });
+
+      // Optimistic — apply to each id locally
+      ids.forEach((id) => dispatch({ type: "UPDATE_JOB", id, patch }));
+
+      if (useAPI) {
+        const apiPatch: Record<string, any> = {};
+        for (const [key, value] of Object.entries(patch)) {
+          if (key === "readyForDispatch") continue;
+          apiPatch[key] = value === undefined ? null : value;
+        }
+        await jobsAPI.bulkUpdate(ids, apiPatch as Partial<Job>);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update jobs";
+      dispatch({ type: "SET_ERROR", error: errorMessage });
+      refreshData(true);
+      throw error;
+    } finally {
+      dispatch({ type: "SET_LOADING", loading: false });
+    }
+  }, [useAPI, refreshData]);
+
   // Drivers API
   const setDrivers = (drivers: Driver[]) => dispatch({ type: "SET_DRIVERS", drivers });
 
@@ -337,6 +366,7 @@ export function DispatchProvider({
     addJobs,
     setJobs,
     updateJob,
+    updateJobs,
     removeJob,
 
     drivers: state.drivers,

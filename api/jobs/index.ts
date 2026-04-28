@@ -141,6 +141,67 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Bulk update: POST /api/jobs?action=bulk-update  body: { ids: string[], patch: Partial<Job> }
+    // Applies the same patch to all listed ids in a single round trip.
+    if (action === "bulk-update") {
+      try {
+        const MAX_BATCH_SIZE = 500;
+        const MAX_STRING = 1000;
+        const MAX_TEXT = 5000;
+        const ids = req.body?.ids;
+        const patch = req.body?.patch;
+
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return res.status(400).json({ success: false, error: "Request body must include a non-empty 'ids' array" });
+        }
+        if (ids.length > MAX_BATCH_SIZE) {
+          return res.status(400).json({ success: false, error: `Batch size cannot exceed ${MAX_BATCH_SIZE}` });
+        }
+        if (!ids.every((i) => typeof i === "string")) {
+          return res.status(400).json({ success: false, error: "All ids must be strings" });
+        }
+        if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+          return res.status(400).json({ success: false, error: "Request body must include a 'patch' object" });
+        }
+        if (patch.notes && String(patch.notes).length > MAX_TEXT) {
+          return res.status(400).json({ success: false, error: "Notes too long" });
+        }
+        if (patch.customer && String(patch.customer).length > MAX_STRING) {
+          return res.status(400).json({ success: false, error: "Customer name too long" });
+        }
+
+        const allowedFields = [
+          "ref", "customer", "pickup", "dropoff", "warehouse", "priority", "status",
+          "pallets", "outstandingQty", "eta", "scheduledAt", "actualDeliveryAt",
+          "exceptionReason", "overdueReason", "driverId", "notes", "internalNotes", "transporterBooked", "orderPicked",
+          "coaAvailable", "hasFlowbin", "serviceType", "jobType", "transportService", "truckSize", "etd",
+        ];
+        const requiredStringFields = new Set(["ref", "customer", "pickup", "dropoff", "priority", "status"]);
+        const data: Record<string, unknown> = {};
+        for (const field of allowedFields) {
+          if (field in patch) {
+            const value = patch[field];
+            if (requiredStringFields.has(field) && (value === null || value === undefined)) continue;
+            data[field] = value;
+          }
+        }
+
+        if (Object.keys(data).length === 0) {
+          return res.status(400).json({ success: false, error: "Patch contains no updatable fields" });
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+          await tx.job.updateMany({ where: { id: { in: ids } }, data });
+          return tx.job.findMany({ where: { id: { in: ids } } });
+        });
+
+        return res.json({ success: true, data: result.map(formatJob) });
+      } catch (error) {
+        console.error("Error bulk updating jobs:", error);
+        return res.status(500).json({ success: false, error: "Failed to bulk update jobs" });
+      }
+    }
+
     // Bulk replace: POST /api/jobs?action=bulk-replace
     if (action === "bulk-replace") {
       try {

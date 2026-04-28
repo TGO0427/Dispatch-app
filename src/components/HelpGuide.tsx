@@ -72,7 +72,7 @@ const guideSections: GuideSection[] = [
     ],
     tips: [
       "The green checkmark button on a card dispatches the order (marks as en-route).",
-      "High Volume Date alerts warn you when 5+ pending orders are due on the same day. Click a badge to drill into the full list of orders for that date.",
+      "High Volume Date alerts warn you when 5+ distinct pending orders are due on the same day (counted by order reference, not by line). Click a badge to drill into the list — multi-line orders appear as a single row with a 'lines' badge, and pallet totals are summed across lines.",
       "Use the warehouse selector to focus on a specific warehouse.",
     ],
   },

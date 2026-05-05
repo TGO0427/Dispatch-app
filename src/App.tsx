@@ -14,6 +14,23 @@ import { useDispatch } from "./context/DispatchContext";
 import { Loader2, Mail } from "lucide-react";
 import { messagesAPI } from "./services/api";
 
+const NAV_TITLES: Record<string, string> = {
+  dashboard: "Dashboard",
+  home: "Import Customer Orders",
+  ibt: "Import IBT",
+  "ibt-dispatch": "IBT Management",
+  clipboard: "Order Management",
+  calendar: "Scheduling",
+  grid: "Order Reports",
+  "ibt-reports": "IBT Reports",
+  analytics: "Analytics",
+  "flowbin-tracking": "Flowbin Tracking",
+  inbox: "Messages",
+  clock: "Order History",
+  settings: "Settings",
+  "user-management": "User Management",
+};
+
 // Lazy-loaded views for code splitting
 const Dashboard = lazy(() => import("./components/views/Dashboard").then(m => ({ default: m.Dashboard })));
 const DispatchView = lazy(() => import("./components/views/DispatchView").then(m => ({ default: m.DispatchView })));
@@ -51,6 +68,20 @@ function AppContent() {
   const [dispatchTab, setDispatchTab] = useState<string | undefined>(undefined);
   const [selectedJobFromAlert, setSelectedJobFromAlert] = useState<string | null>(null);
   const [authView, setAuthView] = useState<AuthView>("login");
+  const [openTabs, setOpenTabs] = useState([{ id: "dashboard", title: NAV_TITLES.dashboard }]);
+
+  const openPageTab = (page: string) => {
+    setOpenTabs((prev) => {
+      if (prev.some((tab) => tab.id === page)) return prev;
+      return [...prev, { id: page, title: NAV_TITLES[page] ?? page }];
+    });
+  };
+
+  const navigateToPage = (page: string, tab?: string) => {
+    openPageTab(page);
+    setActiveNavItem(page);
+    setDispatchTab(tab);
+  };
 
   // Unread message count
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -74,7 +105,7 @@ function AppContent() {
     let view;
     switch (activeNavItem) {
       case "dashboard":
-        view = <Dashboard onOpenAlerts={() => setAlertHubOpen(true)} onNavigate={(page, tab) => { setActiveNavItem(page); setDispatchTab(tab); }} />; break;
+        view = <Dashboard onOpenAlerts={() => setAlertHubOpen(true)} onNavigate={navigateToPage} />; break;
       case "home":
         view = <OrderImport />; break;
       case "ibt":
@@ -103,10 +134,9 @@ function AppContent() {
         if (user?.role === "admin") {
           view = <UserManagement />; break;
         }
-        setActiveNavItem("dashboard");
-        view = <Dashboard onNavigate={setActiveNavItem} />; break;
+        view = <Dashboard onNavigate={navigateToPage} />; break;
       default:
-        view = <Dashboard onNavigate={setActiveNavItem} />; break;
+        view = <Dashboard onNavigate={navigateToPage} />; break;
     }
 
     return (
@@ -143,7 +173,7 @@ function AppContent() {
 
         <Sidebar
           activeItem={activeNavItem}
-          onItemChange={setActiveNavItem}
+          onItemChange={navigateToPage}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           onOpenHelp={() => setHelpGuideOpen(true)}
@@ -153,7 +183,7 @@ function AppContent() {
           {/* Floating message notification */}
           {unreadMessages > 0 && activeNavItem !== "inbox" && (
             <button
-              onClick={() => setActiveNavItem("inbox")}
+              onClick={() => navigateToPage("inbox")}
               className="fixed top-4 right-4 z-40 flex items-center gap-2 px-3 py-2 bg-resilinc-primary text-white rounded-lg shadow-lg hover:bg-resilinc-primary-dark transition-all animate-pulse hover:animate-none"
             >
               <Mail className="h-4 w-4" />
@@ -161,6 +191,42 @@ function AppContent() {
             </button>
           )}
           <div className="mx-auto max-w-[1600px] p-8">
+            <div className="mb-5 flex items-center gap-2 overflow-x-auto border-b border-gray-200 pb-2">
+              {openTabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  onClick={() => navigateToPage(tab.id)}
+                  className={`flex h-9 max-w-[240px] flex-shrink-0 cursor-pointer items-center gap-2 rounded-t-lg border px-3 text-sm font-semibold transition-colors ${
+                    activeNavItem === tab.id
+                      ? "border-emerald-200 bg-white text-emerald-700 shadow-sm"
+                      : "border-gray-200 bg-gray-100 text-gray-600 hover:bg-white hover:text-gray-900"
+                  }`}
+                >
+                  <span className="truncate">{tab.title}</span>
+                  {tab.id !== "dashboard" && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenTabs((prev) => {
+                          const remaining = prev.filter((item) => item.id !== tab.id);
+                          if (activeNavItem === tab.id) {
+                            const fallback = remaining[remaining.length - 1]?.id ?? "dashboard";
+                            setActiveNavItem(fallback);
+                            setDispatchTab(undefined);
+                          }
+                          return remaining.length > 0 ? remaining : [{ id: "dashboard", title: NAV_TITLES.dashboard }];
+                        });
+                      }}
+                      className="flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500"
+                      title={`Close ${tab.title}`}
+                    >
+                      x
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
             {renderView()}
           </div>
         </div>
@@ -185,7 +251,7 @@ function AppContent() {
         <HelpGuide
           open={helpGuideOpen}
           onClose={() => setHelpGuideOpen(false)}
-          onNavigateTo={(page) => setActiveNavItem(page)}
+          onNavigateTo={(page) => navigateToPage(page)}
         />
       </div>
     </ProtectedRoute>

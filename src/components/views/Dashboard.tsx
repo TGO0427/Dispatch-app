@@ -240,7 +240,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
   const statCards = [
     {
       icon: Package, value: stats.total, label: "TOTAL JOBS",
-      change: stats.total > 0 ? `${stats.total} active` : "No jobs", changeType: "neutral" as const, sublabel: "",
+      change: stats.total > 0 ? `${stats.total} active` : "No jobs", changeType: "neutral" as const, sublabel: stats.total > 0 ? "Active Load" : "Clear",
       borderColor: "border-l-blue-500", iconBg: "bg-blue-50", iconColor: "text-blue-500", nav: "clipboard", tab: "open",
     },
     {
@@ -255,26 +255,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     },
     {
       icon: ClipboardList, value: stats.pending, label: "PENDING",
-      change: `${stats.assigned} assigned`, changeType: "neutral" as const, sublabel: "",
+      change: `${stats.assigned} assigned`, changeType: "neutral" as const, sublabel: stats.pending > 0 ? "Needs Action" : "Clear",
       borderColor: "border-l-amber-500", iconBg: "bg-amber-50", iconColor: "text-amber-500", nav: "clipboard", tab: "open",
     },
     {
       icon: Clock, value: stats.departuresThisWeek, label: "PLANNED DEPARTURES",
       change: "ETD this week",
       changeType: stats.departuresThisWeek > 0 ? "up" as const : "neutral" as const,
-      sublabel: stats.departuresThisWeek > 5 ? "Busy Week" : "",
+      sublabel: stats.departuresThisWeek > 5 ? "Busy Week" : stats.departuresThisWeek > 0 ? "On Schedule" : "Quiet Week",
       borderColor: "border-l-purple-500", iconBg: "bg-purple-50", iconColor: "text-purple-500", nav: "calendar", tab: undefined,
     },
     {
       icon: Package, value: stats.palletsDispatchedThisWeek, label: "PALLETS DISPATCHED",
       change: "Dispatched this week",
-      changeType: stats.palletsDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: "",
+      changeType: stats.palletsDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.palletsDispatchedThisWeek > 0 ? "Moved" : "None Yet",
       borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clock", tab: undefined,
     },
     {
       icon: Archive, value: stats.qtyDispatchedThisWeek.toLocaleString(), label: "QTY DISPATCHED",
       change: "Dispatched this week",
-      changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: "",
+      changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.qtyDispatchedThisWeek > 0 ? "Moved" : "None Yet",
       borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clock", tab: undefined,
     },
   ];

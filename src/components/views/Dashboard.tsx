@@ -259,8 +259,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       borderColor: "border-l-amber-500", iconBg: "bg-amber-50", iconColor: "text-amber-500", nav: "clipboard", tab: "open",
     },
     {
-      icon: Clock, value: stats.departuresThisWeek, label: "ETD THIS WEEK",
-      change: "Departures scheduled",
+      icon: Clock, value: stats.departuresThisWeek, label: "PLANNED DEPARTURES",
+      change: "ETD this week",
       changeType: stats.departuresThisWeek > 0 ? "up" as const : "neutral" as const,
       sublabel: stats.departuresThisWeek > 5 ? "Busy Week" : "",
       borderColor: "border-l-purple-500", iconBg: "bg-purple-50", iconColor: "text-purple-500", nav: "calendar", tab: undefined,

@@ -63,6 +63,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     const assigned = uniqueRefs((j) => j.status === "assigned");
     const inTransit = uniqueRefs((j) => j.status === "en-route");
     const delivered = uniqueRefs((j) => j.status === "delivered");
+    const returned = uniqueRefs((j) => j.status === "returned");
     const exceptions = uniqueRefs((j) => j.status === "exception");
     const cancelled = uniqueRefs((j) => j.status === "cancelled");
     const availableDrivers = drivers.filter((d) => d.status === "available").length;
@@ -104,11 +105,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       if (alertRefSeen.has(j.ref)) return;
       alertRefSeen.add(j.ref);
       if (j.status === "exception") alertCount++;
-      if (j.eta && j.status !== "delivered" && j.status !== "cancelled") {
+      if (j.eta && j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled") {
         const eta = new Date(j.eta); eta.setHours(0, 0, 0, 0);
         if (eta < now) alertCount++;
       }
-      if (j.etd && j.status !== "delivered" && j.status !== "cancelled" && j.status !== "en-route") {
+      if (j.etd && j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled" && j.status !== "en-route") {
         const etd = new Date(j.etd); etd.setHours(0, 0, 0, 0);
         if (Math.floor((etd.getTime() - now.getTime()) / 86400000) <= 1) alertCount++;
       }
@@ -128,7 +129,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       if (etaDate < startOfMonth || etaDate > endOfMonth) return;
       if (!dateCounts[dateKey]) dateCounts[dateKey] = { total: 0, completed: 0 };
       dateCounts[dateKey].total++;
-      if (j.status === "delivered" || j.orderPicked) dateCounts[dateKey].completed++;
+      if (j.status === "delivered" || j.status === "returned" || j.orderPicked) dateCounts[dateKey].completed++;
     });
     const highVolumeWins = Object.entries(dateCounts)
       .filter(([, c]) => c.total >= 5 && c.completed / c.total >= 0.95)
@@ -142,6 +143,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       assigned,
       inTransit,
       delivered,
+      returned,
       exceptions,
       cancelled,
       availableDrivers,
@@ -188,6 +190,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       { name: "Pending", value: stats.pending, color: "#F59E0B" },
       { name: "In Transit", value: stats.inTransit, color: "#3B82F6" },
       { name: "Delivered", value: stats.delivered, color: "#10B981" },
+      { name: "Returned", value: stats.returned, color: "#F59E0B" },
       { name: "Exceptions", value: stats.exceptions, color: "#EF4444" },
     ].filter((item) => item.value > 0);
   }, [stats]);
@@ -235,7 +238,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     },
     {
       icon: Archive, value: stats.delivered, label: "DELIVERED",
-      change: `${stats.delivered} completed`, changeType: "up" as const, sublabel: "Completed",
+      change: stats.returned > 0 ? `${stats.returned} returned` : `${stats.delivered} completed`, changeType: "up" as const, sublabel: "Completed",
       borderColor: "border-l-green-500", iconBg: "bg-green-50", iconColor: "text-green-500", nav: "clock", tab: undefined,
     },
     {

@@ -2,7 +2,7 @@ import React from "react";
 import { cn } from "../../utils/helpers";
 
 interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: "default" | "secondary" | "destructive" | "outline" | "new" | "past-due" | "success";
+  variant?: "default" | "secondary" | "destructive" | "outline" | "new" | "past-due" | "success" | "warning";
   children: React.ReactNode;
 }
 
@@ -23,6 +23,7 @@ export const Badge: React.FC<BadgeProps> = ({
     new: "bg-green-50 text-resilinc-primary",
     "past-due": "bg-red-50 text-resilinc-alert",
     success: "bg-green-50 text-green-600",
+    warning: "bg-amber-50 text-amber-700",
   };
 
   return (

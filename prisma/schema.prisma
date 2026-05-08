@@ -30,6 +30,10 @@ model Job {
   eta                String?   @db.VarChar(255)
   scheduledAt        String?   @db.VarChar(255)
   actualDeliveryAt   String?   @db.VarChar(255)
+  returnedAt         String?   @db.VarChar(255)
+  returnReason       String?   @db.Text
+  returnedPallets    Int?
+  returnNotes        String?   @db.Text
   exceptionReason    String?   @db.Text
   overdueReason      String?   @db.Text
 

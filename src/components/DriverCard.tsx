@@ -14,7 +14,7 @@ interface DriverCardProps {
 
 export const DriverCard: React.FC<DriverCardProps> = ({ driver, onEdit, assignedPallets = 0 }) => {
   const { jobs } = useDispatch();
-  const actualAssignedJobs = jobs.filter(j => j.driverId === driver.id && j.status !== "delivered" && j.status !== "cancelled").length;
+  const actualAssignedJobs = jobs.filter(j => j.driverId === driver.id && j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled").length;
   const { setNodeRef, isOver } = useDroppable({
     id: driver.id,
   });

@@ -1,6 +1,6 @@
 // src/components/views/HistoryView.tsx
 import React, { useMemo, useState } from "react";
-import { Clock, Search, Download, Calendar as CalendarIcon, CheckCircle2, XCircle, FileText, Package } from "lucide-react";
+import { Clock, Search, Download, Calendar as CalendarIcon, CheckCircle2, XCircle, FileText, Package, RotateCcw } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useDispatch } from "../../context/DispatchContext";
@@ -13,7 +13,7 @@ import { Input } from "../ui/Input";
 import { JobDetailsModal } from "../JobDetailsModal";
 import * as XLSX from "../../lib/spreadsheet";
 
-type HistoryFilter = "all" | "delivered" | "cancelled";
+type HistoryFilter = "all" | "delivered" | "returned" | "cancelled";
 
 // Helper: get ISO week number
 function getWeekNumber(date: Date): number {
@@ -22,6 +22,10 @@ function getWeekNumber(date: Date): number {
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+function getHistoryDate(job: Job): Date {
+  return new Date(job.status === "returned" ? job.returnedAt || job.updatedAt : job.actualDeliveryAt || job.updatedAt);
 }
 
 export const HistoryView: React.FC = () => {
@@ -49,9 +53,9 @@ export const HistoryView: React.FC = () => {
   const availableWeeks = useMemo(() => {
     const weekSet = new Map<string, string>(); // value -> label
     jobs
-      .filter((j) => j.status === "delivered" || j.status === "cancelled")
+      .filter((j) => j.status === "delivered" || j.status === "returned" || j.status === "cancelled")
       .forEach((job) => {
-        const date = new Date(job.actualDeliveryAt || job.updatedAt);
+        const date = getHistoryDate(job);
         const weekNum = getWeekNumber(date);
         const year = date.getFullYear();
         const value = `${year}-W${String(weekNum).padStart(2, "0")}`;
@@ -66,12 +70,14 @@ export const HistoryView: React.FC = () => {
   // Filter completed/cancelled jobs
   const completedJobs = useMemo(() => {
     let filtered = jobs.filter(
-      (job) => job.status === "delivered" || job.status === "cancelled"
+      (job) => job.status === "delivered" || job.status === "returned" || job.status === "cancelled"
     );
 
     // Status filter
     if (statusFilter === "delivered") {
       filtered = filtered.filter((job) => job.status === "delivered");
+    } else if (statusFilter === "returned") {
+      filtered = filtered.filter((job) => job.status === "returned");
     } else if (statusFilter === "cancelled") {
       filtered = filtered.filter((job) => job.status === "cancelled");
     }
@@ -89,7 +95,7 @@ export const HistoryView: React.FC = () => {
     // Week filter
     if (selectedWeek !== "all") {
       filtered = filtered.filter((job) => {
-        const date = new Date(job.actualDeliveryAt || job.updatedAt);
+        const date = getHistoryDate(job);
         const weekNum = getWeekNumber(date);
         const year = date.getFullYear();
         const jobWeek = `${year}-W${String(weekNum).padStart(2, "0")}`;
@@ -104,7 +110,7 @@ export const HistoryView: React.FC = () => {
         const start = new Date(startDate);
         const end = new Date(endDate);
         filtered = filtered.filter((job) => {
-          const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
+          const completedDate = getHistoryDate(job);
           return completedDate >= start && completedDate <= end;
         });
       } else if (dateFilter !== "all") {
@@ -116,7 +122,7 @@ export const HistoryView: React.FC = () => {
         if (daysBack > 0) {
           const cutoffDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
           filtered = filtered.filter((job) => {
-            const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
+            const completedDate = getHistoryDate(job);
             return completedDate >= cutoffDate;
           });
         }
@@ -159,8 +165,8 @@ export const HistoryView: React.FC = () => {
 
     // Sort by completion date (most recent first)
     return deduped.sort((a, b) => {
-      const dateA = new Date(a.actualDeliveryAt || a.updatedAt).getTime();
-      const dateB = new Date(b.actualDeliveryAt || b.updatedAt).getTime();
+      const dateA = getHistoryDate(a).getTime();
+      const dateB = getHistoryDate(b).getTime();
       return dateB - dateA;
     });
   }, [
@@ -178,6 +184,7 @@ export const HistoryView: React.FC = () => {
   // Calculate statistics
   const stats = useMemo(() => {
     const delivered = completedJobs.filter((j) => j.status === "delivered").length;
+    const returned = completedJobs.filter((j) => j.status === "returned").length;
     const cancelled = completedJobs.filter((j) => j.status === "cancelled").length;
     const total = completedJobs.length;
     const successRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
@@ -203,6 +210,7 @@ export const HistoryView: React.FC = () => {
     return {
       total,
       delivered,
+      returned,
       cancelled,
       successRate,
       totalPallets,
@@ -219,7 +227,7 @@ export const HistoryView: React.FC = () => {
   // Export to Excel
   const exportToExcel = async () => {
     const data = completedJobs.map((job) => {
-      const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
+      const completedDate = getHistoryDate(job);
       return {
         Reference: job.ref,
         Customer: job.customer,
@@ -239,6 +247,10 @@ export const HistoryView: React.FC = () => {
         "Created Date": new Date(job.createdAt).toLocaleString(),
         "Completed Date": completedDate.toLocaleString(),
         ETA: job.eta || "N/A",
+        "Returned Date": job.returnedAt || "",
+        "Return Reason": job.returnReason || "",
+        "Returned Pallets": job.returnedPallets ?? "",
+        "Return Notes": job.returnNotes || "",
       };
     });
 
@@ -284,10 +296,11 @@ export const HistoryView: React.FC = () => {
     const cardY = 28;
     const cardH = 15;
     const gap = 4;
-    const cardW = (pw - 28 - gap * 6) / 7;
+    const cardW = (pw - 28 - gap * 7) / 8;
     const cards: { label: string; value: string; color: number[] }[] = [
       { label: "Total Jobs", value: String(stats.total), color: [15, 23, 42] },
       { label: "Delivered", value: String(stats.delivered), color: [22, 163, 74] },
+      { label: "Returned", value: String(stats.returned), color: [217, 119, 6] },
       { label: "Cancelled", value: String(stats.cancelled), color: [220, 38, 38] },
       { label: "Success Rate", value: `${stats.successRate}%`, color: [15, 23, 42] },
       { label: "Total Pallets", value: String(stats.totalPallets), color: [15, 23, 42] },
@@ -317,11 +330,11 @@ export const HistoryView: React.FC = () => {
 
     // --- Table ---
     const tableData = completedJobs.map((job) => {
-      const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
+      const completedDate = getHistoryDate(job);
       return [
         job.ref,
         job.customer,
-        job.status === "delivered" ? "Delivered" : "Cancelled",
+        job.status === "delivered" ? "Delivered" : job.status === "returned" ? "Returned" : "Cancelled",
         `${job.pickup} > ${job.dropoff}`,
         job.warehouse || "—",
         job.driverId ? drivers.find((d) => d.id === job.driverId)?.name || "Unknown" : "Unassigned",
@@ -382,6 +395,10 @@ export const HistoryView: React.FC = () => {
             data.cell.styles.textColor = [5, 122, 85];     // darker green
             data.cell.styles.fontStyle = "bold";
             data.cell.styles.fillColor = [220, 252, 231];  // consistent green tint
+          } else if (val === "Returned") {
+            data.cell.styles.textColor = [180, 83, 9];      // darker amber
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [254, 243, 199];  // consistent amber tint
           } else if (val === "Cancelled") {
             data.cell.styles.textColor = [185, 28, 28];    // darker red
             data.cell.styles.fontStyle = "bold";
@@ -447,7 +464,7 @@ export const HistoryView: React.FC = () => {
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-500">View completed and cancelled jobs with detailed tracking</p>
+            <p className="text-sm text-gray-500">View completed, returned, and cancelled jobs with detailed tracking</p>
           </div>
           <div className="flex items-center gap-2">
             <Button onClick={exportToPDF} className="gap-2 bg-slate-800 hover:bg-slate-900">
@@ -496,6 +513,7 @@ export const HistoryView: React.FC = () => {
         {([
           { icon: Clock, label: "Total Jobs", value: String(stats.total), color: "text-gray-900", iconColor: "text-resilinc-primary", bg: "bg-green-50" },
           { icon: CheckCircle2, label: "Delivered", value: String(stats.delivered), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
+          { icon: RotateCcw, label: "Returned", value: String(stats.returned), color: "text-amber-600", iconColor: "text-amber-600", bg: "bg-amber-50" },
           { icon: XCircle, label: "Cancelled", value: String(stats.cancelled), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },
           { icon: CalendarIcon, label: "Success Rate", value: `${stats.successRate}%`, color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
           { icon: Package, label: "Total Pallets", value: String(stats.totalPallets), color: "text-gray-900", iconColor: "text-orange-600", bg: "bg-orange-50" },
@@ -534,6 +552,7 @@ export const HistoryView: React.FC = () => {
         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as HistoryFilter)} className="w-auto text-sm">
           <option value="all">All Status</option>
           <option value="delivered">Delivered</option>
+          <option value="returned">Returned</option>
           <option value="cancelled">Cancelled</option>
         </Select>
         <Select value={selectedTransporter} onChange={(e) => setSelectedTransporter(e.target.value)} className="w-auto text-sm">
@@ -606,7 +625,7 @@ export const HistoryView: React.FC = () => {
                   </tr>
                 ) : (
                   completedJobs.map((job) => {
-                    const completedDate = new Date(job.actualDeliveryAt || job.updatedAt);
+                    const completedDate = getHistoryDate(job);
                     return (
                       <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="p-3 font-medium">
@@ -619,7 +638,7 @@ export const HistoryView: React.FC = () => {
                         </td>
                         <td className="p-3 text-gray-700">{job.customer}</td>
                         <td className="p-3">
-                          <Badge variant={job.status === "delivered" ? "success" : "destructive"}>
+                          <Badge variant={job.status === "delivered" ? "success" : job.status === "returned" ? "warning" : "destructive"}>
                             {job.status}
                           </Badge>
                         </td>
@@ -645,7 +664,10 @@ export const HistoryView: React.FC = () => {
                           </span>
                         </td>
                         <td className="p-3 text-gray-600 text-xs">
-                          {formatDate(job.actualDeliveryAt || job.updatedAt)}
+                          {formatDate(getHistoryDate(job).toISOString())}
+                          {job.status === "returned" && job.returnReason && (
+                            <div className="mt-1 text-[10px] text-amber-700">Returned: {job.returnReason}</div>
+                          )}
                         </td>
                       </tr>
                     );

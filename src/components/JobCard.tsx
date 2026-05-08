@@ -51,6 +51,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
     if (job.status === "pending" && job.priority === "urgent") return "past-due";
     if (job.status === "pending") return "new";
     if (job.status === "delivered") return "success";
+    if (job.status === "returned") return "warning";
     return "default";
   };
   const revisedETD = calculateRevisedETD(job);
@@ -176,7 +177,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
             )}
           </div>
         )}
-        {!isViewer && job.status !== "delivered" && job.status !== "cancelled" && job.status !== "en-route" && (
+        {!isViewer && job.status !== "delivered" && job.status !== "returned" && job.status !== "cancelled" && job.status !== "en-route" && (
           <button onClick={handleDispatch} className="h-7 w-7 rounded-md bg-green-600 hover:bg-green-700 text-white flex items-center justify-center" title="Mark as dispatched">
             <CheckCircle className="h-3.5 w-3.5" />
           </button>

@@ -20,7 +20,7 @@ export const TransporterDetailsModal: React.FC<TransporterDetailsModalProps> = (
 }) => {
   const { jobs } = useDispatch();
   const actualAssignedJobs = transporter
-    ? jobs.filter(j => j.driverId === transporter.id && j.status !== "delivered" && j.status !== "cancelled").length
+    ? jobs.filter(j => j.driverId === transporter.id && j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled").length
     : 0;
 
   const [formData, setFormData] = useState({

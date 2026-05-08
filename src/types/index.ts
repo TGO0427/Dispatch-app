@@ -8,6 +8,7 @@ export type JobStatus =
   | "assigned"
   | "en-route"
   | "delivered"
+  | "returned"
   | "exception"
   | "cancelled";
 
@@ -48,6 +49,7 @@ export const JOB_STATUSES: JobStatus[] = [
   "assigned",
   "en-route",
   "delivered",
+  "returned",
   "exception",
   "cancelled",
 ];
@@ -96,6 +98,10 @@ export interface Job {
   eta?: string;                 // planned ETA (e.g. "2025-10-10" or ISO datetime)
   scheduledAt?: string;         // planned pickup/delivery (ISO datetime)
   actualDeliveryAt?: string;    // set when delivered (ISO datetime)
+  returnedAt?: string;          // set when returned by customer/client (ISO datetime)
+  returnReason?: string;        // required when status === "returned"
+  returnedPallets?: number;     // optional returned pallet count
+  returnNotes?: string;         // free-text return notes
   exceptionReason?: string;     // set when status === "exception"
   overdueReason?: string;       // set when order is past ETA
 
@@ -222,6 +228,10 @@ export const makeNewJob = (partial: Partial<Job> = {}): Job => {
     eta: partial.eta,
     scheduledAt: partial.scheduledAt,
     actualDeliveryAt: partial.actualDeliveryAt,
+    returnedAt: partial.returnedAt,
+    returnReason: partial.returnReason,
+    returnedPallets: partial.returnedPallets,
+    returnNotes: partial.returnNotes,
     exceptionReason: partial.exceptionReason,
     driverId: partial.driverId,
     notes: partial.notes,

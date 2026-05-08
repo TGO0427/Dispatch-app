@@ -63,6 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const allowedFields = [
           "ref", "customer", "pickup", "dropoff", "warehouse", "priority", "status",
           "pallets", "outstandingQty", "eta", "scheduledAt", "actualDeliveryAt",
+          "returnedAt", "returnReason", "returnedPallets", "returnNotes",
           "exceptionReason", "overdueReason", "driverId", "notes", "internalNotes", "transporterBooked", "orderPicked",
           "coaAvailable", "hasFlowbin", "serviceType", "jobType", "transportService", "truckSize", "etd",
         ];
@@ -173,6 +174,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const allowedFields = [
           "ref", "customer", "pickup", "dropoff", "warehouse", "priority", "status",
           "pallets", "outstandingQty", "eta", "scheduledAt", "actualDeliveryAt",
+          "returnedAt", "returnReason", "returnedPallets", "returnNotes",
           "exceptionReason", "overdueReason", "driverId", "notes", "internalNotes", "transporterBooked", "orderPicked",
           "coaAvailable", "hasFlowbin", "serviceType", "jobType", "transportService", "truckSize", "etd",
         ];
@@ -226,6 +228,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           pallets: job.pallets as number | undefined, outstandingQty: job.outstandingQty as number | undefined,
           eta: job.eta as string | undefined, scheduledAt: job.scheduledAt as string | undefined,
           actualDeliveryAt: job.actualDeliveryAt as string | undefined, exceptionReason: job.exceptionReason as string | undefined,
+          returnedAt: job.returnedAt as string | undefined, returnReason: job.returnReason as string | undefined,
+          returnedPallets: job.returnedPallets as number | undefined, returnNotes: job.returnNotes as string | undefined,
           overdueReason: job.overdueReason as string | undefined, driverId: job.driverId as string | undefined,
           notes: job.notes as string | undefined, transporterBooked: job.transporterBooked as boolean | undefined,
           orderPicked: job.orderPicked as boolean | undefined, coaAvailable: job.coaAvailable as boolean | undefined,
@@ -264,6 +268,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           pallets: job.pallets as number | undefined, outstandingQty: job.outstandingQty as number | undefined,
           eta: job.eta as string | undefined, scheduledAt: job.scheduledAt as string | undefined,
           actualDeliveryAt: job.actualDeliveryAt as string | undefined, exceptionReason: job.exceptionReason as string | undefined,
+          returnedAt: job.returnedAt as string | undefined, returnReason: job.returnReason as string | undefined,
+          returnedPallets: job.returnedPallets as number | undefined, returnNotes: job.returnNotes as string | undefined,
           overdueReason: job.overdueReason as string | undefined, driverId: job.driverId as string | undefined,
           notes: job.notes as string | undefined, transporterBooked: job.transporterBooked as boolean | undefined,
           orderPicked: job.orderPicked as boolean | undefined, coaAvailable: job.coaAvailable as boolean | undefined,
@@ -287,7 +293,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!req.body.ref || !req.body.customer) {
         return res.status(400).json({ success: false, error: "Reference and customer are required" });
       }
-      const validStatuses = ["pending", "assigned", "en-route", "delivered", "exception", "cancelled"];
+      const validStatuses = ["pending", "assigned", "en-route", "delivered", "returned", "exception", "cancelled"];
       const validPriorities = ["urgent", "high", "normal", "low"];
       if (req.body.status && !validStatuses.includes(req.body.status)) {
         return res.status(400).json({ success: false, error: "Invalid status" });
@@ -309,6 +315,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           jobType: req.body.jobType || "order",
           pallets: req.body.pallets, outstandingQty: req.body.outstandingQty,
           eta: req.body.eta, scheduledAt: req.body.scheduledAt, actualDeliveryAt: req.body.actualDeliveryAt,
+          returnedAt: req.body.returnedAt, returnReason: req.body.returnReason,
+          returnedPallets: req.body.returnedPallets, returnNotes: req.body.returnNotes,
           exceptionReason: req.body.exceptionReason, overdueReason: req.body.overdueReason,
           driverId: req.body.driverId, notes: req.body.notes,
           transporterBooked: req.body.transporterBooked, orderPicked: req.body.orderPicked,

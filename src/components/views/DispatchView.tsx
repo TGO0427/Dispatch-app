@@ -158,7 +158,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         case "in-transit":
           return job.status === "en-route";
         case "delivered":
-          return job.status === "delivered" || job.status === "cancelled";
+          return job.status === "delivered" || job.status === "returned" || job.status === "cancelled";
         default:
           return true;
       }
@@ -170,7 +170,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     open: orderJobs.filter((j) => j.status === "pending" || j.status === "exception").length,
     assigned: orderJobs.filter((j) => j.status === "assigned").length,
     inTransit: orderJobs.filter((j) => j.status === "en-route").length,
-    delivered: orderJobs.filter((j) => j.status === "delivered" || j.status === "cancelled").length,
+    delivered: orderJobs.filter((j) => j.status === "delivered" || j.status === "returned" || j.status === "cancelled").length,
   }), [orderJobs]);
 
   const stats = useMemo(() => {
@@ -189,7 +189,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         jobs.filter((j) => j.jobType === "order" || j.jobType === undefined).forEach((j) => {
           if (refSeen.has(j.ref)) return;
           refSeen.add(j.ref);
-          const notDone = j.status !== "delivered" && j.status !== "cancelled";
+          const notDone = j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled";
           let isAlert = j.status === "exception";
           if (!isAlert && j.eta && notDone) {
             const eta = new Date(j.eta); eta.setHours(0, 0, 0, 0);
@@ -217,7 +217,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   const palletsByDriver = useMemo(() => {
     const map: Record<string, number> = {};
     jobs.forEach((job) => {
-      if (job.driverId && job.status !== "delivered" && job.status !== "cancelled") {
+      if (job.driverId && job.status !== "delivered" && job.status !== "returned" && job.status !== "cancelled") {
         map[job.driverId] = (map[job.driverId] || 0) + (job.pallets || 0);
       }
     });
@@ -248,7 +248,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     jobs.forEach((job) => {
       if (!job.eta) return;
       if (job.jobType === "ibt") return;
-      if (job.status === "delivered" || job.status === "cancelled") return;
+      if (job.status === "delivered" || job.status === "returned" || job.status === "cancelled") return;
       const dateKey = job.eta.split("T")[0];
       // Parse as local midnight, not UTC — `new Date("YYYY-MM-DD")` is UTC and
       // can shift the day west of UTC (e.g. May 1 entries get excluded on May 1 in PST).
@@ -269,7 +269,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     const matching = jobs.filter((job) => {
       if (!job.eta) return false;
       if (job.jobType === "ibt") return false;
-      if (job.status === "delivered" || job.status === "cancelled") return false;
+      if (job.status === "delivered" || job.status === "returned" || job.status === "cancelled") return false;
       return job.eta.split("T")[0] === selectedAlertDate;
     });
     const groups = new Map<string, { ref: string; primary: Job; lineCount: number; totalPallets: number; hasPalletData: boolean }>();
@@ -806,6 +806,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                           primary.status === "assigned" ? "bg-blue-100 text-blue-700" :
                           primary.status === "en-route" ? "bg-indigo-100 text-indigo-700" :
                           primary.status === "delivered" ? "bg-green-100 text-green-700" :
+                          primary.status === "returned" ? "bg-amber-100 text-amber-700" :
                           primary.status === "exception" ? "bg-red-100 text-red-700" :
                           "bg-gray-100 text-gray-600"
                         }`}>

@@ -21,6 +21,7 @@ const statusColors: Record<string, string> = {
   assigned: "bg-blue-100 text-blue-700",
   "en-route": "bg-indigo-100 text-indigo-700",
   delivered: "bg-green-100 text-green-700",
+  returned: "bg-amber-100 text-amber-700",
   exception: "bg-red-100 text-red-700",
   cancelled: "bg-gray-100 text-gray-500",
   available: "bg-green-100 text-green-700",

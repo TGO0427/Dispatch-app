@@ -66,7 +66,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
 
     refMap.forEach((job) => {
       // 1. Overdue ETA - not delivered and ETA has passed
-      if (job.eta && job.status !== "delivered" && job.status !== "cancelled") {
+      if (job.eta && job.status !== "delivered" && job.status !== "returned" && job.status !== "cancelled") {
         const eta = new Date(job.eta);
         eta.setHours(0, 0, 0, 0);
         const daysOverdue = Math.floor((now.getTime() - eta.getTime()) / 86400000);
@@ -102,7 +102,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
       }
 
       // 3. ETD is today or tomorrow (needs dispatch action)
-      if (job.etd && job.status !== "delivered" && job.status !== "cancelled" && job.status !== "en-route") {
+      if (job.etd && job.status !== "delivered" && job.status !== "returned" && job.status !== "cancelled" && job.status !== "en-route") {
         const etd = new Date(job.etd);
         etd.setHours(0, 0, 0, 0);
         const daysUntilETD = Math.floor((etd.getTime() - now.getTime()) / 86400000);
@@ -183,7 +183,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
 
     const refMap = new Map<string, typeof jobs[0]>();
     jobs.forEach((j) => {
-      if (!refMap.has(j.ref) && j.eta && j.status !== "delivered" && j.status !== "cancelled") {
+      if (!refMap.has(j.ref) && j.eta && j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled") {
         refMap.set(j.ref, j);
       }
     });

@@ -142,6 +142,7 @@ export function sortJobs(jobs: Job[], sortOptions: SortOptions): Job[] {
         assigned: 4,
         "en-route": 3,
         delivered: 2,
+        returned: 2,
         cancelled: 1
       };
       aVal = statusOrder[a.status] || 0;

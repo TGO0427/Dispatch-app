@@ -28,7 +28,7 @@ const serviceColors: Record<string, string> = {
 };
 
 export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact = false }) => {
-  const isLocked = job.status === "en-route" || job.status === "delivered" || job.status === "cancelled";
+  const isLocked = job.status === "en-route" || job.status === "delivered" || job.status === "returned" || job.status === "cancelled";
 
   const handleToggle = (field: "transporterBooked" | "orderPicked" | "coaAvailable") => {
     if (isLocked) return;

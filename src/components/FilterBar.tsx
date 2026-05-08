@@ -59,6 +59,7 @@ export const FilterBar: React.FC<{ showMore?: boolean }> = ({ showMore }) => {
         <option value="pending">Pending</option>
         <option value="assigned">Assigned</option>
         <option value="en-route">En Route</option>
+        <option value="returned">Returned</option>
         <option value="exception">Exception</option>
       </select>
 

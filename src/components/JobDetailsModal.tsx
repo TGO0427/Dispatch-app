@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { X, Edit2, Save, Maximize2, Minimize2, AlertTriangle } from "lucide-react";
+import { X, Edit2, Save, Maximize2, Minimize2, AlertTriangle, RotateCcw } from "lucide-react";
 import { Job, JobStatus, JobPriority, ServiceType, TruckSize, JOB_STATUSES, JOB_PRIORITIES, TRUCK_SIZES } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { useDispatch } from "../context/DispatchContext";
@@ -106,6 +106,10 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       showError("Exception status requires an exception reason");
       return;
     }
+    if (editedJob.status === "returned" && !editedJob.returnReason?.trim()) {
+      showError("Returned status requires a return reason");
+      return;
+    }
 
     if (editedJob.status === "en-route" && job.status !== "en-route") {
       const missing: string[] = [];
@@ -131,6 +135,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.status === "delivered" && !editedJob.actualDeliveryAt) {
       updates.actualDeliveryAt = new Date().toISOString();
     }
+    if (editedJob.status === "returned" && !editedJob.returnedAt) {
+      updates.returnedAt = new Date().toISOString();
+    }
     if (editedJob.status !== "exception") updates.exceptionReason = undefined;
 
     const sharedUpdates: Partial<Job> = {};
@@ -145,6 +152,10 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.etd !== job.etd) sharedUpdates.etd = editedJob.etd;
     if (editedJob.pallets !== job.pallets) sharedUpdates.pallets = editedJob.pallets;
     if (updates.actualDeliveryAt !== job.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
+    if (updates.returnedAt !== job.returnedAt) sharedUpdates.returnedAt = updates.returnedAt;
+    if (editedJob.returnReason !== job.returnReason) sharedUpdates.returnReason = editedJob.returnReason;
+    if (editedJob.returnedPallets !== job.returnedPallets) sharedUpdates.returnedPallets = editedJob.returnedPallets;
+    if (editedJob.returnNotes !== job.returnNotes) sharedUpdates.returnNotes = editedJob.returnNotes;
     if (updates.exceptionReason !== undefined) sharedUpdates.exceptionReason = updates.exceptionReason;
     if (editedJob.overdueReason !== job.overdueReason) sharedUpdates.overdueReason = editedJob.overdueReason;
     if (editedJob.internalNotes !== job.internalNotes) sharedUpdates.internalNotes = editedJob.internalNotes;
@@ -158,7 +169,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       if (siblingIds.length > 0) updateJobs(siblingIds, sharedUpdates);
     }
 
-    const isAmend = job.status === "delivered" || job.status === "cancelled";
+    const isAmend = job.status === "delivered" || job.status === "returned" || job.status === "cancelled";
     showSuccess(isAmend ? `${job.ref} amended successfully` : `${job.ref} saved successfully`);
     setIsEditing(false);
     onClose();
@@ -205,12 +216,31 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
               <h2 className="text-lg font-bold text-gray-900">{job.ref}</h2>
               <p className="text-xs text-gray-400">{job.customer}</p>
             </div>
-            <Badge variant={job.status === "exception" ? "destructive" : job.status === "delivered" ? "success" : "secondary"}>
+            <Badge variant={job.status === "exception" ? "destructive" : job.status === "delivered" ? "success" : job.status === "returned" ? "warning" : "secondary"}>
               {job.status}
             </Badge>
             <Badge className={`${priorityTone(job.priority)} text-[10px]`}>{job.priority}</Badge>
           </div>
           <div className="flex items-center gap-1">
+            {!isViewer && !isEditing && job.status === "delivered" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditedJob((prev) => ({
+                    ...prev,
+                    status: "returned",
+                    returnedAt: prev.returnedAt || new Date().toISOString(),
+                    returnedPallets: prev.returnedPallets ?? prev.pallets,
+                  }));
+                  setIsEditing(true);
+                }}
+                className="text-xs gap-1 text-amber-600 hover:text-amber-700"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Mark Returned
+              </Button>
+            )}
             {!isViewer && (isEditing ? (
               <>
                 <Button variant="ghost" size="sm" onClick={handleCancel} className="text-xs">Cancel</Button>
@@ -223,10 +253,10 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsEditing(true)}
-                className={`text-xs gap-1 ${job.status === "delivered" || job.status === "cancelled" ? "text-amber-600 hover:text-amber-700" : ""}`}
+                className={`text-xs gap-1 ${job.status === "delivered" || job.status === "returned" || job.status === "cancelled" ? "text-amber-600 hover:text-amber-700" : ""}`}
               >
                 <Edit2 className="h-3.5 w-3.5" />
-                {job.status === "delivered" || job.status === "cancelled" ? "Amend" : "Edit"}
+                {job.status === "delivered" || job.status === "returned" || job.status === "cancelled" ? "Amend" : "Edit"}
               </Button>
             ))}
             <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100" title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
@@ -240,7 +270,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
 
         <div className="px-5 py-4 space-y-4">
           {/* Amend notice for delivered/cancelled orders */}
-          {isEditing && (job.status === "delivered" || job.status === "cancelled") && (
+          {isEditing && (job.status === "delivered" || job.status === "returned" || job.status === "cancelled") && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
               <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
               <span>Amending a {job.status} order — changes will be saved to the record (pallets, truck size, notes, etc.)</span>
@@ -336,7 +366,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                 <label className={labelCls}>Assigned Transporter</label>
                 <div className="flex items-center justify-between mt-0.5">
                   <p className="text-sm font-semibold text-gray-900">{driverName || "Assigned"}</p>
-                  {editedJob.status !== "delivered" && editedJob.status !== "cancelled" && (
+                  {editedJob.status !== "delivered" && editedJob.status !== "returned" && editedJob.status !== "cancelled" && (
                     <button
                       onClick={async () => {
                         const ok = await confirm({ title: "Unassign Order", message: "Unassign ALL line items?", type: "warning", confirmText: "Unassign" });
@@ -408,6 +438,49 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
             </div>
           )}
 
+          {((isEditing && editedJob.status === "returned") || job.status === "returned" || job.returnedAt) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <div className="flex items-center gap-2 mb-3">
+                <RotateCcw className="w-4 h-4 text-amber-700" />
+                <label className="text-xs font-bold text-amber-700 uppercase tracking-wider">Return Details</label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Returned Date</label>
+                  {isEditing ? (
+                    <input type="datetime-local" value={formatDatetimeLocal(editedJob.returnedAt)} onChange={(e) => updateField("returnedAt", e.target.value ? new Date(e.target.value).toISOString() : undefined)} className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white" />
+                  ) : (
+                    <p className="text-sm font-semibold text-amber-950 mt-0.5">{job.returnedAt ? formatHumanDate(job.returnedAt) : "—"}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Returned Pallets</label>
+                  {isEditing ? (
+                    <input type="number" value={editedJob.returnedPallets ?? ""} onChange={(e) => updateField("returnedPallets", e.target.value !== "" ? Number(e.target.value) : undefined)} className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white" min="0" placeholder="Optional" />
+                  ) : (
+                    <p className="text-sm font-semibold text-amber-950 mt-0.5">{job.returnedPallets ?? "—"}</p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3">
+                <label className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Return Reason <span className="text-red-500">*</span></label>
+                {isEditing ? (
+                  <textarea value={editedJob.returnReason ?? ""} onChange={(e) => updateField("returnReason", e.target.value || undefined)} className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white" rows={2} placeholder="Why did the client return this shipment?" />
+                ) : (
+                  <p className="text-sm text-amber-900 mt-0.5">{job.returnReason || "—"}</p>
+                )}
+              </div>
+              <div className="mt-3">
+                <label className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Return Notes</label>
+                {isEditing ? (
+                  <textarea value={editedJob.returnNotes ?? ""} onChange={(e) => updateField("returnNotes", e.target.value || undefined)} className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white" rows={2} placeholder="Condition, next action, collection details..." />
+                ) : (
+                  <p className="text-sm text-amber-900 mt-0.5">{job.returnNotes || "—"}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Exception Reason */}
           {((isEditing && editedJob.status === "exception") || job.exceptionReason) && (
             <div>
@@ -422,7 +495,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
 
           {/* Overdue Reason — show when ETA has passed and not delivered/cancelled */}
           {(() => {
-            const isOverdue = job.eta && job.status !== "delivered" && job.status !== "cancelled" && (() => {
+            const isOverdue = job.eta && job.status !== "delivered" && job.status !== "returned" && job.status !== "cancelled" && (() => {
               const eta = new Date(job.eta!); eta.setHours(0, 0, 0, 0);
               const now = new Date(); now.setHours(0, 0, 0, 0);
               return now > eta;
@@ -487,9 +560,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                         {item.outstandingQty != null && item.outstandingQty > 0 && (
                           <span className="text-xs text-orange-600 font-medium">{item.outstandingQty.toLocaleString()} qty</span>
                         )}
-                        <Badge variant={item.status === "delivered" ? "success" : item.status === "exception" ? "destructive" : item.status === "pending" ? "new" : "default"} className="text-[9px] px-1.5 py-0">{item.status}</Badge>
+                        <Badge variant={item.status === "delivered" ? "success" : item.status === "returned" ? "warning" : item.status === "exception" ? "destructive" : item.status === "pending" ? "new" : "default"} className="text-[9px] px-1.5 py-0">{item.status}</Badge>
                       </div>
-                      {isAssigned && item.status !== "delivered" && item.status !== "cancelled" && item.status !== "en-route" && (
+                      {isAssigned && item.status !== "delivered" && item.status !== "returned" && item.status !== "cancelled" && item.status !== "en-route" && (
                         <button onClick={async () => { const ok = await confirm({ title: "Unassign", message: `Unassign #${idx + 1}?`, type: "warning", confirmText: "Unassign" }); if (ok) handleUnassignLineItem(item.id); }} className="text-[10px] text-orange-500 hover:text-orange-700 font-medium ml-2">Unassign</button>
                       )}
                       {isPending && !item.driverId && <span className="text-[10px] text-amber-600 font-medium ml-2">Pending</span>}

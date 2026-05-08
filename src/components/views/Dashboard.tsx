@@ -268,13 +268,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     {
       icon: Package, value: stats.palletsDispatchedThisWeek, label: "PALLETS DISPATCHED",
       change: "Dispatched this week",
-      changeType: stats.palletsDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.palletsDispatchedThisWeek > 20 ? "Good Movement" : stats.palletsDispatchedThisWeek > 0 ? "Moving" : "No Movement Yet",
+      changeType: stats.palletsDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.palletsDispatchedThisWeek > 20 ? "Pallets Flew" : stats.palletsDispatchedThisWeek > 0 ? "Solid Shift" : "Quiet Floor",
       borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clock", tab: undefined,
     },
     {
       icon: Archive, value: stats.qtyDispatchedThisWeek.toLocaleString(), label: "QTY DISPATCHED",
       change: "Dispatched this week",
-      changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.qtyDispatchedThisWeek > 1000 ? "Volume Moving" : stats.qtyDispatchedThisWeek > 0 ? "Moving" : "No Qty Yet",
+      changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.qtyDispatchedThisWeek > 1000 ? "Big Push" : stats.qtyDispatchedThisWeek > 0 ? "Qty Cleared" : "Nothing Moved",
       borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clock", tab: undefined,
     },
   ];

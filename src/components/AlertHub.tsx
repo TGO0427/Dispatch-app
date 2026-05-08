@@ -22,11 +22,26 @@ interface AlertHubProps {
 }
 
 const SEVERITY_ORDER = { critical: 3, warning: 2, info: 1 };
+const CLOSED_STATUSES = new Set(["delivered", "returned", "cancelled"]);
 
 function colorFor(sev: string) {
   if (sev === "critical") return "#ef4444";
   if (sev === "warning") return "#eab308";
   return "#3b82f6";
+}
+
+function toDayStart(dateString?: string): Date | undefined {
+  if (!dateString) return undefined;
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return undefined;
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function getLatestDateString(values: Array<string | undefined>): string | undefined {
+  return values
+    .filter((value): value is string => !!value && !Number.isNaN(new Date(value).getTime()))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
 }
 
 export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }) => {
@@ -58,59 +73,66 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
     now.setHours(0, 0, 0, 0);
     const result: Alert[] = [];
 
-    // Deduplicate by ref for alert generation
-    const refMap = new Map<string, typeof jobs[0]>();
+    // Group by ref so multi-line orders use the latest confirmed dates.
+    const refMap = new Map<string, typeof jobs>();
     jobs.forEach((j) => {
-      if (!refMap.has(j.ref)) refMap.set(j.ref, j);
+      const group = refMap.get(j.ref) || [];
+      group.push(j);
+      refMap.set(j.ref, group);
     });
 
-    refMap.forEach((job) => {
-      // 1. Overdue ETA - not delivered and ETA has passed
-      if (job.eta && job.status !== "delivered" && job.status !== "returned" && job.status !== "cancelled") {
-        const eta = new Date(job.eta);
-        eta.setHours(0, 0, 0, 0);
-        const daysOverdue = Math.floor((now.getTime() - eta.getTime()) / 86400000);
+    refMap.forEach((group) => {
+      const job = group.find((item) => item.status === "exception") || group[0];
+      const openLines = group.filter((item) => !CLOSED_STATUSES.has(item.status));
+      const latestEtd = getLatestDateString(openLines.map((item) => item.etd));
+      const latestEta = getLatestDateString(openLines.map((item) => item.eta));
+      const overdueDateString = latestEtd || latestEta;
+      const overdueDate = toDayStart(overdueDateString);
+      // 1. Overdue dispatch/delivery - use latest confirmed ETD, fallback to ETA
+      if (openLines.length > 0 && overdueDate) {
+        const daysOverdue = Math.floor((now.getTime() - overdueDate.getTime()) / 86400000);
         if (daysOverdue > 0) {
-          const reasonText = job.overdueReason ? ` — Reason: ${job.overdueReason}` : " — No reason provided";
+          const reasonText = job.overdueReason ? ` - Reason: ${job.overdueReason}` : " - No reason provided";
+          const dateLabel = latestEtd ? "Latest ETD" : "ETA";
           result.push({
             id: `overdue-${job.ref}`,
             title: `Overdue: ${job.ref}`,
-            description: `${job.customer} — ETA was ${job.eta} (${daysOverdue} day${daysOverdue > 1 ? "s" : ""} overdue)${reasonText}`,
+            description: `${job.customer} - ${dateLabel} was ${overdueDateString} (${daysOverdue} day${daysOverdue > 1 ? "s" : ""} overdue)${reasonText}`,
             severity: daysOverdue > 3 ? "critical" : "warning",
             category: "Overdue",
             jobRef: job.ref,
             jobId: job.id,
-            ts: eta.getTime(),
+            ts: overdueDate.getTime(),
             read: false,
           });
         }
       }
 
       // 2. Exception status
-      if (job.status === "exception") {
+      const exceptionLine = group.find((item) => item.status === "exception");
+      if (exceptionLine) {
         result.push({
-          id: `exception-${job.ref}`,
-          title: `Exception: ${job.ref}`,
-          description: `${job.customer} — ${job.exceptionReason || "No reason provided"}`,
+          id: `exception-${exceptionLine.ref}`,
+          title: `Exception: ${exceptionLine.ref}`,
+          description: `${exceptionLine.customer} - ${exceptionLine.exceptionReason || "No reason provided"}`,
           severity: "critical",
           category: "Exception",
-          jobRef: job.ref,
-          jobId: job.id,
-          ts: new Date(job.updatedAt).getTime(),
+          jobRef: exceptionLine.ref,
+          jobId: exceptionLine.id,
+          ts: new Date(exceptionLine.updatedAt).getTime(),
           read: false,
         });
       }
 
       // 3. ETD is today or tomorrow (needs dispatch action)
-      if (job.etd && job.status !== "delivered" && job.status !== "returned" && job.status !== "cancelled" && job.status !== "en-route") {
-        const etd = new Date(job.etd);
-        etd.setHours(0, 0, 0, 0);
+      if (latestEtd && openLines.some((item) => item.status !== "en-route")) {
+        const etd = toDayStart(latestEtd)!;
         const daysUntilETD = Math.floor((etd.getTime() - now.getTime()) / 86400000);
         if (daysUntilETD === 0) {
           result.push({
             id: `etd-today-${job.ref}`,
             title: `Dispatch Today: ${job.ref}`,
-            description: `${job.customer} — ETD is today, needs to leave warehouse`,
+            description: `${job.customer} - Latest ETD is today, needs to leave warehouse`,
             severity: "critical",
             category: "Dispatch Due",
             jobRef: job.ref,
@@ -122,7 +144,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
           result.push({
             id: `etd-tomorrow-${job.ref}`,
             title: `Dispatch Tomorrow: ${job.ref}`,
-            description: `${job.customer} — ETD is tomorrow, prepare for dispatch`,
+            description: `${job.customer} - Latest ETD is tomorrow, prepare for dispatch`,
             severity: "warning",
             category: "Dispatch Due",
             jobRef: job.ref,
@@ -154,7 +176,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
       if (driver.capacity > 0) {
         let assignedPallets = 0;
         jobs.forEach((j) => {
-          if (j.driverId === driver.id && j.status !== "delivered" && j.status !== "cancelled") {
+          if (j.driverId === driver.id && !CLOSED_STATUSES.has(j.status)) {
             assignedPallets += j.pallets || 0;
           }
         });

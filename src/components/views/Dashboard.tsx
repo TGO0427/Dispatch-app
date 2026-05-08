@@ -100,20 +100,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
 
     // Alert count: use ALL jobs (not date-filtered) so overdue orders aren't missed
     let alertCount = 0;
-    const alertRefSeen = new Set<string>();
+    const alertRefMap = new Map<string, typeof jobs>();
     jobs.filter((j) => j.jobType === "order" || j.jobType === undefined).forEach((j) => {
-      if (alertRefSeen.has(j.ref)) return;
-      alertRefSeen.add(j.ref);
-      if (j.status === "exception") alertCount++;
-      if (j.eta && j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled") {
-        const eta = new Date(j.eta); eta.setHours(0, 0, 0, 0);
-        if (eta < now) alertCount++;
+      const group = alertRefMap.get(j.ref) || [];
+      group.push(j);
+      alertRefMap.set(j.ref, group);
+    });
+    alertRefMap.forEach((group) => {
+      const openLines = group.filter((j) => j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled");
+      const latestEtd = openLines
+        .map((j) => j.etd)
+        .filter((value): value is string => !!value && !Number.isNaN(new Date(value).getTime()))
+        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+      const latestEta = openLines
+        .map((j) => j.eta)
+        .filter((value): value is string => !!value && !Number.isNaN(new Date(value).getTime()))
+        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+      const overdueDate = new Date(latestEtd || latestEta || "");
+      if (group.some((j) => j.status === "exception")) alertCount++;
+      if (openLines.length > 0 && !Number.isNaN(overdueDate.getTime())) {
+        overdueDate.setHours(0, 0, 0, 0);
+        if (overdueDate < now) alertCount++;
       }
-      if (j.etd && j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled" && j.status !== "en-route") {
-        const etd = new Date(j.etd); etd.setHours(0, 0, 0, 0);
+      if (latestEtd && openLines.some((j) => j.status !== "en-route")) {
+        const etd = new Date(latestEtd); etd.setHours(0, 0, 0, 0);
         if (Math.floor((etd.getTime() - now.getTime()) / 86400000) <= 1) alertCount++;
       }
-      if ((j.priority === "urgent" || j.priority === "high") && j.status === "pending") alertCount++;
+      if (group.some((j) => (j.priority === "urgent" || j.priority === "high") && j.status === "pending")) alertCount++;
     });
 
     // High volume date achievements: current month only

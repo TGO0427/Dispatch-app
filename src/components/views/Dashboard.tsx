@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import { useDispatch } from "../../context/DispatchContext";
 import { useAuth } from "../../context/AuthContext";
+import { calculateRevisedETD } from "../../utils/deliveryDates";
 
 // Helper to get week number
 function getWeekNumber(date: Date): number {
@@ -109,7 +110,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     alertRefMap.forEach((group) => {
       const openLines = group.filter((j) => j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled");
       const latestEtd = openLines
-        .map((j) => j.etd)
+        .map((j) => calculateRevisedETD(j) || j.etd)
         .filter((value): value is string => !!value && !Number.isNaN(new Date(value).getTime()))
         .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
       const latestEta = openLines

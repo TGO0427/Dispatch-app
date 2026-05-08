@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { X, Search, Truck, Bell } from "lucide-react";
 import { useDispatch } from "../context/DispatchContext";
 import { Badge } from "./ui/Badge";
+import { calculateRevisedETD } from "../utils/deliveryDates";
 
 interface Alert {
   id: string;
@@ -84,7 +85,7 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
     refMap.forEach((group) => {
       const job = group.find((item) => item.status === "exception") || group[0];
       const openLines = group.filter((item) => !CLOSED_STATUSES.has(item.status));
-      const latestEtd = getLatestDateString(openLines.map((item) => item.etd));
+      const latestEtd = getLatestDateString(openLines.map((item) => calculateRevisedETD(item) || item.etd));
       const latestEta = getLatestDateString(openLines.map((item) => item.eta));
       const overdueDateString = latestEtd || latestEta;
       const overdueDate = toDayStart(overdueDateString);
@@ -93,7 +94,8 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
         const daysOverdue = Math.floor((now.getTime() - overdueDate.getTime()) / 86400000);
         if (daysOverdue > 0) {
           const reasonText = job.overdueReason ? ` - Reason: ${job.overdueReason}` : " - No reason provided";
-          const dateLabel = latestEtd ? "Latest ETD" : "ETA";
+          const hasRevisedEtd = openLines.some((item) => calculateRevisedETD(item) === latestEtd);
+          const dateLabel = latestEtd ? (hasRevisedEtd ? "Revised ETD" : "Latest ETD") : "ETA";
           result.push({
             id: `overdue-${job.ref}`,
             title: `Overdue: ${job.ref}`,

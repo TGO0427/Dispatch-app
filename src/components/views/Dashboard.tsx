@@ -79,22 +79,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     endOfWeek.setDate(endOfWeek.getDate() + 7);
 
     const departuresThisWeek = new Set<string>();
-    let palletsThisWeek = 0;
-    let weightThisWeek = 0;
+    let palletsDispatchedThisWeek = 0;
+    let qtyDispatchedThisWeek = 0;
     orderJobs.forEach((j) => {
-      // Use ETD if available, otherwise ETA for current week calculation
-      const dispatchDate = j.etd || j.eta;
-      if (dispatchDate) {
-        const d = new Date(dispatchDate);
-        if (d >= startOfWeek && d < endOfWeek) {
-          palletsThisWeek += j.pallets || 0;
-          weightThisWeek += j.outstandingQty || 0;
-        }
-      }
       if (j.etd) {
         const etdDate = new Date(j.etd);
         if (etdDate >= startOfWeek && etdDate < endOfWeek) {
           departuresThisWeek.add(j.ref);
+        }
+      }
+      if (j.status === "delivered" && j.actualDeliveryAt) {
+        const deliveredAt = new Date(j.actualDeliveryAt);
+        if (deliveredAt >= startOfWeek && deliveredAt < endOfWeek) {
+          palletsDispatchedThisWeek += j.pallets || 0;
+          qtyDispatchedThisWeek += j.outstandingQty || 0;
         }
       }
     });
@@ -163,8 +161,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       availableDrivers,
       busyDrivers,
       departuresThisWeek: departuresThisWeek.size,
-      palletsThisWeek,
-      weightThisWeek,
+      palletsDispatchedThisWeek,
+      qtyDispatchedThisWeek,
       alertCount,
       highVolumeWins,
     };
@@ -268,16 +266,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       borderColor: "border-l-purple-500", iconBg: "bg-purple-50", iconColor: "text-purple-500", nav: "calendar", tab: undefined,
     },
     {
-      icon: Package, value: stats.palletsThisWeek, label: "PALLETS THIS WEEK",
-      change: "To dispatch",
-      changeType: stats.palletsThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: "",
-      borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clipboard", tab: "open",
+      icon: Package, value: stats.palletsDispatchedThisWeek, label: "PALLETS DISPATCHED",
+      change: "Dispatched this week",
+      changeType: stats.palletsDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: "",
+      borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clock", tab: undefined,
     },
     {
-      icon: Archive, value: stats.weightThisWeek.toLocaleString(), label: "WEIGHT THIS WEEK",
-      change: "Qty to dispatch",
-      changeType: stats.weightThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: "",
-      borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clipboard", tab: "open",
+      icon: Archive, value: stats.qtyDispatchedThisWeek.toLocaleString(), label: "QTY DISPATCHED",
+      change: "Dispatched this week",
+      changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: "",
+      borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clock", tab: undefined,
     },
   ];
 

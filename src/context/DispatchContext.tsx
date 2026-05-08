@@ -142,17 +142,35 @@ export function DispatchProvider({
       }
       dispatch({ type: "SET_ERROR", error: null });
 
-      const [fetchedJobs, fetchedDrivers] = await Promise.all([
-        jobsAPI.getAll().catch((err) => { console.warn("Failed to fetch jobs:", err.message); return []; }),
-        driversAPI.getAll().catch((err) => { console.warn("Failed to fetch drivers:", err.message); return []; }),
+      const [jobsResult, driversResult] = await Promise.allSettled([
+        jobsAPI.getAll(),
+        driversAPI.getAll(),
       ]);
 
-      dispatch({ type: "SET_JOBS", jobs: fetchedJobs });
-      dispatch({ type: "SET_DRIVERS", drivers: fetchedDrivers });
+      const jobsFailed = jobsResult.status === "rejected";
+      const driversFailed = driversResult.status === "rejected";
 
-      // Also save to localStorage as backup
-      saveJobs(fetchedJobs);
-      saveDrivers(fetchedDrivers);
+      if (jobsFailed || driversFailed) {
+        const messages = [
+          jobsFailed ? `jobs: ${jobsResult.reason instanceof Error ? jobsResult.reason.message : "failed to load"}` : "",
+          driversFailed ? `drivers: ${driversResult.reason instanceof Error ? driversResult.reason.message : "failed to load"}` : "",
+        ].filter(Boolean);
+
+        console.warn("Failed to refresh dispatch data:", messages.join("; "));
+        if (!silent) {
+          dispatch({ type: "SET_ERROR", error: `Failed to load ${messages.join("; ")}` });
+        }
+      }
+
+      if (jobsResult.status === "fulfilled") {
+        dispatch({ type: "SET_JOBS", jobs: jobsResult.value });
+        saveJobs(jobsResult.value);
+      }
+
+      if (driversResult.status === "fulfilled") {
+        dispatch({ type: "SET_DRIVERS", drivers: driversResult.value });
+        saveDrivers(driversResult.value);
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to load data";
       if (!silent) {

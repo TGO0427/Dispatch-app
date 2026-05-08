@@ -11,6 +11,7 @@ import { Card } from "./ui/Card";
 import { flowbinsAPI } from "../services/api";
 import type { FlowbinBatch } from "../types";
 import { JobWorkflow } from "./JobWorkflow";
+import { calculateETD, calculateRevisedETD, getDeliveryDelayDays } from "../utils/deliveryDates";
 
 interface JobDetailsModalProps {
   job: Job;
@@ -70,6 +71,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
 
   const lineItems = useMemo(() => jobs.filter((j) => j.ref === job.ref), [jobs, job.ref]);
   const hasMultipleLineItems = lineItems.length > 1;
+  const revisedETD = calculateRevisedETD(editedJob);
+  const deliveryDelayDays = getDeliveryDelayDays(editedJob);
 
   const updateAllLineItems = (updates: Partial<Job>) => {
     updateJobs(lineItems.map((li) => li.id), updates);
@@ -134,7 +137,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.truckSize !== job.truckSize) sharedUpdates.truckSize = editedJob.truckSize;
     if (editedJob.etd !== job.etd) sharedUpdates.etd = editedJob.etd;
     if (editedJob.pallets !== job.pallets) sharedUpdates.pallets = editedJob.pallets;
-    if (updates.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
+    if (updates.actualDeliveryAt !== job.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
     if (updates.exceptionReason !== undefined) sharedUpdates.exceptionReason = updates.exceptionReason;
     if (editedJob.overdueReason !== job.overdueReason) sharedUpdates.overdueReason = editedJob.overdueReason;
     if (editedJob.internalNotes !== job.internalNotes) sharedUpdates.internalNotes = editedJob.internalNotes;
@@ -157,7 +160,13 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
   const handleCancel = () => { setEditedJob(job); setIsEditing(false); };
 
   const updateField = <K extends keyof Job>(field: K, value: Job[K]) => {
-    setEditedJob((prev) => ({ ...prev, [field]: value }));
+    setEditedJob((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "eta" && next.transportService) {
+        next.etd = calculateETD(next.eta, next.transportService);
+      }
+      return next;
+    });
   };
 
   const formatDatetimeLocal = (dateString?: string): string => {
@@ -368,6 +377,24 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
               ) : (
                 <p className="text-sm font-medium text-gray-900 mt-0.5">{job.actualDeliveryAt ? formatHumanDate(job.actualDeliveryAt) : "—"}</p>
               )}
+            </div>
+          )}
+
+          {revisedETD && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Original ETD</label>
+                  <p className="text-sm font-semibold text-amber-950 mt-0.5">{editedJob.etd || "—"}</p>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Revised ETD</label>
+                  <p className="text-sm font-semibold text-amber-950 mt-0.5">{revisedETD}</p>
+                </div>
+              </div>
+              <p className="text-xs text-amber-800 mt-2">
+                Actual delivery missed ETA by {deliveryDelayDays} day{deliveryDelayDays === 1 ? "" : "s"}, so this revised ETD reflects the corrected timeline while keeping the original ETD unchanged.
+              </p>
             </div>
           )}
 

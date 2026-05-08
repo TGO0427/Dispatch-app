@@ -9,6 +9,7 @@ import { useDispatch } from "../context/DispatchContext";
 import { useNotification } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
 import { JobWorkflow } from "./JobWorkflow";
+import { calculateRevisedETD } from "../utils/deliveryDates";
 
 interface JobCardProps {
   job: Job;
@@ -51,6 +52,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
     if (job.status === "delivered") return "success";
     return "default";
   };
+  const revisedETD = calculateRevisedETD(job);
 
   const handleDispatch = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -146,8 +148,10 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
         </Badge>
         {(job.eta || job.etd) && (
           <div className="flex flex-col items-end text-[10px] leading-tight">
-            {job.etd && (
-              <span className="text-blue-600 font-medium">ETD {job.etd}</span>
+            {(revisedETD || job.etd) && (
+              <span className={`font-medium ${revisedETD ? "text-amber-600" : "text-blue-600"}`}>
+                {revisedETD ? `Rev ETD ${revisedETD}` : `ETD ${job.etd}`}
+              </span>
             )}
             {job.eta && (
               <span className="text-gray-500">ETA {job.eta}</span>

@@ -1,50 +1,12 @@
 import React from "react";
 import { CheckCircle2, Truck, Clock, PackageCheck, FileCheck2, AlertTriangle } from "lucide-react";
 import { Job, TRANSPORT_SERVICES, TransportService } from "../types";
+import { calculateETD, calculateRevisedETD, getDeliveryDelayDays } from "../utils/deliveryDates";
 
 interface JobWorkflowProps {
   job: Job;
   onUpdate: (jobId: string, updates: Partial<Job>) => void;
   compact?: boolean;
-}
-
-// Subtract business days (skip Sat/Sun) from a date
-function subtractBusinessDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  let remaining = days;
-  while (remaining > 0) {
-    result.setDate(result.getDate() - 1);
-    const dow = result.getDay(); // 0=Sun, 6=Sat
-    if (dow !== 0 && dow !== 6) {
-      remaining--;
-    }
-  }
-  // If result lands on weekend, move to previous Friday
-  while (result.getDay() === 0 || result.getDay() === 6) {
-    result.setDate(result.getDate() - 1);
-  }
-  return result;
-}
-
-// Calculate ETD from ETA and transport service (business days only, no weekends)
-function calculateETD(eta: string | undefined, service: TransportService): string | undefined {
-  if (!eta) return undefined;
-  const serviceConfig = TRANSPORT_SERVICES.find((s) => s.value === service);
-  if (!serviceConfig) return undefined;
-
-  const etaDate = new Date(eta);
-  if (isNaN(etaDate.getTime())) return undefined;
-
-  // Local Sameday: ETD = same as ETA
-  if (serviceConfig.businessDays === 0) {
-    return `${etaDate.getFullYear()}-${String(etaDate.getMonth() + 1).padStart(2, "0")}-${String(etaDate.getDate()).padStart(2, "0")}`;
-  }
-
-  // Convert hours to business days (24h = 1 day, 48h = 2 days, 96h = 4 days)
-  const businessDays = Math.ceil(serviceConfig.hours / 24);
-  const etdDate = subtractBusinessDays(etaDate, businessDays);
-
-  return `${etdDate.getFullYear()}-${String(etdDate.getMonth() + 1).padStart(2, "0")}-${String(etdDate.getDate()).padStart(2, "0")}`;
 }
 
 const serviceIcons: Record<string, string> = {
@@ -97,6 +59,8 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
   const allComplete = job.readyForDispatch || false;
   const currentService = TRANSPORT_SERVICES.find((s) => s.value === job.transportService);
   const computedETD = job.etd || (job.transportService ? calculateETD(job.eta, job.transportService) : undefined);
+  const revisedETD = calculateRevisedETD({ ...job, etd: computedETD });
+  const deliveryDelayDays = getDeliveryDelayDays(job);
 
   if (compact) {
     return (
@@ -130,9 +94,12 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
             {serviceIcons[job.transportService]} {currentService?.label}
           </span>
         )}
-        {computedETD && (
-          <span className="text-[10px] text-gray-500 font-medium" title="Estimated Departure">
-            ETD: {computedETD}
+        {(revisedETD || computedETD) && (
+          <span
+            className={`text-[10px] font-medium ${revisedETD ? "text-amber-600" : "text-gray-500"}`}
+            title={revisedETD ? "Revised Estimated Departure based on actual delivery" : "Estimated Departure"}
+          >
+            {revisedETD ? `Rev ETD: ${revisedETD}` : `ETD: ${computedETD}`}
           </span>
         )}
         {allComplete && (
@@ -212,19 +179,34 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
 
       {/* ETD Display */}
       {computedETD && job.eta && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className={`p-3 rounded-lg border ${revisedETD ? "bg-amber-50 border-amber-200" : "bg-blue-50 border-blue-200"}`}>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs text-blue-600 font-medium uppercase tracking-wider">Estimated Departure (ETD)</div>
-              <div className="text-lg font-bold text-blue-900 mt-0.5">{computedETD}</div>
+              <div className={`text-xs font-medium uppercase tracking-wider ${revisedETD ? "text-amber-700" : "text-blue-600"}`}>Estimated Departure (ETD)</div>
+              <div className={`text-lg font-bold mt-0.5 ${revisedETD ? "text-amber-950" : "text-blue-900"}`}>{computedETD}</div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-blue-600 font-medium uppercase tracking-wider">Requested Delivery (ETA)</div>
-              <div className="text-lg font-bold text-blue-900 mt-0.5">{job.eta.split("T")[0]}</div>
+              <div className={`text-xs font-medium uppercase tracking-wider ${revisedETD ? "text-amber-700" : "text-blue-600"}`}>Requested Delivery (ETA)</div>
+              <div className={`text-lg font-bold mt-0.5 ${revisedETD ? "text-amber-950" : "text-blue-900"}`}>{job.eta.split("T")[0]}</div>
             </div>
           </div>
+          {revisedETD && (
+            <div className="mt-3 grid grid-cols-2 gap-3 border-t border-amber-200 pt-3">
+              <div>
+                <div className="text-xs text-amber-700 font-medium uppercase tracking-wider">Revised ETD</div>
+                <div className="text-lg font-bold text-amber-950 mt-0.5">{revisedETD}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-amber-700 font-medium uppercase tracking-wider">Actual Delivery</div>
+                <div className="text-lg font-bold text-amber-950 mt-0.5">{job.actualDeliveryAt?.split("T")[0]}</div>
+              </div>
+              <div className="col-span-2 text-xs text-amber-800">
+                ETA missed by {deliveryDelayDays} day{deliveryDelayDays === 1 ? "" : "s"}. Original ETD is kept for reporting; revised ETD matches the actual delivery timeline.
+              </div>
+            </div>
+          )}
           {currentService && (
-            <div className="mt-2 text-xs text-blue-700">
+            <div className={`mt-2 text-xs ${revisedETD ? "text-amber-800" : "text-blue-700"}`}>
               {serviceIcons[job.transportService!]} {currentService.label} — {currentService.businessDays} business day{currentService.businessDays > 1 ? "s" : ""} lead time (excl. weekends)
             </div>
           )}

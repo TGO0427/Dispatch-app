@@ -12,6 +12,7 @@ import { flowbinsAPI } from "../services/api";
 import type { FlowbinBatch } from "../types";
 import { JobWorkflow } from "./JobWorkflow";
 import { calculateETD, calculateRevisedETD, getDeliveryDelayDays } from "../utils/deliveryDates";
+import { getJobsMissingPallets, hasCompletedPallets } from "../utils/jobValidation";
 
 interface JobDetailsModalProps {
   job: Job;
@@ -113,7 +114,13 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       if (!editedJob.coaAvailable) missing.push("COA Available");
       if (!editedJob.transportService) missing.push("Transport Lead Time");
       if (!editedJob.truckSize) missing.push("Transport Type");
-      if (!editedJob.pallets && editedJob.pallets !== 0) missing.push("Pallets");
+      const lineItemsForValidation = lineItems.map((lineItem) => (
+        lineItem.id === editedJob.id ? editedJob : lineItem
+      ));
+      const missingPalletLines = getJobsMissingPallets(lineItemsForValidation);
+      if (missingPalletLines.length > 0) {
+        missing.push(`Pallets for ${missingPalletLines.slice(0, 3).join(", ")}${missingPalletLines.length > 3 ? ` +${missingPalletLines.length - 3} more` : ""}`);
+      }
       if (missing.length > 0) {
         showWarning(`Complete the following before moving to En Route:\n${missing.join(", ")}`);
         return;
@@ -349,13 +356,16 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="flex items-center gap-1">
-                <label className={labelCls}>Pallets</label>
-                {!editedJob.pallets && editedJob.pallets !== 0 && <AlertTriangle className="w-3 h-3 text-amber-400" />}
+                <label className={labelCls}>Pallets <span className="text-red-500">*</span></label>
+                {!hasCompletedPallets(editedJob) && <AlertTriangle className="w-3 h-3 text-amber-400" />}
               </div>
               {isEditing ? (
-                <input type="number" value={editedJob.pallets ?? ""} onChange={(e) => updateField("pallets", e.target.value !== "" ? Number(e.target.value) : undefined)} className={inputCls} placeholder="0" min="0" />
+                <input type="number" value={editedJob.pallets ?? ""} onChange={(e) => updateField("pallets", e.target.value !== "" ? Number(e.target.value) : undefined)} className={`${inputCls} ${!hasCompletedPallets(editedJob) ? "border-amber-300 bg-amber-50" : ""}`} placeholder="Required" min="1" />
               ) : (
                 <p className="text-sm font-medium text-gray-900 mt-0.5">{job.pallets ?? "—"}</p>
+              )}
+              {isEditing && !hasCompletedPallets(editedJob) && (
+                <p className="mt-1 text-[10px] font-medium text-amber-600">Required before En Route</p>
               )}
             </div>
             <div>

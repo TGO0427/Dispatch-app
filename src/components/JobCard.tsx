@@ -10,6 +10,7 @@ import { useNotification } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
 import { JobWorkflow } from "./JobWorkflow";
 import { calculateRevisedETD } from "../utils/deliveryDates";
+import { getJobsMissingPallets } from "../utils/jobValidation";
 
 interface JobCardProps {
   job: Job;
@@ -27,8 +28,8 @@ const getWeekNumber = (dateString: string | undefined) => {
 };
 
 export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
-  const { drivers, updateJob, removeJob } = useDispatch();
-  const { confirm } = useNotification();
+  const { jobs, drivers, updateJob, updateJobs, removeJob } = useDispatch();
+  const { confirm, showWarning } = useNotification();
   const { isViewer } = useAuth();
   const {
     attributes,
@@ -57,7 +58,21 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const handleDispatch = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await updateJob(job.id, { status: "en-route" });
+      const lineItems = jobs.filter((item) => item.ref === job.ref);
+      const missingPalletLines = getJobsMissingPallets(lineItems.length > 0 ? lineItems : [job]);
+      if (missingPalletLines.length > 0) {
+        showWarning(
+          `Complete pallets before moving ${job.ref} to En Route:\n${missingPalletLines.slice(0, 3).join(", ")}${missingPalletLines.length > 3 ? ` +${missingPalletLines.length - 3} more` : ""}`
+        );
+        return;
+      }
+
+      const lineItemIds = lineItems.map((item) => item.id);
+      if (lineItemIds.length > 1) {
+        await updateJobs(lineItemIds, { status: "en-route" });
+      } else {
+        await updateJob(job.id, { status: "en-route" });
+      }
     } catch (error) {
       console.error("Error dispatching job:", error);
     }

@@ -9,6 +9,7 @@ import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
 import { JobDetailsModal } from "../JobDetailsModal";
 import * as XLSX from "../../lib/spreadsheet";
+import { formatDate, formatNumber, formatPercent } from "../../utils/format";
 
 type ReportType =
   | "ibt-summary"
@@ -181,7 +182,7 @@ export const IBTReports: React.FC = () => {
         completed,
         exceptions,
         pallets,
-        completionRate: driverJobs.length > 0 ? ((completed / driverJobs.length) * 100).toFixed(1) : "0",
+        completionRate: driverJobs.length > 0 ? formatPercent((completed / driverJobs.length) * 100).replace("%", "") : "0",
       };
     }).filter((d) => d.total > 0).sort((a, b) => b.total - a.total);
   }, [filteredJobs, drivers]);
@@ -197,7 +198,7 @@ export const IBTReports: React.FC = () => {
       Pallets: job.pallets || "",
       "Weight (qty)": job.outstandingQty || "",
       Transporter: job.driverId ? drivers.find((d) => d.id === job.driverId)?.name || "" : "Unassigned",
-      Created: new Date(job.createdAt).toLocaleDateString(),
+      Created: formatDate(job.createdAt),
       ETA: job.eta || "N/A",
     }));
     const ws = XLSX.utils.json_to_sheet(data);
@@ -255,7 +256,7 @@ export const IBTReports: React.FC = () => {
                             </Badge>
                           </td>
                           <td className="p-3 text-right font-medium">{job.pallets ?? "—"}</td>
-                          <td className="p-3 text-right font-medium">{job.outstandingQty ? job.outstandingQty.toLocaleString() : "—"}</td>
+                          <td className="p-3 text-right font-medium">{formatNumber(job.outstandingQty, "—")}</td>
                           <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
                           <td className="p-3 text-gray-700">
                             {job.driverId ? drivers.find((d) => d.id === job.driverId)?.name : "Unassigned"}
@@ -321,9 +322,9 @@ export const IBTReports: React.FC = () => {
                         </td>
                         <td className="p-3 text-right font-semibold">{route.count}</td>
                         <td className="p-3 text-right">{route.pallets}</td>
-                        <td className="p-3 text-right">{route.weight.toLocaleString()}</td>
+                        <td className="p-3 text-right">{formatNumber(route.weight)}</td>
                         <td className="p-3 text-right text-gray-500">
-                          {filteredJobs.length > 0 ? ((route.count / filteredJobs.length) * 100).toFixed(1) : 0}%
+                          {formatPercent(filteredJobs.length > 0 ? (route.count / filteredJobs.length) * 100 : 0)}
                         </td>
                       </tr>
                     ))}
@@ -373,7 +374,7 @@ export const IBTReports: React.FC = () => {
                         </td>
                         <td className="p-3 text-right font-semibold">{branch.total}</td>
                         <td className="p-3 text-right">{branch.pallets}</td>
-                        <td className="p-3 text-right">{branch.weight.toLocaleString()}</td>
+                        <td className="p-3 text-right">{formatNumber(branch.weight)}</td>
                       </tr>
                     ))}
                   </tbody>

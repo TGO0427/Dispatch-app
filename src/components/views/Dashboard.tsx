@@ -24,6 +24,7 @@ import {
 import { useDispatch } from "../../context/DispatchContext";
 import { useAuth } from "../../context/AuthContext";
 import { calculateRevisedETD } from "../../utils/deliveryDates";
+import { formatNumber } from "../../utils/format";
 
 // Helper to get week number
 function getWeekNumber(date: Date): number {
@@ -283,7 +284,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clipboard", tab: "dispatched-week",
     },
     {
-      icon: Archive, value: stats.qtyDispatchedThisWeek.toLocaleString(), label: "QTY DISPATCHED",
+      icon: Archive, value: formatNumber(stats.qtyDispatchedThisWeek), label: "QTY DISPATCHED",
       change: "Dispatched this week",
       changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.qtyDispatchedThisWeek > 1000 ? "Big Push" : stats.qtyDispatchedThisWeek > 0 ? "Qty Cleared" : "Nothing Moved",
       borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clock", tab: undefined,

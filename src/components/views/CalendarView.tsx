@@ -5,6 +5,7 @@ import { Card, CardContent } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { JobDetailsModal } from "../JobDetailsModal";
 import type { Job } from "../../types";
+import { formatDate, formatMonthYear } from "../../utils/format";
 
 export const CalendarView: React.FC = () => {
   const { jobs, drivers } = useDispatch();
@@ -62,7 +63,7 @@ export const CalendarView: React.FC = () => {
     return day === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
   };
 
-  const monthName = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const monthName = formatMonthYear(currentDate);
 
   // Monthly summary — counts distinct order refs (not lines) per type per day,
   // plus total line count for context. Same ref on same day counts once.
@@ -292,7 +293,7 @@ export const CalendarView: React.FC = () => {
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">
-                  Orders on {new Date(`${selectedDayKey}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                  Orders on {formatDate(`${selectedDayKey}T00:00:00`)}
                 </h2>
                 <p className="text-sm text-gray-600 mt-0.5">
                   {selectedDayOrders.length} {selectedDayOrders.length === 1 ? "order" : "orders"}

@@ -13,18 +13,13 @@ import type { FlowbinBatch } from "../types";
 import { JobWorkflow } from "./JobWorkflow";
 import { calculateETD, calculateRevisedETD, getDeliveryDelayDays } from "../utils/deliveryDates";
 import { getJobsMissingPallets, hasCompletedPallets } from "../utils/jobValidation";
+import { formatDateTime, formatNumber } from "../utils/format";
 
 interface JobDetailsModalProps {
   job: Job;
   onClose: () => void;
   driverName?: string;
 }
-
-const formatHumanDate = (dateStr: string) => {
-  try {
-    return new Date(dateStr).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  } catch { return dateStr; }
-};
 
 export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, driverName }) => {
   const { updateJob, updateJobs, jobs, drivers } = useDispatch();
@@ -403,7 +398,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
               {isEditing ? (
                 <input type="datetime-local" value={formatDatetimeLocal(editedJob.eta)} onChange={(e) => updateField("eta", e.target.value ? new Date(e.target.value).toISOString() : undefined)} className={inputCls} />
               ) : (
-                <p className="text-sm font-medium text-gray-900 mt-0.5">{job.eta ? formatHumanDate(job.eta) : "—"}</p>
+                <p className="text-sm font-medium text-gray-900 mt-0.5">{formatDateTime(job.eta, "—")}</p>
               )}
             </div>
           </div>
@@ -415,7 +410,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
               {isEditing ? (
                 <input type="datetime-local" value={formatDatetimeLocal(editedJob.actualDeliveryAt)} onChange={(e) => updateField("actualDeliveryAt", e.target.value ? new Date(e.target.value).toISOString() : undefined)} className={inputCls} />
               ) : (
-                <p className="text-sm font-medium text-gray-900 mt-0.5">{job.actualDeliveryAt ? formatHumanDate(job.actualDeliveryAt) : "—"}</p>
+                <p className="text-sm font-medium text-gray-900 mt-0.5">{formatDateTime(job.actualDeliveryAt, "—")}</p>
               )}
             </div>
           )}
@@ -450,7 +445,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                   {isEditing ? (
                     <input type="datetime-local" value={formatDatetimeLocal(editedJob.returnedAt)} onChange={(e) => updateField("returnedAt", e.target.value ? new Date(e.target.value).toISOString() : undefined)} className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white" />
                   ) : (
-                    <p className="text-sm font-semibold text-amber-950 mt-0.5">{job.returnedAt ? formatHumanDate(job.returnedAt) : "—"}</p>
+                    <p className="text-sm font-semibold text-amber-950 mt-0.5">{formatDateTime(job.returnedAt, "—")}</p>
                   )}
                 </div>
                 <div>
@@ -558,7 +553,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                           item.pallets != null && item.pallets > 0 && <span className="text-xs text-gray-400">{item.pallets} plt</span>
                         )}
                         {item.outstandingQty != null && item.outstandingQty > 0 && (
-                          <span className="text-xs text-orange-600 font-medium">{item.outstandingQty.toLocaleString()} qty</span>
+                          <span className="text-xs text-orange-600 font-medium">{formatNumber(item.outstandingQty)} qty</span>
                         )}
                         <Badge variant={item.status === "delivered" ? "success" : item.status === "returned" ? "warning" : item.status === "exception" ? "destructive" : item.status === "pending" ? "new" : "default"} className="text-[9px] px-1.5 py-0">{item.status}</Badge>
                       </div>
@@ -672,8 +667,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
 
           {/* Timestamps — human-readable */}
           <div className="flex items-center gap-4 pt-3 border-t border-gray-100 text-[10px] text-gray-400">
-            <span>Created: {formatHumanDate(job.createdAt)}</span>
-            <span>Updated: {formatHumanDate(job.updatedAt)}</span>
+            <span>Created: {formatDateTime(job.createdAt)}</span>
+            <span>Updated: {formatDateTime(job.updatedAt)}</span>
           </div>
         </div>
       </Card>

@@ -11,6 +11,7 @@ import { useAuth } from "../context/AuthContext";
 import { JobWorkflow } from "./JobWorkflow";
 import { calculateRevisedETD } from "../utils/deliveryDates";
 import { getJobsMissingPallets } from "../utils/jobValidation";
+import { formatNumber } from "../utils/format";
 
 interface JobCardProps {
   job: Job;
@@ -130,7 +131,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
           )}
           {job.pallets !== undefined && <span className="text-[11px] text-gray-400 flex-shrink-0">{job.pallets} plt</span>}
           {job.outstandingQty !== undefined && job.outstandingQty > 0 && (
-            <span className="text-[11px] text-orange-600 font-medium flex-shrink-0">{job.outstandingQty.toLocaleString()} qty</span>
+            <span className="text-[11px] text-orange-600 font-medium flex-shrink-0">{formatNumber(job.outstandingQty)} qty</span>
           )}
           {job.driverId && (
             <span className="text-[11px] text-gray-500 flex-shrink-0 flex items-center gap-0.5">

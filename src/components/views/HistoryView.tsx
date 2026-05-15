@@ -12,6 +12,7 @@ import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
 import { JobDetailsModal } from "../JobDetailsModal";
 import * as XLSX from "../../lib/spreadsheet";
+import { formatDate as formatDisplayDate, formatDateTime, formatNumber } from "../../utils/format";
 
 type HistoryFilter = "all" | "delivered" | "returned" | "cancelled";
 
@@ -244,8 +245,8 @@ export const HistoryView: React.FC = () => {
         "Outstanding Qty": job.outstandingQty || 0,
         "Line Items": job.notes || "",
         "Week Number": `W${getWeekNumber(completedDate)}`,
-        "Created Date": new Date(job.createdAt).toLocaleString(),
-        "Completed Date": completedDate.toLocaleString(),
+        "Created Date": formatDateTime(job.createdAt),
+        "Completed Date": formatDateTime(completedDate),
         ETA: job.eta || "N/A",
         "Returned Date": job.returnedAt || "",
         "Return Reason": job.returnReason || "",
@@ -268,7 +269,7 @@ export const HistoryView: React.FC = () => {
     const weekLabel = selectedWeek !== "all"
       ? availableWeeks.find((w) => w.value === selectedWeek)?.label || selectedWeek
       : "All Weeks";
-    const reportDate = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    const reportDate = formatDisplayDate(new Date());
 
     // --- Header bar ---
     doc.setFillColor(15, 23, 42);
@@ -304,7 +305,7 @@ export const HistoryView: React.FC = () => {
       { label: "Cancelled", value: String(stats.cancelled), color: [220, 38, 38] },
       { label: "Success Rate", value: `${stats.successRate}%`, color: [15, 23, 42] },
       { label: "Total Pallets", value: String(stats.totalPallets), color: [15, 23, 42] },
-      { label: "Items Picked", value: stats.qtyPicked.toLocaleString(), color: [15, 23, 42] },
+      { label: "Items Picked", value: formatNumber(stats.qtyPicked), color: [15, 23, 42] },
       { label: "Avg Delivery Time", value: `${stats.avgDeliveryTime}h`, color: [15, 23, 42] },
     ];
 
@@ -342,7 +343,7 @@ export const HistoryView: React.FC = () => {
         String(job.pallets || 0),
         job.notes || "—",
         `W${getWeekNumber(completedDate)}`,
-        completedDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+        formatDisplayDate(completedDate),
       ];
     });
 
@@ -440,13 +441,7 @@ export const HistoryView: React.FC = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return formatDateTime(date);
   };
 
   return (
@@ -517,7 +512,7 @@ export const HistoryView: React.FC = () => {
           { icon: XCircle, label: "Cancelled", value: String(stats.cancelled), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },
           { icon: CalendarIcon, label: "Success Rate", value: `${stats.successRate}%`, color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
           { icon: Package, label: "Total Pallets", value: String(stats.totalPallets), color: "text-gray-900", iconColor: "text-orange-600", bg: "bg-orange-50" },
-          { icon: Package, label: "Items Picked", value: stats.qtyPicked.toLocaleString(), color: "text-gray-900", iconColor: "text-gray-600", bg: "bg-gray-100" },
+          { icon: Package, label: "Items Picked", value: formatNumber(stats.qtyPicked), color: "text-gray-900", iconColor: "text-gray-600", bg: "bg-gray-100" },
           { icon: Clock, label: "Avg Delivery Time", value: `${stats.avgDeliveryTime}h`, color: "text-gray-900", iconColor: "text-purple-600", bg: "bg-purple-50" },
         ] as const).map((kpi) => {
           const Icon = kpi.icon;
@@ -652,7 +647,7 @@ export const HistoryView: React.FC = () => {
                         <td className="p-3 text-gray-700">
                           {job.pallets || 0}
                           {job.outstandingQty && (
-                            <div className="text-[10px] text-orange-600">{job.outstandingQty?.toLocaleString()} qty</div>
+                            <div className="text-[10px] text-orange-600">{formatNumber(job.outstandingQty)} qty</div>
                           )}
                         </td>
                         <td className="p-3 text-gray-700 text-xs max-w-[200px]">

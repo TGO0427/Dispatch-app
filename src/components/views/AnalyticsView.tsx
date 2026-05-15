@@ -8,6 +8,7 @@ import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
 import { JobDetailsModal } from "../JobDetailsModal";
 import type { Job } from "../../types";
+import { formatDate, formatDateTime, formatNumber, formatPercent } from "../../utils/format";
 import * as XLSX from "../../lib/spreadsheet";
 
 type ReportType =
@@ -184,7 +185,7 @@ export const AnalyticsView: React.FC = () => {
             Dropoff: job.dropoff,
             Warehouse: job.warehouse || "N/A",
             Transporter: job.driverId ? drivers.find(d => d.id === job.driverId)?.name : "Unassigned",
-            "Created Date": new Date(job.createdAt).toLocaleString(),
+            "Created Date": formatDateTime(job.createdAt),
             "ETA Date": job.eta || "N/A",
             "ETA Week": etaWeekInfo ? etaWeekInfo.label : "N/A",
           };
@@ -203,7 +204,7 @@ export const AnalyticsView: React.FC = () => {
             "Total Jobs": driverJobs.length,
             "Completed": completed,
             "In Progress": driverJobs.filter(j => j.status === "en-route" || j.status === "assigned").length,
-            "Completion Rate": driverJobs.length > 0 ? `${((completed / driverJobs.length) * 100).toFixed(1)}%` : "0%",
+            "Completion Rate": formatPercent(driverJobs.length > 0 ? (completed / driverJobs.length) * 100 : 0),
             Location: driver.location,
           };
         });
@@ -248,7 +249,7 @@ export const AnalyticsView: React.FC = () => {
               Dropoff: job.dropoff,
               Transporter: job.driverId ? drivers.find(d => d.id === job.driverId)?.name : "Unassigned",
               Notes: job.notes || "No notes",
-              "Created Date": new Date(job.createdAt).toLocaleString(),
+              "Created Date": formatDateTime(job.createdAt),
               "ETA Date": job.eta || "N/A",
               "ETA Week": etaWeekInfo ? etaWeekInfo.label : "N/A",
             };
@@ -265,7 +266,7 @@ export const AnalyticsView: React.FC = () => {
         data = Object.entries(statusBreakdown).map(([status, count]) => ({
           Status: status,
           Count: count,
-          Percentage: `${((count / filteredJobs.length) * 100).toFixed(1)}%`,
+          Percentage: formatPercent(filteredJobs.length > 0 ? (count / filteredJobs.length) * 100 : 0),
         }));
         filename = "delivery-performance-report.xlsx";
         break;
@@ -347,7 +348,7 @@ export const AnalyticsView: React.FC = () => {
             Dropoff: job.dropoff,
             Warehouse: job.warehouse || "N/A",
             Transporter: job.driverId ? drivers.find(d => d.id === job.driverId)?.name : "Unassigned",
-            "Created Date": new Date(job.createdAt).toLocaleString(),
+            "Created Date": formatDateTime(job.createdAt),
             "ETA Date": job.eta || "N/A",
             "ETA Week": etaWeekInfo ? etaWeekInfo.label : "N/A",
           };
@@ -379,8 +380,8 @@ export const AnalyticsView: React.FC = () => {
     const inProgress = filteredJobs.filter(j => j.status === "en-route" || j.status === "assigned").length;
     const pending = filteredJobs.filter(j => j.status === "pending").length;
 
-    const completionRate = total > 0 ? ((delivered / total) * 100).toFixed(1) : "0";
-    const exceptionRate = total > 0 ? ((exceptions / total) * 100).toFixed(1) : "0";
+    const completionRate = total > 0 ? formatPercent((delivered / total) * 100).replace("%", "") : "0";
+    const exceptionRate = total > 0 ? formatPercent((exceptions / total) * 100).replace("%", "") : "0";
 
     return {
       total,
@@ -454,7 +455,7 @@ export const AnalyticsView: React.FC = () => {
                             </Badge>
                           </td>
                           <td className="p-3 text-right text-gray-700 font-medium">{job.pallets ?? "—"}</td>
-                          <td className="p-3 text-right text-gray-700 font-medium">{job.outstandingQty ? job.outstandingQty.toLocaleString() : "—"}</td>
+                          <td className="p-3 text-right text-gray-700 font-medium">{formatNumber(job.outstandingQty, "—")}</td>
                           <td className="p-3 text-gray-700 text-xs">{job.pickup} → {job.dropoff}</td>
                           <td className="p-3 text-gray-700">
                             {job.driverId ? drivers.find(d => d.id === job.driverId)?.name : "Unassigned"}
@@ -499,7 +500,7 @@ export const AnalyticsView: React.FC = () => {
         const driverStats = drivers.map(driver => {
           const driverJobs = filteredJobs.filter(j => j.driverId === driver.id);
           const completed = driverJobs.filter(j => j.status === "delivered").length;
-          const completionRate = driverJobs.length > 0 ? ((completed / driverJobs.length) * 100).toFixed(1) : "0";
+          const completionRate = driverJobs.length > 0 ? formatPercent((completed / driverJobs.length) * 100).replace("%", "") : "0";
 
           return {
             driver,
@@ -593,7 +594,7 @@ export const AnalyticsView: React.FC = () => {
           .map(([customer, stats]) => ({
             customer,
             ...stats,
-            completionRate: stats.total > 0 ? ((stats.delivered / stats.total) * 100).toFixed(1) : "0",
+            completionRate: stats.total > 0 ? formatPercent((stats.delivered / stats.total) * 100).replace("%", "") : "0",
           }))
           .sort((a, b) => b.total - a.total);
 
@@ -698,7 +699,7 @@ export const AnalyticsView: React.FC = () => {
                             {job.notes || "No notes"}
                           </td>
                           <td className="p-3 text-gray-600 text-xs">
-                            {new Date(job.createdAt).toLocaleDateString()}
+                            {formatDate(job.createdAt)}
                           </td>
                           <td className="p-3 text-gray-600 text-xs">
                             {job.eta || "N/A"}
@@ -731,7 +732,7 @@ export const AnalyticsView: React.FC = () => {
         const statusData = Object.entries(statusCounts).map(([status, count]) => ({
           status,
           count,
-          percentage: ((count / filteredJobs.length) * 100).toFixed(1),
+          percentage: formatPercent(filteredJobs.length > 0 ? (count / filteredJobs.length) * 100 : 0).replace("%", ""),
         }));
 
         return (
@@ -812,7 +813,7 @@ export const AnalyticsView: React.FC = () => {
           .map(([warehouse, stats]) => ({
             warehouse,
             ...stats,
-            completionRate: stats.total > 0 ? ((stats.delivered / stats.total) * 100).toFixed(1) : "0",
+            completionRate: stats.total > 0 ? formatPercent((stats.delivered / stats.total) * 100).replace("%", "") : "0",
           }))
           .sort((a, b) => b.total - a.total);
 

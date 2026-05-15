@@ -7,6 +7,7 @@ import { useDispatch } from "../../context/DispatchContext";
 import { useAuth } from "../../context/AuthContext";
 import { flowbinsAPI } from "../../services/api";
 import type { Job, FlowbinBatch, FlowbinStatus } from "../../types";
+import { formatShortDate } from "../../utils/format";
 
 function getFlowbinStatus(eta: string | undefined, batches: FlowbinBatch[]): FlowbinStatus {
   if (batches.length > 0 && batches.every((b) => b.returnedAt)) return "returned";
@@ -321,7 +322,7 @@ export const FlowbinTracking: React.FC = () => {
                           </td>
                           <td className="px-3 py-2.5 text-gray-700 text-xs">{job.customer}</td>
                           <td className="px-3 py-2.5 text-gray-500 text-xs hidden lg:table-cell truncate max-w-[160px]">{job.dropoff}</td>
-                          <td className="px-3 py-2.5 text-gray-500 text-xs">{job.eta ? new Date(job.eta).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</td>
+                          <td className="px-3 py-2.5 text-gray-500 text-xs">{formatShortDate(job.eta, "—")}</td>
                           <td className="px-3 py-2.5 text-center">
                             <span className={`text-xs font-bold ${job.daysAtClient >= 28 ? "text-red-600" : job.daysAtClient >= 14 ? "text-amber-600" : "text-green-600"}`}>
                               {job.daysAtClient}d
@@ -377,7 +378,7 @@ export const FlowbinTracking: React.FC = () => {
                                                 </span>
                                               )}
                                               <span className="text-[10px] font-bold text-resilinc-primary bg-green-50 px-1.5 py-0.5 rounded">
-                                                {new Date(b.returnedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                                                {formatShortDate(b.returnedAt)}
                                               </span>
                                               {b.returnNotes && (
                                                 <span className="text-[10px] text-gray-500 italic">"{b.returnNotes}"</span>

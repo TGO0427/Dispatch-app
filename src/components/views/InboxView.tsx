@@ -5,6 +5,7 @@ import { Button } from "../ui/Button";
 import { useAuth } from "../../context/AuthContext";
 import { messagesAPI } from "../../services/api";
 import type { Message } from "../../types";
+import { formatClockTime, formatShortDate } from "../../utils/format";
 
 // Fetch all users for recipient selection
 async function fetchUsers(): Promise<{ id: string; username: string; role: string }[]> {
@@ -216,7 +217,7 @@ export const InboxView: React.FC = () => {
     if (diffMins < 60) return `${diffMins}m ago`;
     const diffHours = Math.floor(diffMins / 60);
     if (diffHours < 24) return `${diffHours}h ago`;
-    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+    return formatShortDate(d);
   };
 
   const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
@@ -480,7 +481,7 @@ export const InboxView: React.FC = () => {
                           </p>
                           <div className="flex items-center justify-between mt-0.5">
                             <p className={`text-[8px] leading-none ${isMe ? "text-blue-200" : "text-gray-400"}`}>
-                              {new Date(msg.createdAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                              {formatClockTime(msg.createdAt)}
                               {isMe && " ✓✓"}
                             </p>
                             {/* Inline reaction trigger */}

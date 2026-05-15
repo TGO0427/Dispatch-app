@@ -100,6 +100,16 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
     return matches.slice(0, 10);
   }, [query, jobs, drivers]);
 
+  const handleSelect = useCallback((result: SearchResult) => {
+    if (result.type === "job" && onSelectJob) {
+      onSelectJob(result.id);
+    } else if (result.type === "driver" && onSelectDriver) {
+      onSelectDriver(result.id);
+    }
+    setOpen(false);
+    setQuery("");
+  }, [onSelectDriver, onSelectJob]);
+
   // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -117,18 +127,8 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
         inputRef.current?.blur();
       }
     },
-    [results, selectedIndex]
+    [handleSelect, results, selectedIndex]
   );
-
-  const handleSelect = (result: SearchResult) => {
-    if (result.type === "job" && onSelectJob) {
-      onSelectJob(result.id);
-    } else if (result.type === "driver" && onSelectDriver) {
-      onSelectDriver(result.id);
-    }
-    setOpen(false);
-    setQuery("");
-  };
 
   // Highlight matching text
   const highlight = (text: string) => {

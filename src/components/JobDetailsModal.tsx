@@ -50,7 +50,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
         showWarning("Could not load flowbin batches");
       });
     }
-  }, [job.id, job.hasFlowbin]);
+  }, [job.id, job.hasFlowbin, showWarning]);
 
   const handleAddBatch = async () => {
     if (!newBatchNumber.trim() || !newBatchQty) return;

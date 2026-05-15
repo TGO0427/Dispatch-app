@@ -249,7 +249,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       delivery: orderJobs.filter((j) => j.serviceType === "delivery" || !j.serviceType).length,
       collection: orderJobs.filter((j) => j.serviceType === "collection").length,
     };
-  }, [orderJobs, drivers]);
+  }, [orderJobs, jobs]);
 
   // Compute assigned pallets per driver (from ALL jobs, not just deduplicated)
   const palletsByDriver = useMemo(() => {

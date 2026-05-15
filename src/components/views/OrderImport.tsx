@@ -118,7 +118,7 @@ const normalizeEta = (val: any): string | undefined => {
     }
 
     // In DD-MM-YYYY or DD.MM.YYYY format
-    const dottedMatch = trimmed.match(/^(\d{1,2})[.\-](\d{1,2})[.\-](\d{4})$/);
+    const dottedMatch = trimmed.match(/^(\d{1,2})[.-](\d{1,2})[.-](\d{4})$/);
     if (dottedMatch) {
       const [, day, month, year] = dottedMatch;
       const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));

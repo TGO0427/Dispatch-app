@@ -35,7 +35,6 @@ module.exports = {
         varsIgnorePattern: "^_",
       },
     ],
-    "no-case-declarations": "off",
     "react-hooks/exhaustive-deps": "error",
     "react-refresh/only-export-components": "off",
   },

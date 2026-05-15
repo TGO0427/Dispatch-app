@@ -192,7 +192,7 @@ export const AnalyticsView: React.FC = () => {
         filename = "job-summary-report.xlsx";
         break;
 
-      case "driver-performance":
+      case "driver-performance": {
         const driverPerf = drivers.map(driver => {
           const driverJobs = filteredJobs.filter(j => j.driverId === driver.id);
           const completed = driverJobs.filter(j => j.status === "delivered").length;
@@ -210,8 +210,9 @@ export const AnalyticsView: React.FC = () => {
         data = driverPerf;
         filename = "driver-performance-report.xlsx";
         break;
+      }
 
-      case "customer-analysis":
+      case "customer-analysis": {
         const customerData: Record<string, any> = {};
         filteredJobs.forEach(job => {
           if (!customerData[job.customer]) {
@@ -232,6 +233,7 @@ export const AnalyticsView: React.FC = () => {
         data = Object.values(customerData);
         filename = "customer-analysis-report.xlsx";
         break;
+      }
 
       case "exception-report":
         data = filteredJobs
@@ -254,7 +256,7 @@ export const AnalyticsView: React.FC = () => {
         filename = "exception-report.xlsx";
         break;
 
-      case "delivery-performance":
+      case "delivery-performance": {
         const statusBreakdown = filteredJobs.reduce((acc, job) => {
           acc[job.status] = (acc[job.status] || 0) + 1;
           return acc;
@@ -267,8 +269,9 @@ export const AnalyticsView: React.FC = () => {
         }));
         filename = "delivery-performance-report.xlsx";
         break;
+      }
 
-      case "warehouse-utilization":
+      case "warehouse-utilization": {
         const warehouseData: Record<string, any> = {};
         filteredJobs.forEach(job => {
           const wh = job.warehouse || "Unassigned";
@@ -291,8 +294,9 @@ export const AnalyticsView: React.FC = () => {
         data = Object.values(warehouseData);
         filename = "warehouse-utilization-report.xlsx";
         break;
+      }
 
-      case "overdue-report":
+      case "overdue-report": {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         data = filteredJobs
@@ -317,6 +321,7 @@ export const AnalyticsView: React.FC = () => {
           .sort((a, b) => b["Days Overdue"] - a["Days Overdue"]);
         filename = "overdue-analysis-report.xlsx";
         break;
+      }
     }
 
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -490,7 +495,7 @@ export const AnalyticsView: React.FC = () => {
           </Card>
         );
 
-      case "driver-performance":
+      case "driver-performance": {
         const driverStats = drivers.map(driver => {
           const driverJobs = filteredJobs.filter(j => j.driverId === driver.id);
           const completed = driverJobs.filter(j => j.status === "delivered").length;
@@ -565,8 +570,9 @@ export const AnalyticsView: React.FC = () => {
             </CardContent>
           </Card>
         );
+      }
 
-      case "customer-analysis":
+      case "customer-analysis": {
         const customerStats: Record<string, any> = {};
         filteredJobs.forEach(job => {
           if (!customerStats[job.customer]) {
@@ -636,8 +642,9 @@ export const AnalyticsView: React.FC = () => {
             </CardContent>
           </Card>
         );
+      }
 
-      case "exception-report":
+      case "exception-report": {
         const exceptionJobs = filteredJobs.filter(j => j.status === "exception");
 
         return (
@@ -713,8 +720,9 @@ export const AnalyticsView: React.FC = () => {
             </CardContent>
           </Card>
         );
+      }
 
-      case "delivery-performance":
+      case "delivery-performance": {
         const statusCounts = filteredJobs.reduce((acc, job) => {
           acc[job.status] = (acc[job.status] || 0) + 1;
           return acc;
@@ -778,8 +786,9 @@ export const AnalyticsView: React.FC = () => {
             </Card>
           </div>
         );
+      }
 
-      case "warehouse-utilization":
+      case "warehouse-utilization": {
         const warehouseStats: Record<string, any> = {};
         filteredJobs.forEach(job => {
           const wh = job.warehouse || "Unassigned";
@@ -854,8 +863,9 @@ export const AnalyticsView: React.FC = () => {
             </CardContent>
           </Card>
         );
+      }
 
-      case "overdue-report":
+      case "overdue-report": {
         const overdueNow = new Date();
         overdueNow.setHours(0, 0, 0, 0);
         const overdueJobs = filteredJobs
@@ -929,6 +939,7 @@ export const AnalyticsView: React.FC = () => {
             </CardContent>
           </Card>
         );
+      }
 
       default:
         return null;

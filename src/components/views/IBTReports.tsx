@@ -436,7 +436,7 @@ export const IBTReports: React.FC = () => {
           </Card>
         );
 
-      case "exception-report":
+      case "exception-report": {
         const exceptionJobs = filteredJobs.filter((j) => j.status === "exception");
         return (
           <Card>
@@ -476,8 +476,9 @@ export const IBTReports: React.FC = () => {
             </CardContent>
           </Card>
         );
+      }
 
-      case "overdue-report":
+      case "overdue-report": {
         const overdueNow = new Date();
         overdueNow.setHours(0, 0, 0, 0);
         const overdueJobs = filteredJobs
@@ -533,6 +534,7 @@ export const IBTReports: React.FC = () => {
             </CardContent>
           </Card>
         );
+      }
     }
   };
 

@@ -21,11 +21,13 @@ import {
   HelpCircle,
   Package,
   Mail,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useDispatch } from "../context/DispatchContext";
 import { messagesAPI } from "../services/api";
 import { useTheme } from "../hooks/useTheme";
+import { countExceptionQueueItems } from "../utils/exceptionQueues";
 
 interface SidebarProps {
   activeItem: string;
@@ -79,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
     return {
       totalJobs: orderJobs.length,
       inTransit: orderJobs.filter((j) => j.status === "en-route").length,
-      exceptions: orderJobs.filter((j) => j.status === "exception").length,
+      exceptions: countExceptionQueueItems(orderJobs),
       pendingCount: orderJobs.filter((j) => j.status === "pending").length,
       ibtPendingCount: ibtJobs.filter((j) => j.status === "pending").length,
     };
@@ -224,6 +226,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         {/* Dashboard */}
         {matchesSearch("Dashboard") && renderNavButton({
           id: "dashboard", icon: LayoutDashboard, label: "Dashboard",
+        })}
+        {matchesSearch("Exceptions") && renderNavButton({
+          id: "exceptions", icon: AlertTriangle, label: "Exceptions", badge: sidebarStats.exceptions, badgeType: "danger",
         })}
 
         {/* Sections */}

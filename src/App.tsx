@@ -16,6 +16,7 @@ import { messagesAPI } from "./services/api";
 
 const NAV_TITLES: Record<string, string> = {
   dashboard: "Dashboard",
+  exceptions: "Exceptions",
   home: "Import Customer Orders",
   ibt: "Import IBT",
   "ibt-dispatch": "IBT Management",
@@ -33,6 +34,7 @@ const NAV_TITLES: Record<string, string> = {
 
 // Lazy-loaded views for code splitting
 const Dashboard = lazy(() => import("./components/views/Dashboard").then(m => ({ default: m.Dashboard })));
+const ExceptionsView = lazy(() => import("./components/views/ExceptionsView").then(m => ({ default: m.ExceptionsView })));
 const DispatchView = lazy(() => import("./components/views/DispatchView").then(m => ({ default: m.DispatchView })));
 const IBTDispatchView = lazy(() => import("./components/views/IBTDispatchView").then(m => ({ default: m.IBTDispatchView })));
 const OrderImport = lazy(() => import("./components/views/OrderImport").then(m => ({ default: m.OrderImport })));
@@ -106,6 +108,8 @@ function AppContent() {
     switch (activeNavItem) {
       case "dashboard":
         view = <Dashboard onOpenAlerts={() => setAlertHubOpen(true)} onNavigate={navigateToPage} />; break;
+      case "exceptions":
+        view = <ExceptionsView onNavigate={navigateToPage} />; break;
       case "home":
         view = <OrderImport />; break;
       case "ibt":

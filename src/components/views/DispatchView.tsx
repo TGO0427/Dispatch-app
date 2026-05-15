@@ -14,6 +14,7 @@ import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
 import { useAuth } from "../../context/AuthContext";
 import { filterJobs, sortJobs } from "../../utils/helpers";
+import { calculateRevisedETD } from "../../utils/deliveryDates";
 
 import { FilterBar } from "../FilterBar";
 import { SortBar } from "../SortBar";
@@ -28,9 +29,11 @@ import { Button } from "../ui/Button";
 
 import type { Job, Driver, JobPriority, JobStatus } from "../../types";
 
+type DispatchTab = "open" | "assigned" | "in-transit" | "delivered" | "dispatched-week";
+
 interface DispatchViewProps {
   onOpenAlerts?: () => void;
-  initialTab?: "open" | "assigned" | "delivered";
+  initialTab?: DispatchTab;
 }
 
 export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initialTab }) => {
@@ -44,7 +47,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
   const [selectedAlertDate, setSelectedAlertDate] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"open" | "assigned" | "in-transit" | "delivered">(initialTab || "open");
+  const [activeTab, setActiveTab] = useState<DispatchTab>(initialTab || "open");
   const [showPickedOnly, setShowPickedOnly] = useState(false);
   const [showOutstandingCoaOnly, setShowOutstandingCoaOnly] = useState(false);
   const [serviceFilter, setServiceFilter] = useState<"delivery" | "collection" | null>(null);
@@ -61,6 +64,38 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     eta: "",
     notes: "",
   });
+
+  useEffect(() => {
+    if (!initialTab) return;
+    setActiveTab(initialTab);
+    setShowPickedOnly(false);
+    setShowOutstandingCoaOnly(false);
+    setServiceFilter(null);
+    setCurrentPage(1);
+  }, [initialTab]);
+
+  const isThisWeek = (dateString: string | undefined) => {
+    if (!dateString) return false;
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+    const date = new Date(dateString);
+    return !Number.isNaN(date.getTime()) && date >= startOfWeek && date < endOfWeek;
+  };
+
+  const getDispatchDate = (job: Job) => {
+    if (job.status === "en-route") {
+      return calculateRevisedETD(job) || job.etd || job.updatedAt;
+    }
+    if (job.status === "delivered") {
+      return calculateRevisedETD(job) || job.etd || job.actualDeliveryAt || job.updatedAt;
+    }
+    return undefined;
+  };
 
   // Filter to show only customer order jobs, deduplicated by ASO ref,
   // and only orders due within the selected ETA range (default: current week + 4 weeks).
@@ -159,6 +194,8 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
           return job.status === "en-route";
         case "delivered":
           return job.status === "delivered" || job.status === "returned" || job.status === "cancelled";
+        case "dispatched-week":
+          return (job.status === "en-route" || job.status === "delivered") && isThisWeek(getDispatchDate(job));
         default:
           return true;
       }
@@ -171,6 +208,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     assigned: orderJobs.filter((j) => j.status === "assigned").length,
     inTransit: orderJobs.filter((j) => j.status === "en-route").length,
     delivered: orderJobs.filter((j) => j.status === "delivered" || j.status === "returned" || j.status === "cancelled").length,
+    dispatchedWeek: orderJobs.filter((j) => (j.status === "en-route" || j.status === "delivered") && isThisWeek(getDispatchDate(j))).length,
   }), [orderJobs]);
 
   const stats = useMemo(() => {
@@ -449,7 +487,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         {([
           { label: "Total", value: stats.total, color: "text-gray-900", dotColor: "bg-gray-400", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("open" as const); } },
           { label: "Pending", value: stats.pending, color: "text-yellow-600", dotColor: "bg-yellow-500", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("open" as const); } },
-          { label: "En Route", value: stats.inRoute, color: "text-blue-600", dotColor: "bg-blue-500", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("assigned" as const); } },
+          { label: "En Route", value: stats.inRoute, color: "text-blue-600", dotColor: "bg-blue-500", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("in-transit" as const); } },
           { label: "Delivered", value: stats.delivered, color: "text-green-600", dotColor: "bg-green-500", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("delivered" as const); } },
           { label: "Exceptions", value: stats.exceptions, color: "text-red-600", dotColor: "bg-red-500", action: () => { setShowPickedOnly(false); setShowOutstandingCoaOnly(false); setServiceFilter(null); setActiveTab("open" as const); } },
         ] as const).map((stat) => (
@@ -518,6 +556,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
           { key: "assigned" as const, label: "Assigned", count: tabCounts.assigned, color: "text-blue-600", dotColor: "bg-blue-500" },
           { key: "in-transit" as const, label: "In Transit", count: tabCounts.inTransit, color: "text-indigo-600", dotColor: "bg-indigo-500" },
           { key: "delivered" as const, label: "Delivered / Closed", count: tabCounts.delivered, color: "text-green-600", dotColor: "bg-green-500" },
+          { key: "dispatched-week" as const, label: "This Week", count: tabCounts.dispatchedWeek, color: "text-purple-600", dotColor: "bg-purple-500" },
         ]).map((tab) => (
           <button
             key={tab.key}
@@ -587,13 +626,14 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     <div className="flex items-center gap-2">
                       <Briefcase className="h-5 w-5 text-gray-600" />
                       <CardTitle>
-                        {activeTab === "open" ? "Open Orders" : activeTab === "assigned" ? "Assigned Orders" : activeTab === "in-transit" ? "In Transit" : "Delivered Orders"} ({filteredAndSortedJobs.length})
+                        {activeTab === "open" ? "Open Orders" : activeTab === "assigned" ? "Assigned Orders" : activeTab === "in-transit" ? "In Transit" : activeTab === "dispatched-week" ? "Dispatched This Week" : "Delivered Orders"} ({filteredAndSortedJobs.length})
                       </CardTitle>
                     </div>
                     <p className="mt-1 text-sm text-gray-600">
                       {activeTab === "open" ? "Drag jobs to transporters to assign" :
                        activeTab === "assigned" ? "Orders assigned to transporters, awaiting dispatch" :
                        activeTab === "in-transit" ? "Orders currently en route to destination" :
+                       activeTab === "dispatched-week" ? "Current week orders that are delivered or on route" :
                        "Completed and closed orders"}
                     </p>
                   </div>

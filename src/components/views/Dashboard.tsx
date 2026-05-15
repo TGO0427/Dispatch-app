@@ -88,8 +88,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       if (job.status === "en-route") {
         return calculateRevisedETD(job) || job.etd || job.updatedAt;
       }
-      if (job.status === "delivered" || job.status === "returned") {
-        return calculateRevisedETD(job) || job.etd || job.actualDeliveryAt || job.returnedAt || job.updatedAt;
+      if (job.status === "delivered") {
+        return calculateRevisedETD(job) || job.etd || job.actualDeliveryAt || job.updatedAt;
       }
       return undefined;
     };
@@ -280,7 +280,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       icon: Package, value: stats.palletsDispatchedThisWeek, label: "PALLETS DISPATCHED",
       change: "Dispatched this week",
       changeType: stats.palletsDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.palletsDispatchedThisWeek > 20 ? "Pallets Flew" : stats.palletsDispatchedThisWeek > 0 ? "Solid Shift" : "Quiet Floor",
-      borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clock", tab: undefined,
+      borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clipboard", tab: "dispatched-week",
     },
     {
       icon: Archive, value: stats.qtyDispatchedThisWeek.toLocaleString(), label: "QTY DISPATCHED",

@@ -78,22 +78,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 7);
 
+    const isThisWeek = (dateString: string | undefined) => {
+      if (!dateString) return false;
+      const date = new Date(dateString);
+      return !Number.isNaN(date.getTime()) && date >= startOfWeek && date < endOfWeek;
+    };
+
+    const getDispatchDate = (job: typeof orderJobs[0]) => {
+      if (job.status === "en-route") {
+        return calculateRevisedETD(job) || job.etd || job.updatedAt;
+      }
+      if (job.status === "delivered" || job.status === "returned") {
+        return calculateRevisedETD(job) || job.etd || job.actualDeliveryAt || job.returnedAt || job.updatedAt;
+      }
+      return undefined;
+    };
+
     const departuresThisWeek = new Set<string>();
     let palletsDispatchedThisWeek = 0;
     let qtyDispatchedThisWeek = 0;
     orderJobs.forEach((j) => {
-      if (j.etd) {
-        const etdDate = new Date(j.etd);
-        if (etdDate >= startOfWeek && etdDate < endOfWeek) {
-          departuresThisWeek.add(j.ref);
-        }
+      if (isThisWeek(j.etd)) {
+        departuresThisWeek.add(j.ref);
       }
-      if (j.status === "delivered" && j.actualDeliveryAt) {
-        const deliveredAt = new Date(j.actualDeliveryAt);
-        if (deliveredAt >= startOfWeek && deliveredAt < endOfWeek) {
-          palletsDispatchedThisWeek += j.pallets || 0;
-          qtyDispatchedThisWeek += j.outstandingQty || 0;
-        }
+
+      if (isThisWeek(getDispatchDate(j))) {
+        palletsDispatchedThisWeek += j.pallets || 0;
+        qtyDispatchedThisWeek += j.outstandingQty || 0;
       }
     });
 

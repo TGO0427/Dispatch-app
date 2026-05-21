@@ -87,27 +87,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
 
     const getDispatchDate = (job: typeof orderJobs[0]) => {
       if (job.status === "en-route") {
-        return calculateRevisedETD(job) || job.etd || job.updatedAt;
+        return job.updatedAt;
       }
       if (job.status === "delivered") {
-        return calculateRevisedETD(job) || job.etd || job.actualDeliveryAt || job.updatedAt;
+        return job.actualDeliveryAt || job.updatedAt;
       }
       return undefined;
     };
 
     const departuresThisWeek = new Set<string>();
-    let palletsDispatchedThisWeek = 0;
-    let qtyDispatchedThisWeek = 0;
+    const dispatchedByRef = new Map<string, { dispatchDate?: string; pallets: number; outstandingQty: number }>();
     orderJobs.forEach((j) => {
       if (isThisWeek(j.etd)) {
         departuresThisWeek.add(j.ref);
       }
 
-      if (isThisWeek(getDispatchDate(j))) {
-        palletsDispatchedThisWeek += j.pallets || 0;
-        qtyDispatchedThisWeek += j.outstandingQty || 0;
+      const existing = dispatchedByRef.get(j.ref) || { pallets: 0, outstandingQty: 0 };
+      existing.pallets += j.pallets || 0;
+      existing.outstandingQty += j.outstandingQty || 0;
+
+      const dispatchDate = getDispatchDate(j);
+      if (dispatchDate && (!existing.dispatchDate || new Date(dispatchDate) > new Date(existing.dispatchDate))) {
+        existing.dispatchDate = dispatchDate;
       }
+      dispatchedByRef.set(j.ref, existing);
     });
+    const dispatchedThisWeek = Array.from(dispatchedByRef.values()).filter((order) => isThisWeek(order.dispatchDate));
+    const palletsDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.pallets, 0);
+    const qtyDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.outstandingQty, 0);
 
     // Alert count: use ALL jobs (not date-filtered) so overdue orders aren't missed
     let alertCount = 0;

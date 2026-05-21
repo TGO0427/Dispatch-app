@@ -46,6 +46,7 @@ export const AdvancedAnalytics: React.FC = () => {
   const [palletDrafts, setPalletDrafts] = useState<Record<string, string>>({});
   const [savingPalletRef, setSavingPalletRef] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [selectedTransporterId, setSelectedTransporterId] = useState<string | null>(null);
 
   const getTimeRangeLabel = (range: TimeRange) => {
     const now = new Date();
@@ -139,6 +140,7 @@ export const AdvancedAnalytics: React.FC = () => {
     const metrics: Record<
       string,
       {
+        driverId: string;
         name: string;
         totalJobs: number;
         completedJobs: number;
@@ -153,6 +155,7 @@ export const AdvancedAnalytics: React.FC = () => {
 
     drivers.forEach((driver) => {
       metrics[driver.id] = {
+        driverId: driver.id,
         name: driver.name,
         totalJobs: 0,
         completedJobs: 0,
@@ -277,6 +280,17 @@ export const AdvancedAnalytics: React.FC = () => {
     const job = scopedOrderJobs.find((item) => ids.includes(item.id));
     if (job) setSelectedJob(job);
   };
+
+  const selectedTransporterJobs = useMemo(() => {
+    if (!selectedTransporterId) return [];
+    return filteredJobs
+      .filter((job) => job.driverId === selectedTransporterId)
+      .sort((a, b) => (a.etd || a.eta || a.createdAt).localeCompare(b.etd || b.eta || b.createdAt));
+  }, [filteredJobs, selectedTransporterId]);
+
+  const selectedTransporterName = selectedTransporterId
+    ? drivers.find((driver) => driver.id === selectedTransporterId)?.name || "Unknown"
+    : "";
 
   const transporterMetricRows = useMemo(() => {
     return transporterMetrics.map((metric) => ({
@@ -806,9 +820,18 @@ export const AdvancedAnalytics: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {transporterMetrics.map((metric, idx) => (
-                  <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{metric.name}</td>
+                {transporterMetrics.map((metric) => (
+                  <tr key={metric.driverId} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTransporterId(metric.driverId)}
+                        className="font-medium text-resilinc-primary hover:text-resilinc-primary-dark hover:underline"
+                        title="View transporter jobs for this filter"
+                      >
+                        {metric.name}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-center text-gray-700">{metric.totalJobs}</td>
                     <td className="px-4 py-3 text-center text-green-600 font-semibold">{metric.completedJobs}</td>
                     <td className="px-4 py-3 text-center text-blue-600">{metric.inProgress}</td>
@@ -841,6 +864,76 @@ export const AdvancedAnalytics: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {selectedTransporterId && (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle>{selectedTransporterName} Jobs</CardTitle>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {selectedTransporterJobs.length} orders for {reportPeriodLabel}
+                  {selectedWarehouse !== "all" ? ` • ${selectedWarehouse}` : ""}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setSelectedTransporterId(null)}>
+                Close
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Reference</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Customer</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Pallets</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Warehouse</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedTransporterJobs.map((job) => (
+                    <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedJob(job)}
+                          className="font-medium text-resilinc-primary hover:text-resilinc-primary-dark hover:underline"
+                          title="View order details"
+                        >
+                          {job.ref}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">{job.customer}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          job.status === "delivered" ? "bg-green-50 text-green-700" :
+                          job.status === "exception" ? "bg-red-50 text-red-700" :
+                          job.status === "pending" ? "bg-amber-50 text-amber-700" :
+                          "bg-blue-50 text-blue-700"
+                        }`}>
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">{formatDate(job.etd || job.eta || job.createdAt)}</td>
+                      <td className="px-4 py-3 text-right text-gray-700">{job.pallets ?? "-"}</td>
+                      <td className="px-4 py-3 text-gray-700">{job.warehouse || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {selectedTransporterJobs.length === 0 && (
+                <div className="py-10 text-center text-sm text-gray-400">
+                  No jobs found for this transporter in the selected filter.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {selectedJob && (
         <JobDetailsModal

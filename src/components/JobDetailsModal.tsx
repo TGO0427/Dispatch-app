@@ -19,15 +19,21 @@ interface JobDetailsModalProps {
   job: Job;
   onClose: () => void;
   driverName?: string;
+  onSelectLineItem?: (job: Job) => void;
 }
 
-export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, driverName }) => {
+export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, driverName, onSelectLineItem }) => {
   const { updateJob, updateJobs, jobs, drivers } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
   const { isViewer } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
+
+  React.useEffect(() => {
+    setEditedJob(job);
+    setIsEditing(false);
+  }, [job]);
 
   // Flowbin state
   const [flowbinBatches, setFlowbinBatches] = useState<FlowbinBatch[]>([]);
@@ -538,8 +544,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                 {lineItems.map((item, idx) => {
                   const isAssigned = item.status !== "pending" && item.driverId;
                   const isPending = item.status === "pending";
+                  const isSelected = item.id === job.id;
                   return (
-                    <div key={item.id} className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm ${isPending ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-100"}`}>
+                    <div key={item.id} className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm ${isSelected ? "bg-blue-50 border-blue-200" : isPending ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-100"}`}>
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-[10px] font-bold text-gray-400">#{idx + 1}</span>
                         <span className="font-medium text-gray-900 truncate">
@@ -549,11 +556,22 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                           <span className="text-xs text-orange-600 font-medium">{formatNumber(item.outstandingQty)} qty</span>
                         )}
                         <Badge variant={item.status === "delivered" ? "success" : item.status === "returned" ? "warning" : item.status === "exception" ? "destructive" : item.status === "pending" ? "new" : "default"} className="text-[9px] px-1.5 py-0">{item.status}</Badge>
+                        {isSelected && <span className="text-[9px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">Selected</span>}
                       </div>
-                      {isAssigned && item.status !== "delivered" && item.status !== "returned" && item.status !== "cancelled" && item.status !== "en-route" && (
-                        <button onClick={async () => { const ok = await confirm({ title: "Unassign", message: `Unassign #${idx + 1}?`, type: "warning", confirmText: "Unassign" }); if (ok) handleUnassignLineItem(item.id); }} className="text-[10px] text-orange-500 hover:text-orange-700 font-medium ml-2">Unassign</button>
-                      )}
-                      {isPending && !item.driverId && <span className="text-[10px] text-amber-600 font-medium ml-2">Pending</span>}
+                      <div className="flex items-center gap-2 ml-2">
+                        {!isSelected && onSelectLineItem && (
+                          <button
+                            onClick={() => onSelectLineItem(item)}
+                            className="text-[10px] text-blue-600 hover:text-blue-800 font-semibold"
+                          >
+                            Open
+                          </button>
+                        )}
+                        {isAssigned && item.status !== "delivered" && item.status !== "returned" && item.status !== "cancelled" && item.status !== "en-route" && (
+                          <button onClick={async () => { const ok = await confirm({ title: "Unassign", message: `Unassign #${idx + 1}?`, type: "warning", confirmText: "Unassign" }); if (ok) handleUnassignLineItem(item.id); }} className="text-[10px] text-orange-500 hover:text-orange-700 font-medium">Unassign</button>
+                        )}
+                        {isPending && !item.driverId && <span className="text-[10px] text-amber-600 font-medium">Pending</span>}
+                      </div>
                     </div>
                   );
                 })}

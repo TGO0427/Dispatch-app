@@ -904,6 +904,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         <JobDetailsModal
           job={selectedJob}
           onClose={() => setSelectedJob(null)}
+          onSelectLineItem={(lineItem) => setSelectedJob(lineItem)}
           driverName={getDriverName(selectedJob.driverId)}
         />
       )}

@@ -158,8 +158,12 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     updateJob(job.id, updates);
 
     if (Object.keys(sharedUpdates).length > 0) {
+      const isClosingOrder =
+        editedJob.status === "delivered" ||
+        editedJob.status === "returned" ||
+        editedJob.status === "cancelled";
       const siblingIds = jobs
-        .filter((j) => j.ref === job.ref && j.id !== job.id && j.status !== "pending")
+        .filter((j) => j.ref === job.ref && j.id !== job.id && (isClosingOrder || j.status !== "pending"))
         .map((j) => j.id);
       if (siblingIds.length > 0) updateJobs(siblingIds, sharedUpdates);
     }

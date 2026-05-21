@@ -70,10 +70,11 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
       }
 
       const lineItemIds = lineItems.map((item) => item.id);
+      const dispatchedAt = new Date().toISOString();
       if (lineItemIds.length > 1) {
-        await updateJobs(lineItemIds, { status: "en-route" });
+        await updateJobs(lineItemIds, { status: "en-route", dispatchedAt });
       } else {
-        await updateJob(job.id, { status: "en-route" });
+        await updateJob(job.id, { status: "en-route", dispatchedAt });
       }
     } catch (error) {
       console.error("Error dispatching job:", error);

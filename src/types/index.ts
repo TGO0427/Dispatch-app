@@ -97,6 +97,7 @@ export interface Job {
   // Dates as ISO strings — easy to serialize, compare, and store
   eta?: string;                 // planned ETA (e.g. "2025-10-10" or ISO datetime)
   scheduledAt?: string;         // planned pickup/delivery (ISO datetime)
+  dispatchedAt?: string;        // set when moved to en-route (ISO datetime)
   actualDeliveryAt?: string;    // set when delivered (ISO datetime)
   returnedAt?: string;          // set when returned by customer/client (ISO datetime)
   returnReason?: string;        // required when status === "returned"
@@ -227,6 +228,7 @@ export const makeNewJob = (partial: Partial<Job> = {}): Job => {
     pallets: partial.pallets,
     eta: partial.eta,
     scheduledAt: partial.scheduledAt,
+    dispatchedAt: partial.dispatchedAt,
     actualDeliveryAt: partial.actualDeliveryAt,
     returnedAt: partial.returnedAt,
     returnReason: partial.returnReason,

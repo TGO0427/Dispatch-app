@@ -14,7 +14,6 @@ import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
 import { useAuth } from "../../context/AuthContext";
 import { filterJobs, sortJobs } from "../../utils/helpers";
-import { calculateRevisedETD } from "../../utils/deliveryDates";
 
 import { FilterBar } from "../FilterBar";
 import { SortBar } from "../SortBar";
@@ -88,11 +87,17 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   };
 
   const getDispatchDate = (job: Job) => {
+    if (job.status !== "en-route" && job.status !== "delivered") {
+      return undefined;
+    }
+    if (job.dispatchedAt) {
+      return job.dispatchedAt;
+    }
     if (job.status === "en-route") {
-      return calculateRevisedETD(job) || job.etd || job.updatedAt;
+      return job.updatedAt;
     }
     if (job.status === "delivered") {
-      return calculateRevisedETD(job) || job.etd || job.actualDeliveryAt || job.updatedAt;
+      return job.actualDeliveryAt || job.updatedAt;
     }
     return undefined;
   };

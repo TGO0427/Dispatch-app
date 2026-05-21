@@ -127,6 +127,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     }
 
     const updates: Partial<Job> = { ...editedJob };
+    if (editedJob.status === "en-route" && job.status !== "en-route" && !editedJob.dispatchedAt) {
+      updates.dispatchedAt = new Date().toISOString();
+    }
     if (editedJob.status === "delivered" && !editedJob.actualDeliveryAt) {
       updates.actualDeliveryAt = new Date().toISOString();
     }
@@ -146,6 +149,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.truckSize !== job.truckSize) sharedUpdates.truckSize = editedJob.truckSize;
     if (editedJob.etd !== job.etd) sharedUpdates.etd = editedJob.etd;
     if (editedJob.pallets !== job.pallets) sharedUpdates.pallets = editedJob.pallets;
+    if (updates.dispatchedAt !== job.dispatchedAt) sharedUpdates.dispatchedAt = updates.dispatchedAt;
     if (updates.actualDeliveryAt !== job.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
     if (updates.returnedAt !== job.returnedAt) sharedUpdates.returnedAt = updates.returnedAt;
     if (editedJob.returnReason !== job.returnReason) sharedUpdates.returnReason = editedJob.returnReason;

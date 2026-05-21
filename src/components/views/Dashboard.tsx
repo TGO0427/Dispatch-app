@@ -86,6 +86,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     };
 
     const getDispatchDate = (job: typeof orderJobs[0]) => {
+      if (job.status !== "en-route" && job.status !== "delivered") {
+        return undefined;
+      }
+      if (job.dispatchedAt) {
+        return job.dispatchedAt;
+      }
       if (job.status === "en-route") {
         return job.updatedAt;
       }

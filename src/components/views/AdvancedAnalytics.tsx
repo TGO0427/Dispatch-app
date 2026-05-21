@@ -18,6 +18,7 @@ import autoTable from "jspdf-autotable";
 import { useDispatch } from "../../context/DispatchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import * as XLSX from "../../lib/spreadsheet";
 import { formatDate, formatDateTime } from "../../utils/format";
@@ -37,9 +38,11 @@ const COLORS = {
 
 
 export const AdvancedAnalytics: React.FC = () => {
-  const { jobs, drivers } = useDispatch();
+  const { jobs, drivers, updateJobs } = useDispatch();
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
+  const [palletDrafts, setPalletDrafts] = useState<Record<string, string>>({});
+  const [savingPalletRef, setSavingPalletRef] = useState<string | null>(null);
 
   const getTimeRangeLabel = (range: TimeRange) => {
     const now = new Date();
@@ -86,7 +89,7 @@ export const AdvancedAnalytics: React.FC = () => {
   }, [jobs]);
 
   // Filter jobs by time range
-  const filteredJobs = useMemo(() => {
+  const scopedOrderJobs = useMemo(() => {
     const { start, end } = getTimeRangeBounds(timeRange);
 
     // Filter by customer orders only (exclude IBT)
@@ -106,8 +109,12 @@ export const AdvancedAnalytics: React.FC = () => {
     }
 
     // Deduplicate by ref — 1 order = 1 ASO number
-    const refMap = new Map<string, typeof filtered[0]>();
-    filtered.forEach((job) => {
+    return filtered;
+  }, [jobs, timeRange, selectedWarehouse]);
+
+  const filteredJobs = useMemo(() => {
+    const refMap = new Map<string, typeof scopedOrderJobs[0]>();
+    scopedOrderJobs.forEach((job) => {
       const existing = refMap.get(job.ref);
       if (!existing) {
         refMap.set(job.ref, { ...job });
@@ -119,7 +126,7 @@ export const AdvancedAnalytics: React.FC = () => {
     });
 
     return Array.from(refMap.values());
-  }, [jobs, timeRange, selectedWarehouse]);
+  }, [scopedOrderJobs]);
 
   const reportPeriodLabel = getTimeRangeLabel(timeRange);
   const pulledAtLabel = formatDateTime(new Date());
@@ -198,6 +205,70 @@ export const AdvancedAnalytics: React.FC = () => {
 
     return Object.values(metrics).filter((m) => m.totalJobs > 0);
   }, [filteredJobs, drivers]);
+
+  const missingPalletAssignments = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        ref: string;
+        customer: string;
+        driverName: string;
+        status: string;
+        eta?: string;
+        etd?: string;
+        ids: string[];
+        lineItems: number;
+        maxPallets: number;
+      }
+    >();
+
+    scopedOrderJobs.forEach((job) => {
+      if (!job.driverId) return;
+      const key = `${job.ref}::${job.driverId}`;
+      const pallets = job.pallets && job.pallets > 0 ? job.pallets : 0;
+      const existing = grouped.get(key);
+      if (!existing) {
+        grouped.set(key, {
+          ref: job.ref,
+          customer: job.customer,
+          driverName: drivers.find((driver) => driver.id === job.driverId)?.name || "Unknown",
+          status: job.status,
+          eta: job.eta,
+          etd: job.etd,
+          ids: [job.id],
+          lineItems: 1,
+          maxPallets: pallets,
+        });
+      } else {
+        existing.ids.push(job.id);
+        existing.lineItems += 1;
+        existing.maxPallets = Math.max(existing.maxPallets, pallets);
+        if (!existing.etd && job.etd) existing.etd = job.etd;
+        if (!existing.eta && job.eta) existing.eta = job.eta;
+      }
+    });
+
+    return Array.from(grouped.values())
+      .filter((item) => item.maxPallets <= 0)
+      .sort((a, b) => (a.etd || a.eta || "").localeCompare(b.etd || b.eta || ""));
+  }, [scopedOrderJobs, drivers]);
+
+  const saveMissingPalletQty = async (ref: string, ids: string[]) => {
+    const value = Number(palletDrafts[ref]);
+    if (!Number.isFinite(value) || value <= 0) return;
+
+    setSavingPalletRef(ref);
+    try {
+      await updateJobs(ids, { pallets: Math.round(value) });
+      setPalletDrafts((prev) => {
+        const next = { ...prev };
+        delete next[ref];
+        return next;
+      });
+    } finally {
+      setSavingPalletRef(null);
+    }
+  };
 
   const transporterMetricRows = useMemo(() => {
     return transporterMetrics.map((metric) => ({
@@ -393,8 +464,9 @@ export const AdvancedAnalytics: React.FC = () => {
       exceptionsCount,
       exceptionRate,
       activeTransporters: drivers.filter((d) => d.status !== "offline").length,
+      missingPalletQty: missingPalletAssignments.length,
     };
-  }, [filteredJobs, drivers]);
+  }, [filteredJobs, drivers, missingPalletAssignments]);
 
   return (
     <div className="space-y-4">
@@ -423,7 +495,7 @@ export const AdvancedAnalytics: React.FC = () => {
       </div>
 
       {/* KPI Strip — tighter, stronger hierarchy */}
-      <div className="grid gap-3 grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-3 grid-cols-3 lg:grid-cols-7">
         {([
           { icon: Package, label: "Total Jobs", value: String(kpis.totalJobs), color: "text-gray-900", iconColor: "text-resilinc-primary", bg: "bg-green-50" },
           { icon: TrendingUp, label: "Delivered", value: String(kpis.deliveredJobs), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
@@ -431,6 +503,7 @@ export const AdvancedAnalytics: React.FC = () => {
           { icon: Calendar, label: "Exceptions", value: String(kpis.exceptionsCount), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },
           { icon: PieChartIcon, label: "Exception Rate", value: `${kpis.exceptionRate}%`, color: "text-amber-600", iconColor: "text-amber-600", bg: "bg-amber-50" },
           { icon: Truck, label: "Transporters", value: String(kpis.activeTransporters), color: "text-gray-900", iconColor: "text-gray-600", bg: "bg-gray-100" },
+          { icon: Package, label: "Missing Pallets", value: String(kpis.missingPalletQty), color: kpis.missingPalletQty > 0 ? "text-red-600" : "text-gray-900", iconColor: kpis.missingPalletQty > 0 ? "text-red-600" : "text-gray-600", bg: kpis.missingPalletQty > 0 ? "bg-red-50" : "bg-gray-100" },
         ] as const).map((kpi) => {
           const Icon = kpi.icon;
           return (
@@ -555,7 +628,7 @@ export const AdvancedAnalytics: React.FC = () => {
           <p className="text-xs text-gray-400 mt-0.5">Orders that need attention right now</p>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-6">
             {(() => {
               const now = new Date(); now.setHours(0, 0, 0, 0);
               const overdue = filteredJobs.filter(j => j.eta && j.status !== "delivered" && j.status !== "cancelled" && new Date(j.eta) < now).length;
@@ -563,12 +636,14 @@ export const AdvancedAnalytics: React.FC = () => {
               const missingCoa = filteredJobs.filter(j => j.orderPicked && !j.coaAvailable && j.status !== "delivered" && j.status !== "cancelled").length;
               const noTransporter = filteredJobs.filter(j => !j.transporterBooked && j.status !== "delivered" && j.status !== "cancelled" && j.status !== "pending").length;
               const overCapacity = transporterMetrics.filter(m => m.peakUtilization > 100).length;
+              const missingPallets = missingPalletAssignments.length;
               return [
                 { label: "Overdue Orders", value: overdue, color: "text-red-600", bg: "bg-red-50", border: "border-red-200" },
                 { label: "Unassigned Orders", value: unassigned, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
                 { label: "Missing COA", value: missingCoa, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" },
                 { label: "No Transporter Booked", value: noTransporter, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200" },
                 { label: "Over Capacity", value: overCapacity, color: "text-red-600", bg: "bg-red-50", border: "border-red-200" },
+                { label: "Missing Pallets", value: missingPallets, color: "text-red-600", bg: "bg-red-50", border: "border-red-200" },
               ].map((item) => (
                 <div key={item.label} className={`${item.bg} ${item.border} border rounded-xl p-4 text-center`}>
                   <div className={`text-2xl font-bold ${item.color}`}>{item.value}</div>
@@ -579,6 +654,70 @@ export const AdvancedAnalytics: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Missing Pallet Qty Fixes */}
+      {missingPalletAssignments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Assigned Orders Missing Pallet Qty</CardTitle>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Transporter is assigned, but no pallet quantity is captured for the order
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Reference</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Customer</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Transporter</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
+                    <th className="px-4 py-3 text-center font-semibold text-gray-700">Line Items</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Pallet Qty</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {missingPalletAssignments.map((item) => {
+                    const draft = palletDrafts[item.ref] || "";
+                    const canSave = Number(draft) > 0 && savingPalletRef !== item.ref;
+                    return (
+                      <tr key={`${item.ref}-${item.driverName}`} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium text-gray-900">{item.ref}</td>
+                        <td className="px-4 py-3 text-gray-700">{item.customer}</td>
+                        <td className="px-4 py-3 text-gray-700">{item.driverName}</td>
+                        <td className="px-4 py-3 text-gray-700">{formatDate(item.etd || item.eta)}</td>
+                        <td className="px-4 py-3 text-center text-gray-700">{item.lineItems}</td>
+                        <td className="px-4 py-3">
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={draft}
+                            onChange={(event) => setPalletDrafts((prev) => ({ ...prev, [item.ref]: event.target.value }))}
+                            className="ml-auto h-9 w-24 text-right text-sm"
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            size="sm"
+                            onClick={() => saveMissingPalletQty(item.ref, item.ids)}
+                            disabled={!canSave}
+                          >
+                            {savingPalletRef === item.ref ? "Saving" : "Save"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Row 4: Capacity Planning */}
       <Card>

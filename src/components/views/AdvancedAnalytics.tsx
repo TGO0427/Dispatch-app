@@ -12,10 +12,17 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-import { TrendingUp, Package, Truck, Calendar, BarChart3, PieChart as PieChartIcon } from "lucide-react";
+import { TrendingUp, Package, Truck, Calendar, BarChart3, PieChart as PieChartIcon, FileSpreadsheet, FileText } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useDispatch } from "../../context/DispatchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
+import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
+import * as XLSX from "../../lib/spreadsheet";
+import { formatDate, formatDateTime } from "../../utils/format";
+
+type TimeRange = "7d" | "30d" | "90d" | "current-month" | "previous-month" | "all";
 
 const COLORS = {
   primary: "#0EA5E9",
@@ -31,8 +38,43 @@ const COLORS = {
 
 export const AdvancedAnalytics: React.FC = () => {
   const { jobs, drivers } = useDispatch();
-  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "all">("7d");
+  const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
+
+  const getTimeRangeLabel = (range: TimeRange) => {
+    const now = new Date();
+    if (range === "7d") return "Last 7 days";
+    if (range === "30d") return "Last 30 days";
+    if (range === "90d") return "Last 90 days";
+    if (range === "current-month") {
+      return `Current month (${now.toLocaleDateString("en-GB", { month: "long", year: "numeric" })})`;
+    }
+    if (range === "previous-month") {
+      const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return `Previous month (${previousMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" })})`;
+    }
+    return "All time";
+  };
+
+  const getTimeRangeBounds = (range: TimeRange) => {
+    const now = new Date();
+    if (range === "7d") return { start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), end: null };
+    if (range === "30d") return { start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000), end: null };
+    if (range === "90d") return { start: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000), end: null };
+    if (range === "current-month") {
+      return {
+        start: new Date(now.getFullYear(), now.getMonth(), 1),
+        end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+      };
+    }
+    if (range === "previous-month") {
+      return {
+        start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+        end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999),
+      };
+    }
+    return { start: null, end: null };
+  };
 
   // Get unique warehouses
   const warehouses = useMemo(() => {
@@ -45,24 +87,17 @@ export const AdvancedAnalytics: React.FC = () => {
 
   // Filter jobs by time range
   const filteredJobs = useMemo(() => {
-    const now = new Date();
-    let cutoffDate: Date | null = null;
-
-    if (timeRange === "7d") {
-      cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    } else if (timeRange === "30d") {
-      cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    } else if (timeRange === "90d") {
-      cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-    }
+    const { start, end } = getTimeRangeBounds(timeRange);
 
     // Filter by customer orders only (exclude IBT)
     let filtered = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
 
-    if (cutoffDate) {
+    if (start || end) {
       filtered = filtered.filter((job) => {
         const jobDate = new Date(job.createdAt);
-        return jobDate >= cutoffDate;
+        if (start && jobDate < start) return false;
+        if (end && jobDate > end) return false;
+        return true;
       });
     }
 
@@ -85,6 +120,9 @@ export const AdvancedAnalytics: React.FC = () => {
 
     return Array.from(refMap.values());
   }, [jobs, timeRange, selectedWarehouse]);
+
+  const reportPeriodLabel = getTimeRangeLabel(timeRange);
+  const pulledAtLabel = formatDateTime(new Date());
 
   // 1. Transporter Performance Metrics
   const transporterMetrics = useMemo(() => {
@@ -160,6 +198,109 @@ export const AdvancedAnalytics: React.FC = () => {
 
     return Object.values(metrics).filter((m) => m.totalJobs > 0);
   }, [filteredJobs, drivers]);
+
+  const transporterMetricRows = useMemo(() => {
+    return transporterMetrics.map((metric) => ({
+      Transporter: metric.name,
+      Orders: metric.totalJobs,
+      Delivered: metric.completedJobs,
+      "In Transit": metric.inProgress,
+      "Total Pallets": metric.palletsLoaded,
+      "Daily Capacity": `${metric.capacity} plt/day`,
+      "Peak Day Pallets": metric.peakDayPallets,
+      "Peak Day Date": metric.peakDayDate ? formatDate(metric.peakDayDate) : "-",
+      "Peak Utilization": `${metric.peakUtilization}%`,
+      "Capacity Status": metric.peakUtilization > 100 ? "Over capacity" : metric.peakUtilization >= 80 ? "High utilization" : "Within capacity",
+    }));
+  }, [transporterMetrics]);
+
+  const exportTransporterMetricsExcel = async () => {
+    const metadata = XLSX.utils.aoa_to_sheet([
+      ["Detailed Transporter Metrics"],
+      ["Report Period", reportPeriodLabel],
+      ["Pulled At", pulledAtLabel],
+      ["Warehouse", selectedWarehouse === "all" ? "All Warehouses" : selectedWarehouse],
+      ["Records", transporterMetrics.length],
+    ]);
+    const metricsSheet = XLSX.utils.json_to_sheet(transporterMetricRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, metadata, "Report Info");
+    XLSX.utils.book_append_sheet(workbook, metricsSheet, "Transporter Metrics");
+    const fileDate = new Date().toISOString().split("T")[0];
+    await XLSX.writeFile(workbook, `detailed-transporter-metrics-${timeRange}-${fileDate}.xlsx`);
+  };
+
+  const exportTransporterMetricsPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const generatedDate = formatDate(new Date());
+
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 24, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text("Detailed Transporter Metrics", 14, 10);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(203, 213, 225);
+    doc.text(`Period: ${reportPeriodLabel}`, 14, 17);
+    doc.text(`Pulled at: ${pulledAtLabel}`, pageWidth - 14, 10, { align: "right" });
+    doc.text(`Warehouse: ${selectedWarehouse === "all" ? "All Warehouses" : selectedWarehouse}`, pageWidth - 14, 17, { align: "right" });
+
+    autoTable(doc, {
+      startY: 30,
+      head: [["Transporter", "Orders", "Delivered", "In Transit", "Total Pallets", "Daily Capacity", "Peak Day", "Peak Utilization", "Status"]],
+      body: transporterMetrics.map((metric) => [
+        metric.name,
+        String(metric.totalJobs),
+        String(metric.completedJobs),
+        String(metric.inProgress),
+        String(metric.palletsLoaded),
+        `${metric.capacity} plt/day`,
+        metric.peakDayDate ? `${metric.peakDayPallets} plt (${formatDate(metric.peakDayDate)})` : "-",
+        `${metric.peakUtilization}%`,
+        metric.peakUtilization > 100 ? "Over capacity" : metric.peakUtilization >= 80 ? "High utilization" : "Within capacity",
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
+      bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      styles: { lineColor: [226, 232, 240], lineWidth: 0.15, overflow: "linebreak" },
+      columnStyles: {
+        0: { cellWidth: 48 },
+        1: { halign: "center" },
+        2: { halign: "center" },
+        3: { halign: "center" },
+        4: { halign: "center" },
+        5: { halign: "center" },
+        7: { halign: "center" },
+      },
+      margin: { left: 14, right: 14 },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 7) {
+          const value = Number.parseInt(String(data.cell.raw), 10);
+          data.cell.styles.fontStyle = "bold";
+          if (value > 100) data.cell.styles.textColor = [220, 38, 38];
+          else if (value >= 80) data.cell.styles.textColor = [217, 119, 6];
+          else data.cell.styles.textColor = [22, 163, 74];
+        }
+      },
+      didDrawPage: () => {
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.setDrawColor(226, 232, 240);
+        doc.line(14, pageHeight - 10, pageWidth - 14, pageHeight - 10);
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(6.5);
+        doc.text("K58 Dispatch", 14, pageHeight - 5);
+        doc.text(`Generated ${generatedDate}`, pageWidth / 2, pageHeight - 5, { align: "center" });
+        doc.text(`Page ${(doc as any).internal.getCurrentPageInfo().pageNumber}`, pageWidth - 14, pageHeight - 5, { align: "right" });
+      },
+    });
+
+    const fileDate = new Date().toISOString().split("T")[0];
+    doc.save(`detailed-transporter-metrics-${timeRange}-${fileDate}.pdf`);
+  };
 
   // 2. (Removed — Jobs by Status donut replaced with trend chart)
 
@@ -262,7 +403,7 @@ export const AdvancedAnalytics: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
           <p className="text-sm text-gray-500">
-            Performance insights • {kpis.totalJobs} jobs • {timeRange === "all" ? "All time" : `Last ${timeRange === "7d" ? "7 days" : timeRange === "30d" ? "30 days" : "90 days"}`}
+            Performance insights • {kpis.totalJobs} jobs • {reportPeriodLabel}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -270,10 +411,12 @@ export const AdvancedAnalytics: React.FC = () => {
             <option value="all">All Warehouses</option>
             {warehouses.map((wh) => <option key={wh} value={wh}>{wh}</option>)}
           </Select>
-          <Select value={timeRange} onChange={(e) => setTimeRange(e.target.value as "7d" | "30d" | "90d" | "all")} className="w-auto text-sm">
+          <Select value={timeRange} onChange={(e) => setTimeRange(e.target.value as TimeRange)} className="w-auto text-sm">
             <option value="7d">7 Days</option>
             <option value="30d">30 Days</option>
             <option value="90d">90 Days</option>
+            <option value="current-month">Current Month</option>
+            <option value="previous-month">Previous Month</option>
             <option value="all">All Time</option>
           </Select>
         </div>
@@ -461,8 +604,35 @@ export const AdvancedAnalytics: React.FC = () => {
       {/* Detailed Transporter Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Detailed Transporter Metrics</CardTitle>
-          <p className="text-xs text-gray-400 mt-0.5">Performance and daily capacity utilization by transporter</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>Detailed Transporter Metrics</CardTitle>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Performance and daily capacity utilization by transporter • {reportPeriodLabel} • Pulled at {pulledAtLabel}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={exportTransporterMetricsPdf}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={transporterMetrics.length === 0}
+              >
+                <FileText className="h-4 w-4" />
+                PDF
+              </Button>
+              <Button
+                onClick={exportTransporterMetricsExcel}
+                size="sm"
+                className="gap-2"
+                disabled={transporterMetrics.length === 0}
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Excel
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

@@ -69,7 +69,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
         refMap.set(job.ref, { ...job });
       } else {
         if (job.eta && (!existing.eta || job.eta < existing.eta)) existing.eta = job.eta;
-        if (job.pallets) existing.pallets = (existing.pallets || 0) + job.pallets;
+        if (job.pallets) existing.pallets = Math.max(existing.pallets || 0, job.pallets);
         if (job.outstandingQty) existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
       }
     });
@@ -128,7 +128,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
       const existing = groups.get(key);
       if (existing) {
         existing.lineCount += 1;
-        existing.totalPallets += job.pallets ?? 0;
+        existing.totalPallets = Math.max(existing.totalPallets, job.pallets ?? 0);
         if (job.pallets != null) existing.hasPalletData = true;
       } else {
         groups.set(key, {
@@ -207,15 +207,23 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
     };
   }, [ibtJobs, jobs, drivers]);
 
-  // Compute assigned pallets per driver
+  // Compute assigned pallets per driver by transfer ref. Pallets are order-level,
+  // so multiple line items on one pallet must not multiply capacity usage.
   const palletsByDriver = useMemo(() => {
-    const map: Record<string, number> = {};
+    const loadsByDriverRef: Record<string, Record<string, number>> = {};
     jobs.forEach((job) => {
       if (job.driverId && job.status !== "delivered" && job.status !== "returned" && job.status !== "cancelled") {
-        map[job.driverId] = (map[job.driverId] || 0) + (job.pallets || 0);
+        const ref = job.ref || job.id;
+        if (!loadsByDriverRef[job.driverId]) loadsByDriverRef[job.driverId] = {};
+        loadsByDriverRef[job.driverId][ref] = Math.max(loadsByDriverRef[job.driverId][ref] || 0, job.pallets || 0);
       }
     });
-    return map;
+    return Object.fromEntries(
+      Object.entries(loadsByDriverRef).map(([driverId, byRef]) => [
+        driverId,
+        Object.values(byRef).reduce((sum, pallets) => sum + pallets, 0),
+      ])
+    );
   }, [jobs]);
 
   // Get unique warehouses from all jobs

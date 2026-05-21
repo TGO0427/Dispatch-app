@@ -10,7 +10,7 @@ import { useNotification } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
 import { JobWorkflow } from "./JobWorkflow";
 import { calculateRevisedETD } from "../utils/deliveryDates";
-import { getJobsMissingPallets } from "../utils/jobValidation";
+import { hasCompletedPallets } from "../utils/jobValidation";
 import { formatNumber } from "../utils/format";
 
 interface JobCardProps {
@@ -61,10 +61,10 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
     e.stopPropagation();
     try {
       const lineItems = jobs.filter((item) => item.ref === job.ref);
-      const missingPalletLines = getJobsMissingPallets(lineItems.length > 0 ? lineItems : [job]);
-      if (missingPalletLines.length > 0) {
+      const orderPallets = Math.max(...(lineItems.length > 0 ? lineItems : [job]).map((item) => item.pallets || 0));
+      if (!hasCompletedPallets({ pallets: orderPallets })) {
         showWarning(
-          `Complete pallets before moving ${job.ref} to En Route:\n${missingPalletLines.slice(0, 3).join(", ")}${missingPalletLines.length > 3 ? ` +${missingPalletLines.length - 3} more` : ""}`
+          `Complete pallets before moving ${job.ref} to En Route.`
         );
         return;
       }

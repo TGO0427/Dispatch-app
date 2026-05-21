@@ -112,7 +112,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       }
 
       const existing = dispatchedByRef.get(j.ref) || { pallets: 0, outstandingQty: 0 };
-      existing.pallets += j.pallets || 0;
+      existing.pallets = Math.max(existing.pallets, j.pallets || 0);
       existing.outstandingQty += j.outstandingQty || 0;
 
       const dispatchDate = getDispatchDate(j);

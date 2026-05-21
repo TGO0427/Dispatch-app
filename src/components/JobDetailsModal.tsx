@@ -12,7 +12,7 @@ import { flowbinsAPI } from "../services/api";
 import type { FlowbinBatch } from "../types";
 import { JobWorkflow } from "./JobWorkflow";
 import { calculateETD, calculateRevisedETD, getDeliveryDelayDays } from "../utils/deliveryDates";
-import { getJobsMissingPallets, hasCompletedPallets } from "../utils/jobValidation";
+import { hasCompletedPallets } from "../utils/jobValidation";
 import { formatDateTime, formatNumber } from "../utils/format";
 
 interface JobDetailsModalProps {
@@ -113,12 +113,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       if (!editedJob.coaAvailable) missing.push("COA Available");
       if (!editedJob.transportService) missing.push("Transport Lead Time");
       if (!editedJob.truckSize) missing.push("Transport Type");
-      const lineItemsForValidation = lineItems.map((lineItem) => (
-        lineItem.id === editedJob.id ? editedJob : lineItem
-      ));
-      const missingPalletLines = getJobsMissingPallets(lineItemsForValidation);
-      if (missingPalletLines.length > 0) {
-        missing.push(`Pallets for ${missingPalletLines.slice(0, 3).join(", ")}${missingPalletLines.length > 3 ? ` +${missingPalletLines.length - 3} more` : ""}`);
+      if (!hasCompletedPallets(editedJob)) {
+        missing.push("Pallets");
       }
       if (missing.length > 0) {
         showWarning(`Complete the following before moving to En Route:\n${missing.join(", ")}`);
@@ -548,18 +544,6 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                         <span className="font-medium text-gray-900 truncate">
                           {item.notes && !item.notes.match(/^(ASO|IBT|CSO)\d/) ? item.notes : item.dropoff}
                         </span>
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            value={item.pallets ?? ""}
-                            onChange={(e) => updateJob(item.id, { pallets: e.target.value !== "" ? Number(e.target.value) : undefined })}
-                            className="w-14 border border-gray-200 rounded px-1.5 py-0.5 text-xs text-center bg-white focus:outline-none focus:ring-1 focus:ring-resilinc-primary"
-                            placeholder="plt"
-                            min="0"
-                          />
-                        ) : (
-                          item.pallets != null && item.pallets > 0 && <span className="text-xs text-gray-400">{item.pallets} plt</span>
-                        )}
                         {item.outstandingQty != null && item.outstandingQty > 0 && (
                           <span className="text-xs text-orange-600 font-medium">{formatNumber(item.outstandingQty)} qty</span>
                         )}

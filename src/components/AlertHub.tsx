@@ -176,12 +176,13 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
     // 5. Transporter over capacity
     drivers.forEach((driver) => {
       if (driver.capacity > 0) {
-        let assignedPallets = 0;
+        const palletsByRef = new Map<string, number>();
         jobs.forEach((j) => {
           if (j.driverId === driver.id && !CLOSED_STATUSES.has(j.status)) {
-            assignedPallets += j.pallets || 0;
+            palletsByRef.set(j.ref || j.id, Math.max(palletsByRef.get(j.ref || j.id) || 0, j.pallets || 0));
           }
         });
+        const assignedPallets = Array.from(palletsByRef.values()).reduce((sum, pallets) => sum + pallets, 0);
         if (assignedPallets > driver.capacity) {
           result.push({
             id: `overcapacity-${driver.id}`,

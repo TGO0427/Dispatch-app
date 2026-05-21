@@ -116,12 +116,12 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       if (!existing) {
         refMap.set(job.ref, { ...job });
       } else {
-        // Merge: keep earliest ETA, sum pallets/qty, preserve status if more progressed
+        // Merge: keep earliest ETA and order-level pallets, sum line-item qty.
         if (job.eta && (!existing.eta || job.eta < existing.eta)) {
           existing.eta = job.eta;
         }
         if (job.pallets) {
-          existing.pallets = (existing.pallets || 0) + job.pallets;
+          existing.pallets = Math.max(existing.pallets || 0, job.pallets);
         }
         if (job.outstandingQty) {
           existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
@@ -256,15 +256,23 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     };
   }, [orderJobs, jobs]);
 
-  // Compute assigned pallets per driver (from ALL jobs, not just deduplicated)
+  // Compute assigned pallets per driver by order ref. Pallets are order-level,
+  // so five line items on one pallet must not count as five pallets.
   const palletsByDriver = useMemo(() => {
-    const map: Record<string, number> = {};
+    const loadsByDriverRef: Record<string, Record<string, number>> = {};
     jobs.forEach((job) => {
       if (job.driverId && job.status !== "delivered" && job.status !== "returned" && job.status !== "cancelled") {
-        map[job.driverId] = (map[job.driverId] || 0) + (job.pallets || 0);
+        const ref = job.ref || job.id;
+        if (!loadsByDriverRef[job.driverId]) loadsByDriverRef[job.driverId] = {};
+        loadsByDriverRef[job.driverId][ref] = Math.max(loadsByDriverRef[job.driverId][ref] || 0, job.pallets || 0);
       }
     });
-    return map;
+    return Object.fromEntries(
+      Object.entries(loadsByDriverRef).map(([driverId, byRef]) => [
+        driverId,
+        Object.values(byRef).reduce((sum, pallets) => sum + pallets, 0),
+      ])
+    );
   }, [jobs]);
 
   // Pagination
@@ -321,7 +329,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       const existing = groups.get(key);
       if (existing) {
         existing.lineCount += 1;
-        existing.totalPallets += job.pallets ?? 0;
+        existing.totalPallets = Math.max(existing.totalPallets, job.pallets ?? 0);
         if (job.pallets != null) existing.hasPalletData = true;
       } else {
         groups.set(key, {

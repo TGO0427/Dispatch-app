@@ -155,8 +155,8 @@ export const HistoryView: React.FC = () => {
       if (!existing) {
         refMap.set(job.ref, { ...job });
       } else {
-        // Aggregate: sum pallets and qty from duplicate line items
-        if (job.pallets) existing.pallets = (existing.pallets || 0) + job.pallets;
+        // Pallets are order-level; quantity is line-level.
+        if (job.pallets) existing.pallets = Math.max(existing.pallets || 0, job.pallets);
         if (job.outstandingQty) existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
         // Keep the most recent notes if current one is empty
         if (job.notes && !existing.notes) existing.notes = job.notes;

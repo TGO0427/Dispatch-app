@@ -58,7 +58,7 @@ export const IBTReports: React.FC = () => {
         refMap.set(job.ref, { ...job });
       } else {
         if (job.eta && (!existing.eta || job.eta < existing.eta)) existing.eta = job.eta;
-        if (job.pallets) existing.pallets = (existing.pallets || 0) + job.pallets;
+        if (job.pallets) existing.pallets = Math.max(existing.pallets || 0, job.pallets);
         if (job.outstandingQty) existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
       }
     });

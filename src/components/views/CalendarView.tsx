@@ -98,7 +98,7 @@ export const CalendarView: React.FC = () => {
       const existing = groups.get(key);
       if (existing) {
         existing.lineCount += 1;
-        existing.totalPallets += job.pallets ?? 0;
+        existing.totalPallets = Math.max(existing.totalPallets, job.pallets ?? 0);
         if (job.pallets != null) existing.hasPalletData = true;
       } else {
         groups.set(key, {

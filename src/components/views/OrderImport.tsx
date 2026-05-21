@@ -151,7 +151,15 @@ const normalizePriority = (p?: string): JobPriority => {
 const parsePallets = (v?: string | number): number | undefined => {
   if (v === undefined || v === null || v === "") return undefined;
   if (typeof v === "number") return Math.round(v);
-  const cleaned = v.replace(/\s/g, "").replace(/,/g, "");
+  const trimmed = v.trim();
+  const commaParts = trimmed.replace(/\s/g, "").split(",");
+  const usesDecimalComma =
+    commaParts.length === 2 &&
+    !trimmed.includes(".") &&
+    (/\s/.test(trimmed) || commaParts[0].length >= 2);
+  const cleaned = usesDecimalComma
+    ? trimmed.replace(/\s/g, "").replace(",", ".")
+    : trimmed.replace(/\s/g, "").replace(/,/g, "");
   const n = parseFloat(cleaned);
   return Number.isFinite(n) ? Math.round(n) : undefined;
 };

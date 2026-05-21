@@ -283,10 +283,24 @@ export const AdvancedAnalytics: React.FC = () => {
 
   const selectedTransporterJobs = useMemo(() => {
     if (!selectedTransporterId) return [];
-    return filteredJobs
+    const grouped = new Map<string, Job>();
+    scopedOrderJobs
       .filter((job) => job.driverId === selectedTransporterId)
+      .forEach((job) => {
+        const existing = grouped.get(job.ref);
+        if (!existing) {
+          grouped.set(job.ref, { ...job });
+          return;
+        }
+        if (job.pallets) existing.pallets = Math.max(existing.pallets || 0, job.pallets);
+        if (job.outstandingQty) existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
+        if (job.status === "delivered") existing.status = "delivered";
+        if (job.actualDeliveryAt && !existing.actualDeliveryAt) existing.actualDeliveryAt = job.actualDeliveryAt;
+      });
+
+    return Array.from(grouped.values())
       .sort((a, b) => (a.etd || a.eta || a.createdAt).localeCompare(b.etd || b.eta || b.createdAt));
-  }, [filteredJobs, selectedTransporterId]);
+  }, [scopedOrderJobs, selectedTransporterId]);
 
   const selectedTransporterName = selectedTransporterId
     ? drivers.find((driver) => driver.id === selectedTransporterId)?.name || "Unknown"
@@ -327,6 +341,82 @@ export const AdvancedAnalytics: React.FC = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
     const generatedDate = formatDate(new Date());
+    const chartData = transporterMetrics
+      .slice()
+      .sort((a, b) => b.totalJobs - a.totalJobs)
+      .slice(0, 8);
+
+    const drawChartCard = (
+      title: string,
+      subtitle: string,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      series: { label: string; color: [number, number, number]; getValue: (metric: typeof transporterMetrics[number]) => number }[],
+    ) => {
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x, y, width, height, 2, 2, "F");
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(x, y, width, height, 2, 2, "S");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text(title, x + 4, y + 6);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(subtitle, x + 4, y + 10.5);
+
+      const legendX = x + width - 48;
+      series.forEach((item, index) => {
+        const lx = legendX + index * 16;
+        doc.setFillColor(item.color[0], item.color[1], item.color[2]);
+        doc.rect(lx, y + 4, 2.5, 2.5, "F");
+        doc.setTextColor(71, 85, 105);
+        doc.setFontSize(5.5);
+        doc.text(item.label, lx + 3.5, y + 6.2);
+      });
+
+      if (chartData.length === 0) {
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(8);
+        doc.text("No transporter data for this period", x + width / 2, y + height / 2, { align: "center" });
+        return;
+      }
+
+      const labelWidth = 34;
+      const chartX = x + labelWidth + 5;
+      const chartW = width - labelWidth - 12;
+      const topY = y + 17;
+      const rowHeight = (height - 23) / chartData.length;
+      const maxValue = Math.max(1, ...chartData.flatMap((metric) => series.map((item) => item.getValue(metric))));
+
+      chartData.forEach((metric, metricIndex) => {
+        const rowY = topY + metricIndex * rowHeight;
+        const label = metric.name.length > 20 ? `${metric.name.slice(0, 19)}...` : metric.name;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6);
+        doc.setTextColor(51, 65, 85);
+        doc.text(label, x + 4, rowY + 3.2);
+
+        const barHeight = Math.min(2.2, Math.max(1.5, (rowHeight - 1.5) / series.length));
+        series.forEach((item, seriesIndex) => {
+          const value = item.getValue(metric);
+          const barY = rowY + seriesIndex * (barHeight + 0.6);
+          const barWidth = (value / maxValue) * chartW;
+          doc.setFillColor(241, 245, 249);
+          doc.roundedRect(chartX, barY, chartW, barHeight, 0.8, 0.8, "F");
+          doc.setFillColor(item.color[0], item.color[1], item.color[2]);
+          doc.roundedRect(chartX, barY, Math.max(barWidth, value > 0 ? 1 : 0), barHeight, 0.8, 0.8, "F");
+          doc.setFontSize(5.5);
+          doc.setTextColor(71, 85, 105);
+          doc.text(String(value), chartX + Math.min(chartW - 2, Math.max(barWidth + 1.5, 3)), barY + barHeight);
+        });
+      });
+    };
 
     doc.setFillColor(15, 23, 42);
     doc.rect(0, 0, pageWidth, 24, "F");
@@ -341,8 +431,35 @@ export const AdvancedAnalytics: React.FC = () => {
     doc.text(`Pulled at: ${pulledAtLabel}`, pageWidth - 14, 10, { align: "right" });
     doc.text(`Warehouse: ${selectedWarehouse === "all" ? "All Warehouses" : selectedWarehouse}`, pageWidth - 14, 17, { align: "right" });
 
+    drawChartCard(
+      "Transporter Workload",
+      "Delivered, active work, and pallet load",
+      14,
+      30,
+      (pageWidth - 34) / 2,
+      70,
+      [
+        { label: "Del", color: [16, 185, 129], getValue: (metric) => metric.completedJobs },
+        { label: "Act", color: [245, 158, 11], getValue: (metric) => metric.inProgress },
+        { label: "Plt", color: [14, 165, 233], getValue: (metric) => metric.palletsLoaded },
+      ],
+    );
+
+    drawChartCard(
+      "Capacity Planning",
+      "Peak day pallet load vs daily capacity",
+      20 + (pageWidth - 34) / 2,
+      30,
+      (pageWidth - 34) / 2,
+      70,
+      [
+        { label: "Peak", color: [245, 158, 11], getValue: (metric) => metric.peakDayPallets },
+        { label: "Cap", color: [14, 165, 233], getValue: (metric) => metric.capacity },
+      ],
+    );
+
     autoTable(doc, {
-      startY: 30,
+      startY: 106,
       head: [["Transporter", "Orders", "Delivered", "In Transit", "Total Pallets", "Daily Capacity", "Peak Day", "Peak Utilization", "Status"]],
       body: transporterMetrics.map((metric) => [
         metric.name,

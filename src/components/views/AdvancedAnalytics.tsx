@@ -17,11 +17,13 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useDispatch } from "../../context/DispatchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
+import { JobDetailsModal } from "../JobDetailsModal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import * as XLSX from "../../lib/spreadsheet";
 import { formatDate, formatDateTime } from "../../utils/format";
+import type { Job } from "../../types";
 
 type TimeRange = "7d" | "30d" | "90d" | "current-month" | "previous-month" | "all";
 
@@ -43,6 +45,7 @@ export const AdvancedAnalytics: React.FC = () => {
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
   const [palletDrafts, setPalletDrafts] = useState<Record<string, string>>({});
   const [savingPalletRef, setSavingPalletRef] = useState<string | null>(null);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   const getTimeRangeLabel = (range: TimeRange) => {
     const now = new Date();
@@ -268,6 +271,11 @@ export const AdvancedAnalytics: React.FC = () => {
     } finally {
       setSavingPalletRef(null);
     }
+  };
+
+  const openMissingPalletOrder = (ids: string[]) => {
+    const job = scopedOrderJobs.find((item) => ids.includes(item.id));
+    if (job) setSelectedJob(job);
   };
 
   const transporterMetricRows = useMemo(() => {
@@ -684,7 +692,16 @@ export const AdvancedAnalytics: React.FC = () => {
                     const canSave = Number(draft) > 0 && savingPalletRef !== item.ref;
                     return (
                       <tr key={`${item.ref}-${item.driverName}`} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium text-gray-900">{item.ref}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => openMissingPalletOrder(item.ids)}
+                            className="font-medium text-resilinc-primary hover:text-resilinc-primary-dark hover:underline"
+                            title="View order details"
+                          >
+                            {item.ref}
+                          </button>
+                        </td>
                         <td className="px-4 py-3 text-gray-700">{item.customer}</td>
                         <td className="px-4 py-3 text-gray-700">{item.driverName}</td>
                         <td className="px-4 py-3 text-gray-700">{formatDate(item.etd || item.eta)}</td>
@@ -824,6 +841,14 @@ export const AdvancedAnalytics: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {selectedJob && (
+        <JobDetailsModal
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+          driverName={selectedJob.driverId ? drivers.find((driver) => driver.id === selectedJob.driverId)?.name : undefined}
+        />
+      )}
     </div>
   );
 };

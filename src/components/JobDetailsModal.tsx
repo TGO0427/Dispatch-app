@@ -130,10 +130,10 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.status === "en-route" && job.status !== "en-route" && !editedJob.dispatchedAt) {
       updates.dispatchedAt = new Date().toISOString();
     }
-    if (editedJob.status === "delivered" && !editedJob.actualDeliveryAt) {
+    if (editedJob.status === "delivered" && job.status !== "delivered" && !editedJob.actualDeliveryAt) {
       updates.actualDeliveryAt = new Date().toISOString();
     }
-    if (editedJob.status === "returned" && !editedJob.returnedAt) {
+    if (editedJob.status === "returned" && job.status !== "returned" && !editedJob.returnedAt) {
       updates.returnedAt = new Date().toISOString();
     }
     if (editedJob.status !== "exception") updates.exceptionReason = undefined;

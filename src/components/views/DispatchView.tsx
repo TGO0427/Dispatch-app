@@ -96,9 +96,6 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     if (job.status === "en-route") {
       return job.updatedAt;
     }
-    if (job.status === "delivered") {
-      return job.actualDeliveryAt || job.updatedAt;
-    }
     return undefined;
   };
 

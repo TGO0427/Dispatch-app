@@ -23,7 +23,7 @@ import {
 } from "recharts";
 import { useDispatch } from "../../context/DispatchContext";
 import { useAuth } from "../../context/AuthContext";
-import { calculateRevisedETD } from "../../utils/deliveryDates";
+import { calculateETD, calculateRevisedETD } from "../../utils/deliveryDates";
 import { formatNumber } from "../../utils/format";
 
 // Helper to get week number
@@ -74,7 +74,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     // Count orders with ETD this week
     const now = new Date();
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
+    const dayOfWeek = startOfWeek.getDay() || 7;
+    startOfWeek.setDate(now.getDate() - dayOfWeek + 1);
     startOfWeek.setHours(0, 0, 0, 0);
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 7);
@@ -104,7 +105,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     const departuresThisWeek = new Set<string>();
     const dispatchedByRef = new Map<string, { dispatchDate?: string; pallets: number; outstandingQty: number }>();
     orderJobs.forEach((j) => {
-      if (isThisWeek(j.etd)) {
+      const plannedDepartureDate = j.etd || calculateETD(j.eta, j.transportService);
+      const canStillDepart = j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled";
+      if (canStillDepart && isThisWeek(plannedDepartureDate)) {
         departuresThisWeek.add(j.ref);
       }
 

@@ -135,7 +135,12 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.status !== "exception") updates.exceptionReason = undefined;
 
     const sharedUpdates: Partial<Job> = {};
-    if (editedJob.status !== job.status) sharedUpdates.status = editedJob.status;
+    const isClosingLine =
+      editedJob.status === "delivered" ||
+      editedJob.status === "returned" ||
+      editedJob.status === "cancelled";
+
+    if (editedJob.status !== job.status && !isClosingLine) sharedUpdates.status = editedJob.status;
     if (editedJob.driverId !== job.driverId) sharedUpdates.driverId = editedJob.driverId;
     if (editedJob.transporterBooked !== job.transporterBooked) sharedUpdates.transporterBooked = editedJob.transporterBooked;
     if (editedJob.orderPicked !== job.orderPicked) sharedUpdates.orderPicked = editedJob.orderPicked;
@@ -146,11 +151,11 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.etd !== job.etd) sharedUpdates.etd = editedJob.etd;
     if (editedJob.pallets !== job.pallets) sharedUpdates.pallets = editedJob.pallets;
     if (updates.dispatchedAt !== job.dispatchedAt) sharedUpdates.dispatchedAt = updates.dispatchedAt;
-    if (updates.actualDeliveryAt !== job.actualDeliveryAt) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
-    if (updates.returnedAt !== job.returnedAt) sharedUpdates.returnedAt = updates.returnedAt;
-    if (editedJob.returnReason !== job.returnReason) sharedUpdates.returnReason = editedJob.returnReason;
-    if (editedJob.returnedPallets !== job.returnedPallets) sharedUpdates.returnedPallets = editedJob.returnedPallets;
-    if (editedJob.returnNotes !== job.returnNotes) sharedUpdates.returnNotes = editedJob.returnNotes;
+    if (updates.actualDeliveryAt !== job.actualDeliveryAt && !isClosingLine) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
+    if (updates.returnedAt !== job.returnedAt && !isClosingLine) sharedUpdates.returnedAt = updates.returnedAt;
+    if (editedJob.returnReason !== job.returnReason && !isClosingLine) sharedUpdates.returnReason = editedJob.returnReason;
+    if (editedJob.returnedPallets !== job.returnedPallets && !isClosingLine) sharedUpdates.returnedPallets = editedJob.returnedPallets;
+    if (editedJob.returnNotes !== job.returnNotes && !isClosingLine) sharedUpdates.returnNotes = editedJob.returnNotes;
     if (updates.exceptionReason !== undefined) sharedUpdates.exceptionReason = updates.exceptionReason;
     if (editedJob.overdueReason !== job.overdueReason) sharedUpdates.overdueReason = editedJob.overdueReason;
     if (editedJob.internalNotes !== job.internalNotes) sharedUpdates.internalNotes = editedJob.internalNotes;
@@ -158,12 +163,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     updateJob(job.id, updates);
 
     if (Object.keys(sharedUpdates).length > 0) {
-      const isClosingOrder =
-        editedJob.status === "delivered" ||
-        editedJob.status === "returned" ||
-        editedJob.status === "cancelled";
       const siblingIds = jobs
-        .filter((j) => j.ref === job.ref && j.id !== job.id && (isClosingOrder || j.status !== "pending"))
+        .filter((j) => j.ref === job.ref && j.id !== job.id && j.status !== "pending")
         .map((j) => j.id);
       if (siblingIds.length > 0) updateJobs(siblingIds, sharedUpdates);
     }

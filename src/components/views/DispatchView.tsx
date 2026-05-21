@@ -107,6 +107,15 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   // When a search query is active, the ETA range is bypassed so users can find any order.
   const orderJobs = useMemo(() => {
     const allOrders = jobs.filter((job) => job.jobType === "order" || job.jobType === undefined);
+    const statusRank: Record<JobStatus, number> = {
+      "en-route": 6,
+      assigned: 5,
+      exception: 4,
+      pending: 3,
+      delivered: 2,
+      returned: 1,
+      cancelled: 0,
+    };
 
     // Deduplicate by ref (ASO number) - keep the first occurrence per ref
     // and aggregate data from duplicate line items
@@ -116,15 +125,25 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       if (!existing) {
         refMap.set(job.ref, { ...job });
       } else {
+        const nextPrimary = statusRank[job.status] > statusRank[existing.status] ? job : existing;
+        if (nextPrimary !== existing) {
+          refMap.set(job.ref, {
+            ...job,
+            pallets: existing.pallets,
+            outstandingQty: existing.outstandingQty,
+            eta: existing.eta,
+          });
+        }
+        const merged = refMap.get(job.ref)!;
         // Merge: keep earliest ETA and order-level pallets, sum line-item qty.
-        if (job.eta && (!existing.eta || job.eta < existing.eta)) {
-          existing.eta = job.eta;
+        if (job.eta && (!merged.eta || job.eta < merged.eta)) {
+          merged.eta = job.eta;
         }
         if (job.pallets) {
-          existing.pallets = Math.max(existing.pallets || 0, job.pallets);
+          merged.pallets = Math.max(merged.pallets || 0, job.pallets);
         }
         if (job.outstandingQty) {
-          existing.outstandingQty = (existing.outstandingQty || 0) + job.outstandingQty;
+          merged.outstandingQty = (merged.outstandingQty || 0) + job.outstandingQty;
         }
       }
     });

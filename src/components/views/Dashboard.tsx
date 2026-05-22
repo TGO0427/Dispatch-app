@@ -124,6 +124,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     const dispatchedThisWeek = Array.from(dispatchedByRef.values()).filter((order) => isThisWeek(order.dispatchDate));
     const palletsDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.pallets, 0);
     const qtyDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.outstandingQty, 0);
+    const palletsDispatchedThisYear = Array.from(dispatchedByRef.values()).reduce((sum, order) => {
+      if (!order.dispatchDate) return sum;
+      const dispatchDate = new Date(order.dispatchDate);
+      if (Number.isNaN(dispatchDate.getTime()) || dispatchDate.getFullYear() !== now.getFullYear()) return sum;
+      return sum + order.pallets;
+    }, 0);
+    const avgPalletsDispatchedPerWeekThisYear = palletsDispatchedThisYear / Math.max(1, getWeekNumber(now));
 
     // Alert count: use ALL jobs (not date-filtered) so overdue orders aren't missed
     let alertCount = 0;
@@ -190,6 +197,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       busyDrivers,
       departuresThisWeek: departuresThisWeek.size,
       palletsDispatchedThisWeek,
+      avgPalletsDispatchedPerWeekThisYear,
       qtyDispatchedThisWeek,
       alertCount,
       highVolumeWins,
@@ -295,7 +303,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     },
     {
       icon: Package, value: stats.palletsDispatchedThisWeek, label: "PALLETS DISPATCHED",
-      change: "Dispatched this week",
+      change: `Avg ${stats.avgPalletsDispatchedPerWeekThisYear.toFixed(1)}/wk this year`,
       changeType: stats.palletsDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.palletsDispatchedThisWeek > 20 ? "Pallets Flew" : stats.palletsDispatchedThisWeek > 0 ? "Solid Shift" : "Quiet Floor",
       borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clipboard", tab: "dispatched-week",
     },

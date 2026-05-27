@@ -22,13 +22,14 @@ interface JobDetailsModalProps {
   onSelectLineItem?: (job: Job) => void;
 }
 
-export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, driverName, onSelectLineItem }) => {
+export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, driverName }) => {
   const { updateJob, updateJobs, jobs, drivers } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
   const { isViewer } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
+  const [lineAssignments, setLineAssignments] = useState<Record<string, string>>({});
 
   React.useEffect(() => {
     setEditedJob(job);
@@ -73,8 +74,21 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
 
   const lineItems = useMemo(() => jobs.filter((j) => j.ref === job.ref), [jobs, job.ref]);
   const hasMultipleLineItems = lineItems.length > 1;
+  const assignableLineItems = useMemo(
+    () => lineItems.filter((item) => !["delivered", "returned", "cancelled", "en-route"].includes(item.status)),
+    [lineItems],
+  );
+  const hasLineAssignmentChanges = lineItems.some((item) => (lineAssignments[item.id] || "") !== (item.driverId || ""));
   const revisedETD = calculateRevisedETD(editedJob);
   const deliveryDelayDays = getDeliveryDelayDays(editedJob);
+  const currentAssignedDriverId = lineAssignments[job.id] || editedJob.driverId;
+  const currentAssignedDriverName = currentAssignedDriverId
+    ? drivers.find((driver) => driver.id === currentAssignedDriverId)?.name
+    : undefined;
+
+  React.useEffect(() => {
+    setLineAssignments(Object.fromEntries(lineItems.map((item) => [item.id, item.driverId || ""])));
+  }, [lineItems]);
 
   const updateAllLineItems = (updates: Partial<Job>) => {
     updateJobs(lineItems.map((li) => li.id), updates);
@@ -99,10 +113,64 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
   };
 
   const handleUnassignLineItem = (lineItemId: string) => {
-    updateJob(lineItemId, { driverId: undefined, status: "pending" });
+    updateLineAssignment(lineItemId, "");
   };
 
-  const handleSave = () => {
+  const updateLineAssignment = (lineItemId: string, driverId: string) => {
+    setLineAssignments((prev) => ({ ...prev, [lineItemId]: driverId }));
+    if (lineItemId === job.id) {
+      setEditedJob((prev) => ({
+        ...prev,
+        driverId: driverId || undefined,
+        status: driverId && prev.status === "pending" ? "assigned" : !driverId ? "pending" : prev.status,
+      }));
+    }
+  };
+
+  const assignAllLineItems = (driverId: string) => {
+    setLineAssignments((prev) => {
+      const next = { ...prev };
+      assignableLineItems.forEach((item) => {
+        next[item.id] = driverId;
+      });
+      return next;
+    });
+    if (assignableLineItems.some((item) => item.id === job.id)) {
+      setEditedJob((prev) => ({
+        ...prev,
+        driverId: driverId || undefined,
+        status: driverId && prev.status === "pending" ? "assigned" : !driverId ? "pending" : prev.status,
+      }));
+    }
+  };
+
+  const saveLineAssignments = async () => {
+    const groupedUpdates = new Map<string, string[]>();
+
+    lineItems.forEach((item) => {
+      if (!assignableLineItems.some((assignable) => assignable.id === item.id)) return;
+
+      const nextDriverId = lineAssignments[item.id] || "";
+      const currentDriverId = item.driverId || "";
+      if (nextDriverId === currentDriverId) return;
+
+      const nextStatus = nextDriverId ? "assigned" : "pending";
+      const key = `${nextDriverId || "__unassigned__"}:${nextStatus}`;
+      groupedUpdates.set(key, [...(groupedUpdates.get(key) || []), item.id]);
+    });
+
+    await Promise.all(
+      Array.from(groupedUpdates.entries()).map(([key, ids]) => {
+        const [driverId] = key.split(":");
+        return updateJobs(ids, {
+          driverId: driverId === "__unassigned__" ? undefined : driverId,
+          status: driverId === "__unassigned__" ? "pending" : "assigned",
+        });
+      }),
+    );
+  };
+
+  const handleSave = async () => {
     if (editedJob.status === "exception" && !editedJob.exceptionReason?.trim()) {
       showError("Exception status requires an exception reason");
       return;
@@ -147,7 +215,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       editedJob.status === "cancelled";
 
     if (editedJob.status !== job.status && !isClosingLine) sharedUpdates.status = editedJob.status;
-    if (editedJob.driverId !== job.driverId) sharedUpdates.driverId = editedJob.driverId;
+    if (!hasLineAssignmentChanges && editedJob.driverId !== job.driverId) sharedUpdates.driverId = editedJob.driverId;
     if (editedJob.transporterBooked !== job.transporterBooked) sharedUpdates.transporterBooked = editedJob.transporterBooked;
     if (editedJob.orderPicked !== job.orderPicked) sharedUpdates.orderPicked = editedJob.orderPicked;
     if (editedJob.coaAvailable !== job.coaAvailable) sharedUpdates.coaAvailable = editedJob.coaAvailable;
@@ -166,13 +234,17 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.overdueReason !== job.overdueReason) sharedUpdates.overdueReason = editedJob.overdueReason;
     if (editedJob.internalNotes !== job.internalNotes) sharedUpdates.internalNotes = editedJob.internalNotes;
 
-    updateJob(job.id, updates);
+    await updateJob(job.id, updates);
 
     if (Object.keys(sharedUpdates).length > 0) {
       const siblingIds = jobs
         .filter((j) => j.ref === job.ref && j.id !== job.id && j.status !== "pending")
         .map((j) => j.id);
-      if (siblingIds.length > 0) updateJobs(siblingIds, sharedUpdates);
+      if (siblingIds.length > 0) await updateJobs(siblingIds, sharedUpdates);
+    }
+
+    if (hasLineAssignmentChanges) {
+      await saveLineAssignments();
     }
 
     const isAmend = job.status === "delivered" || job.status === "returned" || job.status === "cancelled";
@@ -181,7 +253,11 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     onClose();
   };
 
-  const handleCancel = () => { setEditedJob(job); setIsEditing(false); };
+  const handleCancel = () => {
+    setEditedJob(job);
+    setLineAssignments(Object.fromEntries(lineItems.map((item) => [item.id, item.driverId || ""])));
+    setIsEditing(false);
+  };
 
   const updateField = <K extends keyof Job>(field: K, value: Job[K]) => {
     setEditedJob((prev) => {
@@ -247,7 +323,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                 Mark Returned
               </Button>
             )}
-            {!isViewer && (isEditing ? (
+            {!isViewer && (isEditing || hasLineAssignmentChanges ? (
               <>
                 <Button variant="ghost" size="sm" onClick={handleCancel} className="text-xs">Cancel</Button>
                 <Button size="sm" onClick={handleSave} className="text-xs gap-1">
@@ -367,16 +443,16 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
               <label className={labelCls}>Customer</label>
               <p className="text-sm font-semibold text-gray-900 mt-0.5">{job.customer}</p>
             </div>
-            {(driverName || editedJob.driverId) && (
+            {(currentAssignedDriverName || currentAssignedDriverId || driverName) && (
               <div>
                 <label className={labelCls}>Assigned Transporter</label>
                 <div className="flex items-center justify-between mt-0.5">
-                  <p className="text-sm font-semibold text-gray-900">{driverName || "Assigned"}</p>
+                  <p className="text-sm font-semibold text-gray-900">{currentAssignedDriverName || driverName || "Assigned"}</p>
                   {editedJob.status !== "delivered" && editedJob.status !== "returned" && editedJob.status !== "cancelled" && (
                     <button
                       onClick={async () => {
                         const ok = await confirm({ title: "Unassign Order", message: "Unassign ALL line items?", type: "warning", confirmText: "Unassign" });
-                        if (ok) { updateAllLineItems({ driverId: undefined, status: "pending" }); onClose(); }
+                        if (ok) assignAllLineItems("");
                       }}
                       className="text-[10px] text-red-500 hover:text-red-700 font-medium"
                     >
@@ -539,10 +615,38 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
           {/* Line Items */}
           {hasMultipleLineItems && (
             <div>
-              <label className={`${labelCls} mb-2 block`}>Line Items ({lineItems.length})</label>
+              <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+                <label className={labelCls}>Line Items ({lineItems.length})</label>
+                {!isViewer && assignableLineItems.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) assignAllLineItems(e.target.value);
+                      }}
+                      className="h-8 min-w-44 rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-resilinc-primary"
+                    >
+                      <option value="">Assign all to...</option>
+                      {drivers.map((driver) => (
+                        <option key={driver.id} value={driver.id}>{driver.name}</option>
+                      ))}
+                    </select>
+                    {hasLineAssignmentChanges && (
+                      <button
+                        onClick={() => assignAllLineItems("")}
+                        className="text-[10px] font-semibold text-red-500 hover:text-red-700"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="space-y-1.5">
                 {lineItems.map((item, idx) => {
-                  const isAssigned = item.status !== "pending" && item.driverId;
+                  const assignmentDriverId = lineAssignments[item.id] || "";
+                  const assignmentChanged = assignmentDriverId !== (item.driverId || "");
+                  const canAssign = assignableLineItems.some((assignable) => assignable.id === item.id);
                   const isPending = item.status === "pending";
                   const isSelected = item.id === job.id;
                   return (
@@ -557,20 +661,28 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                         )}
                         <Badge variant={item.status === "delivered" ? "success" : item.status === "returned" ? "warning" : item.status === "exception" ? "destructive" : item.status === "pending" ? "new" : "default"} className="text-[9px] px-1.5 py-0">{item.status}</Badge>
                         {isSelected && <span className="text-[9px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">Selected</span>}
+                        {assignmentChanged && <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">Pending save</span>}
                       </div>
                       <div className="flex items-center gap-2 ml-2">
-                        {!isSelected && onSelectLineItem && (
-                          <button
-                            onClick={() => onSelectLineItem(item)}
-                            className="text-[10px] text-blue-600 hover:text-blue-800 font-semibold"
+                        {!isViewer && canAssign ? (
+                          <select
+                            value={assignmentDriverId}
+                            onChange={(e) => updateLineAssignment(item.id, e.target.value)}
+                            className="h-7 w-40 rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-resilinc-primary"
                           >
-                            Open
-                          </button>
+                            <option value="">Unassigned</option>
+                            {drivers.map((driver) => (
+                              <option key={driver.id} value={driver.id}>{driver.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="max-w-40 truncate text-[10px] font-medium text-gray-500">
+                            {item.driverId ? drivers.find((driver) => driver.id === item.driverId)?.name || "Assigned" : "Unassigned"}
+                          </span>
                         )}
-                        {isAssigned && item.status !== "delivered" && item.status !== "returned" && item.status !== "cancelled" && item.status !== "en-route" && (
-                          <button onClick={async () => { const ok = await confirm({ title: "Unassign", message: `Unassign #${idx + 1}?`, type: "warning", confirmText: "Unassign" }); if (ok) handleUnassignLineItem(item.id); }} className="text-[10px] text-orange-500 hover:text-orange-700 font-medium">Unassign</button>
+                        {canAssign && assignmentDriverId && (
+                          <button onClick={() => handleUnassignLineItem(item.id)} className="text-[10px] text-orange-500 hover:text-orange-700 font-medium">Clear</button>
                         )}
-                        {isPending && !item.driverId && <span className="text-[10px] text-amber-600 font-medium">Pending</span>}
                       </div>
                     </div>
                   );

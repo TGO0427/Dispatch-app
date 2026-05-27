@@ -91,14 +91,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       return job.dispatchedAt;
     };
 
-    const getNormalizedDispatchQty = (order: { outstandingQty: number; pallets: number }) => {
-      if (order.outstandingQty <= 0) return 0;
-      if (order.pallets > 0 && order.outstandingQty / order.pallets > 5000) {
-        return Math.round(order.outstandingQty / 1000);
-      }
-      return order.outstandingQty;
-    };
-
     const departuresThisWeek = new Set<string>();
     const dispatchedByRef = new Map<string, { dispatchDate?: string; historicalDeliveryDate?: string; pallets: number; outstandingQty: number }>();
     const deliveredMissingDispatchThisWeek = new Set<string>();
@@ -138,7 +130,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     });
     const ordersDispatchedThisWeek = dispatchedThisWeek.length;
     const palletsDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.pallets, 0);
-    const qtyDispatchedThisWeek = qtyDispatchedThisWeekOrders.reduce((sum, order) => sum + getNormalizedDispatchQty(order), 0);
+    const qtyDispatchedThisWeek = qtyDispatchedThisWeekOrders.reduce((sum, order) => sum + order.outstandingQty, 0);
     const palletsDispatchedThisYear = Array.from(dispatchedByRef.values()).reduce((sum, order) => {
       const palletDate = order.dispatchDate || order.historicalDeliveryDate;
       if (!palletDate) return sum;

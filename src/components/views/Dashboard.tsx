@@ -105,12 +105,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
         deliveredMissingDispatchThisWeek.add(j.ref);
       }
 
-      const dispatchDate = getDispatchDate(j);
-      if (!dispatchDate) return;
       const existing = dispatchedByRef.get(j.ref) || { pallets: 0, outstandingQty: 0 };
       existing.pallets = Math.max(existing.pallets, j.pallets || 0);
       existing.outstandingQty += j.outstandingQty || 0;
 
+      const dispatchDate = getDispatchDate(j);
       if (dispatchDate && (!existing.dispatchDate || new Date(dispatchDate) > new Date(existing.dispatchDate))) {
         existing.dispatchDate = dispatchDate;
       }
@@ -301,13 +300,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     },
     {
       icon: Package, value: stats.palletsDispatchedThisWeek, label: "PALLETS DISPATCHED",
-      change: `${stats.ordersDispatchedThisWeek} orders stamped`,
+      change: `Avg ${stats.avgPalletsDispatchedPerWeekThisYear.toFixed(1)}/wk this year`,
       changeType: stats.palletsDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.palletsDispatchedThisWeek > 20 ? "Pallets Flew" : stats.palletsDispatchedThisWeek > 0 ? "Solid Shift" : "Quiet Floor",
       borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clipboard", tab: "dispatched-week",
     },
     {
       icon: Archive, value: formatNumber(stats.qtyDispatchedThisWeek), label: "QTY DISPATCHED",
-      change: stats.deliveredMissingDispatchCount > 0 ? `${stats.deliveredMissingDispatchCount} delivered need dispatch date` : "Dispatch-stamped this week",
+      change: `${stats.ordersDispatchedThisWeek} orders dispatched`,
       changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.qtyDispatchedThisWeek > 1000 ? "Big Push" : stats.qtyDispatchedThisWeek > 0 ? "Qty Cleared" : "Nothing Moved",
       borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clock", tab: undefined,
     },

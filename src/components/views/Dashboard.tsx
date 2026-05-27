@@ -93,11 +93,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
 
     const departuresThisWeek = new Set<string>();
     const dispatchedByRef = new Map<string, { dispatchDate?: string; pallets: number; outstandingQty: number }>();
+    const deliveredMissingDispatchThisWeek = new Set<string>();
     orderJobs.forEach((j) => {
       const plannedDepartureDate = j.etd || calculateETD(j.eta, j.transportService);
       const canStillDepart = j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled";
       if (canStillDepart && isThisWeek(plannedDepartureDate)) {
         departuresThisWeek.add(j.ref);
+      }
+
+      if (j.status === "delivered" && !j.dispatchedAt && isThisWeek(j.actualDeliveryAt)) {
+        deliveredMissingDispatchThisWeek.add(j.ref);
       }
 
       const dispatchDate = getDispatchDate(j);
@@ -112,6 +117,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       dispatchedByRef.set(j.ref, existing);
     });
     const dispatchedThisWeek = Array.from(dispatchedByRef.values()).filter((order) => isThisWeek(order.dispatchDate));
+    const ordersDispatchedThisWeek = dispatchedThisWeek.length;
     const palletsDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.pallets, 0);
     const qtyDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.outstandingQty, 0);
     const palletsDispatchedThisYear = Array.from(dispatchedByRef.values()).reduce((sum, order) => {
@@ -186,9 +192,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       availableDrivers,
       busyDrivers,
       departuresThisWeek: departuresThisWeek.size,
+      ordersDispatchedThisWeek,
       palletsDispatchedThisWeek,
       avgPalletsDispatchedPerWeekThisYear,
       qtyDispatchedThisWeek,
+      deliveredMissingDispatchCount: deliveredMissingDispatchThisWeek.size,
       alertCount,
       highVolumeWins,
     };
@@ -293,13 +301,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     },
     {
       icon: Package, value: stats.palletsDispatchedThisWeek, label: "PALLETS DISPATCHED",
-      change: `Avg ${stats.avgPalletsDispatchedPerWeekThisYear.toFixed(1)}/wk this year`,
+      change: `${stats.ordersDispatchedThisWeek} orders stamped`,
       changeType: stats.palletsDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.palletsDispatchedThisWeek > 20 ? "Pallets Flew" : stats.palletsDispatchedThisWeek > 0 ? "Solid Shift" : "Quiet Floor",
       borderColor: "border-l-indigo-500", iconBg: "bg-indigo-50", iconColor: "text-indigo-500", nav: "clipboard", tab: "dispatched-week",
     },
     {
       icon: Archive, value: formatNumber(stats.qtyDispatchedThisWeek), label: "QTY DISPATCHED",
-      change: "Dispatched this week",
+      change: stats.deliveredMissingDispatchCount > 0 ? `${stats.deliveredMissingDispatchCount} delivered need dispatch date` : "Dispatch-stamped this week",
       changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.qtyDispatchedThisWeek > 1000 ? "Big Push" : stats.qtyDispatchedThisWeek > 0 ? "Qty Cleared" : "Nothing Moved",
       borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clock", tab: undefined,
     },
@@ -365,6 +373,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
             <span className="w-px h-4 bg-gray-700" />
             <span className="text-emerald-400">
               {stats.highVolumeWins.map((w) => `${w.date}: ${w.pct}%`).join(" • ")}
+            </span>
+          </>
+        )}
+        {stats.deliveredMissingDispatchCount > 0 && (
+          <>
+            <span className="w-px h-4 bg-gray-700" />
+            <span className="text-amber-300">
+              {stats.deliveredMissingDispatchCount} delivered orders missing dispatch timestamp
             </span>
           </>
         )}

@@ -92,7 +92,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     };
 
     const departuresThisWeek = new Set<string>();
-    const dispatchedByRef = new Map<string, { dispatchDate?: string; pallets: number; outstandingQty: number }>();
+    const dispatchedByRef = new Map<string, { dispatchDate?: string; historicalDeliveryDate?: string; pallets: number; outstandingQty: number }>();
     const deliveredMissingDispatchThisWeek = new Set<string>();
     orderJobs.forEach((j) => {
       const plannedDepartureDate = j.etd || calculateETD(j.eta, j.transportService);
@@ -113,6 +113,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       if (dispatchDate && (!existing.dispatchDate || new Date(dispatchDate) > new Date(existing.dispatchDate))) {
         existing.dispatchDate = dispatchDate;
       }
+      if (
+        j.status === "delivered" &&
+        !j.dispatchedAt &&
+        j.actualDeliveryAt &&
+        (!existing.historicalDeliveryDate || new Date(j.actualDeliveryAt) > new Date(existing.historicalDeliveryDate))
+      ) {
+        existing.historicalDeliveryDate = j.actualDeliveryAt;
+      }
       dispatchedByRef.set(j.ref, existing);
     });
     const dispatchedThisWeek = Array.from(dispatchedByRef.values()).filter((order) => isThisWeek(order.dispatchDate));
@@ -120,8 +128,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     const palletsDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.pallets, 0);
     const qtyDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.outstandingQty, 0);
     const palletsDispatchedThisYear = Array.from(dispatchedByRef.values()).reduce((sum, order) => {
-      if (!order.dispatchDate) return sum;
-      const dispatchDate = new Date(order.dispatchDate);
+      const palletDate = order.dispatchDate || order.historicalDeliveryDate;
+      if (!palletDate) return sum;
+      const dispatchDate = new Date(palletDate);
       if (Number.isNaN(dispatchDate.getTime()) || dispatchDate.getFullYear() !== now.getFullYear()) return sum;
       return sum + order.pallets;
     }, 0);

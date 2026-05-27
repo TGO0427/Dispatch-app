@@ -91,6 +91,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       return job.dispatchedAt;
     };
 
+    const getNormalizedDispatchQty = (order: { outstandingQty: number; pallets: number }) => {
+      if (order.outstandingQty <= 0) return 0;
+      if (order.pallets > 0 && order.outstandingQty / order.pallets > 5000) {
+        return Math.round(order.outstandingQty / 1000);
+      }
+      return order.outstandingQty;
+    };
+
     const departuresThisWeek = new Set<string>();
     const dispatchedByRef = new Map<string, { dispatchDate?: string; historicalDeliveryDate?: string; pallets: number; outstandingQty: number }>();
     const deliveredMissingDispatchThisWeek = new Set<string>();
@@ -124,9 +132,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       dispatchedByRef.set(j.ref, existing);
     });
     const dispatchedThisWeek = Array.from(dispatchedByRef.values()).filter((order) => isThisWeek(order.dispatchDate));
+    const qtyDispatchedThisWeekOrders = Array.from(dispatchedByRef.values()).filter((order) => {
+      const qtyDate = order.dispatchDate || order.historicalDeliveryDate;
+      return isThisWeek(qtyDate);
+    });
     const ordersDispatchedThisWeek = dispatchedThisWeek.length;
     const palletsDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.pallets, 0);
-    const qtyDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.outstandingQty, 0);
+    const qtyDispatchedThisWeek = qtyDispatchedThisWeekOrders.reduce((sum, order) => sum + getNormalizedDispatchQty(order), 0);
     const palletsDispatchedThisYear = Array.from(dispatchedByRef.values()).reduce((sum, order) => {
       const palletDate = order.dispatchDate || order.historicalDeliveryDate;
       if (!palletDate) return sum;
@@ -204,6 +216,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       palletsDispatchedThisWeek,
       avgPalletsDispatchedPerWeekThisYear,
       qtyDispatchedThisWeek,
+      qtyOrdersDispatchedThisWeek: qtyDispatchedThisWeekOrders.length,
       deliveredMissingDispatchCount: deliveredMissingDispatchThisWeek.size,
       alertCount,
       highVolumeWins,
@@ -315,7 +328,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     },
     {
       icon: Archive, value: formatNumber(stats.qtyDispatchedThisWeek), label: "QTY DISPATCHED",
-      change: `${stats.ordersDispatchedThisWeek} orders dispatched`,
+      change: `${stats.qtyOrdersDispatchedThisWeek} orders dispatched`,
       changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.qtyDispatchedThisWeek > 1000 ? "Big Push" : stats.qtyDispatchedThisWeek > 0 ? "Qty Cleared" : "Nothing Moved",
       borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clock", tab: undefined,
     },

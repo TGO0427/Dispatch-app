@@ -207,7 +207,13 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     }
 
     const updates: Partial<Job> = { ...editedJob };
-    if (editedJob.status === "en-route" && job.status !== "en-route" && !editedJob.dispatchedAt) {
+    const isDispatching = editedJob.status === "en-route" && job.status !== "en-route";
+    const isDeliveringWithoutDispatch =
+      editedJob.status === "delivered" &&
+      job.status !== "delivered" &&
+      !editedJob.dispatchedAt;
+
+    if ((isDispatching || isDeliveringWithoutDispatch) && !editedJob.dispatchedAt) {
       updates.dispatchedAt = new Date().toISOString();
     }
     if (editedJob.status === "delivered" && job.status !== "delivered" && !editedJob.actualDeliveryAt) {
@@ -224,7 +230,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       editedJob.status === "returned" ||
       editedJob.status === "cancelled";
 
-    if (editedJob.status !== job.status && !isClosingLine) sharedUpdates.status = editedJob.status;
+    if (editedJob.status !== job.status && (!isClosingLine || editedJob.status === "en-route")) sharedUpdates.status = editedJob.status;
     if (!hasLineAssignmentChanges && editedJob.driverId !== job.driverId) sharedUpdates.driverId = editedJob.driverId;
     if (editedJob.transporterBooked !== job.transporterBooked) sharedUpdates.transporterBooked = editedJob.transporterBooked;
     if (editedJob.orderPicked !== job.orderPicked) sharedUpdates.orderPicked = editedJob.orderPicked;
@@ -259,6 +265,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
         status: editedJob.status,
       };
 
+      if (updates.dispatchedAt !== job.dispatchedAt) closingUpdates.dispatchedAt = updates.dispatchedAt;
       if (updates.actualDeliveryAt !== job.actualDeliveryAt) closingUpdates.actualDeliveryAt = updates.actualDeliveryAt;
       if (updates.returnedAt !== job.returnedAt) closingUpdates.returnedAt = updates.returnedAt;
       if (editedJob.returnReason !== job.returnReason) closingUpdates.returnReason = editedJob.returnReason;
@@ -269,7 +276,13 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       if (siblingIds.length > 0) await updateJobs(siblingIds, closingUpdates);
     } else if (Object.keys(sharedUpdates).length > 0) {
       const siblingIds = jobs
-        .filter((j) => j.ref === job.ref && j.id !== job.id && j.status !== "pending")
+        .filter((j) => {
+          if (j.ref !== job.ref || j.id === job.id) return false;
+          if (editedJob.status === "en-route") {
+            return !["delivered", "returned", "cancelled"].includes(j.status);
+          }
+          return j.status !== "pending";
+        })
         .map((j) => j.id);
       if (siblingIds.length > 0) await updateJobs(siblingIds, sharedUpdates);
     }

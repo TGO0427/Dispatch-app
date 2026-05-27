@@ -5,7 +5,7 @@
       "schedule": "0 2 * * *"
     }
   ],
-  "buildCommand": "prisma migrate deploy && prisma generate && npm run build",
+  "buildCommand": "prisma generate && npm run build",
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
   "installCommand": "npm install",

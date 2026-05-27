@@ -30,10 +30,12 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editedJob, setEditedJob] = useState<Job>(job);
   const [lineAssignments, setLineAssignments] = useState<Record<string, string>>({});
+  const [closeAllLineItems, setCloseAllLineItems] = useState(false);
 
   React.useEffect(() => {
     setEditedJob(job);
     setIsEditing(false);
+    setCloseAllLineItems(false);
   }, [job]);
 
   // Flowbin state
@@ -78,7 +80,15 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     () => lineItems.filter((item) => !["delivered", "returned", "cancelled", "en-route"].includes(item.status)),
     [lineItems],
   );
+  const closeableLineItems = useMemo(
+    () => lineItems.filter((item) => !["delivered", "returned", "cancelled"].includes(item.status)),
+    [lineItems],
+  );
   const hasLineAssignmentChanges = lineItems.some((item) => (lineAssignments[item.id] || "") !== (item.driverId || ""));
+  const isClosingStatus =
+    editedJob.status === "delivered" ||
+    editedJob.status === "returned" ||
+    editedJob.status === "cancelled";
   const revisedETD = calculateRevisedETD(editedJob);
   const deliveryDelayDays = getDeliveryDelayDays(editedJob);
   const currentAssignedDriverId = lineAssignments[job.id] || editedJob.driverId;
@@ -234,17 +244,34 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.overdueReason !== job.overdueReason) sharedUpdates.overdueReason = editedJob.overdueReason;
     if (editedJob.internalNotes !== job.internalNotes) sharedUpdates.internalNotes = editedJob.internalNotes;
 
+    if (hasLineAssignmentChanges) {
+      await saveLineAssignments();
+    }
+
     await updateJob(job.id, updates);
 
-    if (Object.keys(sharedUpdates).length > 0) {
+    if (isClosingLine && closeAllLineItems) {
+      const siblingIds = closeableLineItems
+        .filter((item) => item.id !== job.id)
+        .map((item) => item.id);
+
+      const closingUpdates: Partial<Job> = {
+        status: editedJob.status,
+      };
+
+      if (updates.actualDeliveryAt !== job.actualDeliveryAt) closingUpdates.actualDeliveryAt = updates.actualDeliveryAt;
+      if (updates.returnedAt !== job.returnedAt) closingUpdates.returnedAt = updates.returnedAt;
+      if (editedJob.returnReason !== job.returnReason) closingUpdates.returnReason = editedJob.returnReason;
+      if (editedJob.returnedPallets !== job.returnedPallets) closingUpdates.returnedPallets = editedJob.returnedPallets;
+      if (editedJob.returnNotes !== job.returnNotes) closingUpdates.returnNotes = editedJob.returnNotes;
+      if (updates.exceptionReason !== undefined) closingUpdates.exceptionReason = updates.exceptionReason;
+
+      if (siblingIds.length > 0) await updateJobs(siblingIds, closingUpdates);
+    } else if (Object.keys(sharedUpdates).length > 0) {
       const siblingIds = jobs
         .filter((j) => j.ref === job.ref && j.id !== job.id && j.status !== "pending")
         .map((j) => j.id);
       if (siblingIds.length > 0) await updateJobs(siblingIds, sharedUpdates);
-    }
-
-    if (hasLineAssignmentChanges) {
-      await saveLineAssignments();
     }
 
     const isAmend = job.status === "delivered" || job.status === "returned" || job.status === "cancelled";
@@ -256,6 +283,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
   const handleCancel = () => {
     setEditedJob(job);
     setLineAssignments(Object.fromEntries(lineItems.map((item) => [item.id, item.driverId || ""])));
+    setCloseAllLineItems(false);
     setIsEditing(false);
   };
 
@@ -264,6 +292,11 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       const next = { ...prev, [field]: value };
       if (field === "eta" && next.transportService) {
         next.etd = calculateETD(next.eta, next.transportService);
+      }
+      if (field === "status") {
+        const nextStatus = value as JobStatus;
+        const isNextClosingStatus = nextStatus === "delivered" || nextStatus === "returned" || nextStatus === "cancelled";
+        setCloseAllLineItems(isNextClosingStatus && hasMultipleLineItems);
       }
       return next;
     });
@@ -315,6 +348,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                     returnedAt: prev.returnedAt || new Date().toISOString(),
                     returnedPallets: prev.returnedPallets ?? prev.pallets,
                   }));
+                  setCloseAllLineItems(hasMultipleLineItems);
                   setIsEditing(true);
                 }}
                 className="text-xs gap-1 text-amber-600 hover:text-amber-700"
@@ -361,19 +395,32 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
 
           {/* Status & Priority (edit mode) */}
           {isEditing && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Status</label>
-                <select value={editedJob.status} onChange={(e) => updateField("status", e.target.value as JobStatus)} className={inputCls}>
-                  {JOB_STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-                </select>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Status</label>
+                  <select value={editedJob.status} onChange={(e) => updateField("status", e.target.value as JobStatus)} className={inputCls}>
+                    {JOB_STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Priority</label>
+                  <select value={editedJob.priority} onChange={(e) => updateField("priority", e.target.value as JobPriority)} className={inputCls}>
+                    {JOB_PRIORITIES.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className={labelCls}>Priority</label>
-                <select value={editedJob.priority} onChange={(e) => updateField("priority", e.target.value as JobPriority)} className={inputCls}>
-                  {JOB_PRIORITIES.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-                </select>
-              </div>
+              {hasMultipleLineItems && isClosingStatus && (
+                <label className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">
+                  <span>Apply {editedJob.status} to all open line items</span>
+                  <input
+                    type="checkbox"
+                    checked={closeAllLineItems}
+                    onChange={(e) => setCloseAllLineItems(e.target.checked)}
+                    className="h-4 w-4 rounded border-emerald-300 text-resilinc-primary focus:ring-resilinc-primary"
+                  />
+                </label>
+              )}
             </div>
           )}
 

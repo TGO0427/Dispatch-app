@@ -679,6 +679,7 @@ export const HistoryView: React.FC = () => {
         <JobDetailsModal
           job={selectedJob}
           onClose={() => setSelectedJob(null)}
+          onSelectLineItem={(lineItem) => setSelectedJob(lineItem)}
           driverName={selectedJob.driverId ? drivers.find((d) => d.id === selectedJob.driverId)?.name : undefined}
         />
       )}

@@ -708,6 +708,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
         <JobDetailsModal
           job={selectedJob}
           onClose={() => setSelectedJob(null)}
+          onSelectLineItem={(lineItem) => setSelectedJob(lineItem)}
           driverName={getDriverName(selectedJob.driverId)}
         />
       )}

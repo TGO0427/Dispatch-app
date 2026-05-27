@@ -195,6 +195,7 @@ export const ExceptionsView: React.FC<ExceptionsViewProps> = ({ onNavigate }) =>
           job={selectedJob}
           driverName={selectedDriverName}
           onClose={() => setSelectedJob(null)}
+          onSelectLineItem={(lineItem) => setSelectedJob(lineItem)}
         />
       )}
     </div>

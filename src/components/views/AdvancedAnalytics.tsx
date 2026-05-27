@@ -1056,6 +1056,7 @@ export const AdvancedAnalytics: React.FC = () => {
         <JobDetailsModal
           job={selectedJob}
           onClose={() => setSelectedJob(null)}
+          onSelectLineItem={(lineItem) => setSelectedJob(lineItem)}
           driverName={selectedJob.driverId ? drivers.find((driver) => driver.id === selectedJob.driverId)?.name : undefined}
         />
       )}

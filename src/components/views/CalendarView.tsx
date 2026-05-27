@@ -375,6 +375,7 @@ export const CalendarView: React.FC = () => {
         <JobDetailsModal
           job={selectedJob}
           onClose={() => setSelectedJob(null)}
+          onSelectLineItem={(lineItem) => setSelectedJob(lineItem)}
           driverName={getDriverName(selectedJob.driverId)}
         />
       )}

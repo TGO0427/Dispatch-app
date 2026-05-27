@@ -87,19 +87,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     };
 
     const getDispatchDate = (job: typeof orderJobs[0]) => {
-      if (job.status !== "en-route" && job.status !== "delivered") {
-        return undefined;
-      }
-      if (job.dispatchedAt) {
-        return job.dispatchedAt;
-      }
-      if (job.status === "en-route") {
-        return job.updatedAt;
-      }
-      if (job.status === "delivered") {
-        return job.actualDeliveryAt;
-      }
-      return undefined;
+      if (job.status !== "en-route" && job.status !== "delivered") return undefined;
+      return job.dispatchedAt;
     };
 
     const departuresThisWeek = new Set<string>();
@@ -111,11 +100,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
         departuresThisWeek.add(j.ref);
       }
 
+      const dispatchDate = getDispatchDate(j);
+      if (!dispatchDate) return;
       const existing = dispatchedByRef.get(j.ref) || { pallets: 0, outstandingQty: 0 };
       existing.pallets = Math.max(existing.pallets, j.pallets || 0);
       existing.outstandingQty += j.outstandingQty || 0;
 
-      const dispatchDate = getDispatchDate(j);
       if (dispatchDate && (!existing.dispatchDate || new Date(dispatchDate) > new Date(existing.dispatchDate))) {
         existing.dispatchDate = dispatchDate;
       }

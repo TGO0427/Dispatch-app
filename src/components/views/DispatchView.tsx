@@ -77,7 +77,8 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     if (!dateString) return false;
     const now = new Date();
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
+    const dayOfWeek = startOfWeek.getDay() || 7;
+    startOfWeek.setDate(now.getDate() - dayOfWeek + 1);
     startOfWeek.setHours(0, 0, 0, 0);
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 7);
@@ -87,19 +88,8 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   };
 
   const getDispatchDate = (job: Job) => {
-    if (job.status !== "en-route" && job.status !== "delivered") {
-      return undefined;
-    }
-    if (job.dispatchedAt) {
-      return job.dispatchedAt;
-    }
-    if (job.status === "en-route") {
-      return job.updatedAt;
-    }
-    if (job.status === "delivered") {
-      return job.actualDeliveryAt;
-    }
-    return undefined;
+    if (job.status !== "en-route" && job.status !== "delivered") return undefined;
+    return job.dispatchedAt;
   };
 
   // Filter to show only customer order jobs, deduplicated by ASO ref,

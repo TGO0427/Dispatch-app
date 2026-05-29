@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const user = await prisma.user.findUnique({
           where: { id },
-          select: { id: true, username: true, email: true, role: true },
+          select: { id: true, username: true, email: true, role: true, lastSeenAt: true },
         });
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
         return res.json(user);
@@ -70,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const updatedUser = await prisma.user.update({
           where: { id }, data: updateData,
-          select: { id: true, username: true, email: true, role: true },
+          select: { id: true, username: true, email: true, role: true, lastSeenAt: true },
         });
         return res.json({ success: true, user: updatedUser, message: "User updated successfully" });
       } catch (error: unknown) {
@@ -105,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!user) return res.headersSent ? undefined : res.status(401).json({ success: false, message: "Unauthorized" });
     try {
       const users = await prisma.user.findMany({
-        select: { id: true, username: true, email: true, role: true, createdAt: true },
+        select: { id: true, username: true, email: true, role: true, createdAt: true, lastSeenAt: true },
       });
       return res.json({ success: true, data: users });
     } catch (error) {
@@ -136,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const newUser = await prisma.user.create({
         data: { username, email, password: hashedPassword, role },
-        select: { id: true, username: true, email: true, role: true },
+        select: { id: true, username: true, email: true, role: true, lastSeenAt: true },
       });
       return res.status(201).json({ success: true, user: newUser, message: "User created successfully" });
     } catch (error: unknown) {

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useNotification } from "./NotificationContext";
+import { presenceAPI } from "../services/api";
 
 export interface User {
   id: string;
@@ -79,6 +80,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    presenceAPI.heartbeat().catch(() => undefined);
+    const interval = window.setInterval(() => {
+      presenceAPI.heartbeat().catch(() => undefined);
+    }, 60_000);
+
+    return () => window.clearInterval(interval);
+  }, [user]);
 
   const login = async (username: string, password: string) => {
     try {

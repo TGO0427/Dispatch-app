@@ -7,8 +7,12 @@ import { messagesAPI } from "../../services/api";
 import type { Message } from "../../types";
 import { formatClockTime, formatShortDate } from "../../utils/format";
 
+type TeamUser = { id: string; username: string; role: string; lastSeenAt?: string | null };
+
+const ONLINE_WINDOW_MS = 2.5 * 60 * 1000;
+
 // Fetch all users for recipient selection
-async function fetchUsers(): Promise<{ id: string; username: string; role: string }[]> {
+async function fetchUsers(): Promise<TeamUser[]> {
   const res = await fetch("/api/users", {
     headers: {
       "Content-Type": "application/json",
@@ -17,6 +21,12 @@ async function fetchUsers(): Promise<{ id: string; username: string; role: strin
   });
   const json = await res.json();
   return json.data || [];
+}
+
+function isUserOnline(user: TeamUser): boolean {
+  if (!user.lastSeenAt) return false;
+  const lastSeen = new Date(user.lastSeenAt).getTime();
+  return Number.isFinite(lastSeen) && Date.now() - lastSeen <= ONLINE_WINDOW_MS;
 }
 
 // Inject animation keyframes
@@ -44,7 +54,7 @@ export const InboxView: React.FC = () => {
 
   // Compose state
   const [showCompose, setShowCompose] = useState(false);
-  const [allUsers, setAllUsers] = useState<{ id: string; username: string; role: string }[]>([]);
+  const [allUsers, setAllUsers] = useState<TeamUser[]>([]);
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeRecipients, setComposeRecipients] = useState<string[]>([]);
@@ -112,6 +122,23 @@ export const InboxView: React.FC = () => {
   }, [grouped, searchQuery]);
 
   const unreadCount = useMemo(() => messages.filter((m) => !m._readAt).length, [messages]);
+  const onlineUsers = useMemo(() => allUsers.filter(isUserOnline), [allUsers]);
+
+  const fetchTeamUsers = useCallback(async () => {
+    try {
+      const users = await fetchUsers();
+      setAllUsers(users.filter((u) => u.id !== user?.id));
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchTeamUsers();
+    const interval = window.setInterval(fetchTeamUsers, 60_000);
+    return () => window.clearInterval(interval);
+  }, [fetchTeamUsers, user]);
 
   const handleSelectMessage = async (msg: Message & { _readAt?: string | null }) => {
     setSelectedMessage(msg);
@@ -141,10 +168,7 @@ export const InboxView: React.FC = () => {
   };
 
   const openCompose = async (replyTo?: Message) => {
-    try {
-      const users = await fetchUsers();
-      setAllUsers(users.filter((u) => u.id !== user?.id));
-    } catch { /* ignore */ }
+    fetchTeamUsers();
 
     if (replyTo) {
       setComposeSubject(replyTo.subject.startsWith("Re: ") ? replyTo.subject : `Re: ${replyTo.subject}`);
@@ -282,6 +306,13 @@ export const InboxView: React.FC = () => {
             value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-3 h-7 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-resilinc-primary bg-white"
           />
+        </div>
+        <div
+          className="hidden sm:flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-600"
+          title={onlineUsers.length > 0 ? onlineUsers.map((u) => u.username).join(", ") : "No other users online"}
+        >
+          <span className="h-2 w-2 rounded-full bg-green-500" />
+          {onlineUsers.length} online
         </div>
         <Button size="sm" onClick={() => openCompose()} className="gap-1.5 h-7 text-xs">
           <Send className="h-3 w-3" /> New
@@ -600,6 +631,7 @@ export const InboxView: React.FC = () => {
                       <span key={rid} className="flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md text-xs">
                         <User className="h-3 w-3" />
                         {u?.username || rid}
+                        {u && isUserOnline(u) && <span className="h-1.5 w-1.5 rounded-full bg-green-500" title="Online" />}
                         <button onClick={() => setComposeRecipients((prev) => prev.filter((r) => r !== rid))} className="hover:text-blue-900">
                           <X className="h-3 w-3" />
                         </button>
@@ -621,11 +653,32 @@ export const InboxView: React.FC = () => {
                       >
                         <option value="__placeholder__">Add recipient...</option>
                         {available.map((u) => (
-                          <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+                          <option key={u.id} value={u.id}>{isUserOnline(u) ? "● " : ""}{u.username} ({u.role})</option>
                         ))}
                       </select>
                     );
                   })()}
+                </div>
+              )}
+
+              {!composeBroadcast && onlineUsers.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+                  <span className="font-semibold uppercase tracking-wider text-gray-400">Online now</span>
+                  {onlineUsers.map((onlineUser) => (
+                    <button
+                      key={onlineUser.id}
+                      type="button"
+                      onClick={() => {
+                        if (!composeRecipients.includes(onlineUser.id)) {
+                          setComposeRecipients((prev) => [...prev, onlineUser.id]);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-green-700 hover:border-green-300 hover:bg-green-100"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                      {onlineUser.username}
+                    </button>
+                  ))}
                 </div>
               )}
 

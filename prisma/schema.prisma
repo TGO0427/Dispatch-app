@@ -94,6 +94,7 @@ model User {
   role                 String    @default("user") @db.VarChar(50)
   passwordResetToken   String?   @db.VarChar(255)
   passwordResetExpires DateTime?
+  lastSeenAt           DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

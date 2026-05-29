@@ -183,6 +183,10 @@ export const messagesAPI = {
 
 // ============ Health Check ============
 
+export const presenceAPI = {
+  heartbeat: () => fetchAPI<{ lastSeenAt: string }>("/api/auth?action=presence", { method: "POST" }),
+};
+
 export const healthCheck = async (): Promise<{ status: string; timestamp: string }> => {
   return fetchAPI<{ status: string; timestamp: string }>("/api/health");
 };

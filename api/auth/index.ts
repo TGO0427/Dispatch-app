@@ -95,6 +95,10 @@ async function handleLogin(req: VercelRequest, res: VercelResponse) {
     getJWTSecret(),
     { expiresIn: "8h" }
   );
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastSeenAt: new Date() },
+  });
   const { password: _, ...userWithoutPassword } = user;
   return res.json({ success: true, token, user: userWithoutPassword });
 }
@@ -108,6 +112,10 @@ async function handleVerify(req: VercelRequest, res: VercelResponse) {
   try {
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, getJWTSecret()) as { id: string; username: string; email: string; role: string };
+    await prisma.user.update({
+      where: { id: decoded.id },
+      data: { lastSeenAt: new Date() },
+    });
     return res.json({
       success: true,
       user: { id: decoded.id, username: decoded.username, email: decoded.email, role: decoded.role },
@@ -118,8 +126,42 @@ async function handleVerify(req: VercelRequest, res: VercelResponse) {
 }
 
 // POST /api/auth?action=logout
-async function handleLogout(_req: VercelRequest, res: VercelResponse) {
+async function handleLogout(req: VercelRequest, res: VercelResponse) {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    try {
+      const decoded = jwt.verify(authHeader.substring(7), getJWTSecret()) as { id: string };
+      await prisma.user.update({
+        where: { id: decoded.id },
+        data: { lastSeenAt: null },
+      });
+    } catch {
+      // Logout should still clear the client session even if the token is stale.
+    }
+  }
   return res.json({ success: true, message: "Logged out successfully" });
+}
+
+// POST /api/auth?action=presence
+async function handlePresence(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "POST") return res.status(405).json({ success: false, message: "Method not allowed" });
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  try {
+    const decoded = jwt.verify(authHeader.substring(7), getJWTSecret()) as { id: string };
+    const lastSeenAt = new Date();
+    await prisma.user.update({
+      where: { id: decoded.id },
+      data: { lastSeenAt },
+    });
+    return res.json({ success: true, data: { lastSeenAt: lastSeenAt.toISOString() } });
+  } catch {
+    return res.status(401).json({ success: false, message: "Invalid or expired token" });
+  }
 }
 
 // POST /api/auth?action=change-password (authenticated)
@@ -296,6 +338,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case "login": return await handleLogin(req, res);
       case "verify": return await handleVerify(req, res);
       case "logout": return await handleLogout(req, res);
+      case "presence": return await handlePresence(req, res);
       case "change-password": return await handleChangePassword(req, res);
       case "data-export": return await handleDataExport(req, res);
       case "erase-user": return await handleEraseUser(req, res);

@@ -598,13 +598,23 @@ export const AdvancedAnalytics: React.FC = () => {
     const totalJobs = filteredJobs.length;
     const deliveredJobs = filteredJobs.filter((j) => j.status === "delivered").length;
     const exceptionsCount = filteredJobs.filter((j) => j.status === "exception").length;
-    const deliveryRate = totalJobs > 0 ? Math.round((deliveredJobs / totalJobs) * 100) : 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const overdueJobs = filteredJobs.filter((j) => (
+      j.eta &&
+      j.status !== "delivered" &&
+      j.status !== "cancelled" &&
+      new Date(j.eta) < today
+    )).length;
+    const deliveryRateBase = deliveredJobs + overdueJobs;
+    const deliveryRate = deliveryRateBase > 0 ? Math.round((deliveredJobs / deliveryRateBase) * 100) : 0;
     const exceptionRate = totalJobs > 0 ? Math.round((exceptionsCount / totalJobs) * 100) : 0;
 
     return {
       totalJobs,
       deliveredJobs,
       deliveryRate,
+      overdueJobs,
       exceptionsCount,
       exceptionRate,
       activeTransporters: drivers.filter((d) => d.status !== "offline").length,
@@ -669,7 +679,7 @@ export const AdvancedAnalytics: React.FC = () => {
         {([
           { icon: Package, label: "Total Jobs", value: String(kpis.totalJobs), color: "text-gray-900", iconColor: "text-resilinc-primary", bg: "bg-green-50", onClick: () => openJobDrilldown("total"), disabled: kpis.totalJobs === 0 },
           { icon: TrendingUp, label: "Delivered", value: String(kpis.deliveredJobs), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50", onClick: () => openJobDrilldown("delivered"), disabled: kpis.deliveredJobs === 0 },
-          { icon: BarChart3, label: "Delivery Rate", value: `${kpis.deliveryRate}%`, color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
+          { icon: BarChart3, label: "Due Delivery Rate", value: `${kpis.deliveryRate}%`, color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
           { icon: Calendar, label: "Exceptions", value: String(kpis.exceptionsCount), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50", onClick: () => openJobDrilldown("exceptions"), disabled: kpis.exceptionsCount === 0 },
           { icon: PieChartIcon, label: "Exception Rate", value: `${kpis.exceptionRate}%`, color: "text-amber-600", iconColor: "text-amber-600", bg: "bg-amber-50" },
           { icon: Truck, label: "Transporters", value: String(kpis.activeTransporters), color: "text-gray-900", iconColor: "text-gray-600", bg: "bg-gray-100", onClick: () => scrollToRef(transporterMetricsRef), disabled: transporterMetrics.length === 0 },

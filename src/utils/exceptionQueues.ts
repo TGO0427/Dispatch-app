@@ -15,6 +15,7 @@ export interface ExceptionQueueItem {
 }
 
 const CLOSED_STATUSES = new Set(["delivered", "returned", "cancelled"]);
+const QUEUE_EXIT_STATUSES = new Set(["en-route"]);
 
 function toDayStart(dateString?: string): Date | undefined {
   if (!dateString) return undefined;
@@ -50,6 +51,8 @@ export function buildExceptionQueues(jobs: Job[]): Record<ExceptionQueueKey, Exc
     });
 
   orderGroups.forEach((group) => {
+    if (group.some((job) => QUEUE_EXIT_STATUSES.has(job.status))) return;
+
     const primary = group.find((job) => job.status === "exception") || group[0];
     const openLines = group.filter((job) => !CLOSED_STATUSES.has(job.status));
     const latestEtd = latestDate(openLines.map((job) => calculateRevisedETD(job) || job.etd));

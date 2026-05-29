@@ -1,5 +1,5 @@
 // src/components/views/AdvancedAnalytics.tsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -26,6 +26,7 @@ import { formatDate, formatDateTime } from "../../utils/format";
 import type { Job } from "../../types";
 
 type TimeRange = "7d" | "30d" | "90d" | "current-month" | "previous-month" | "all";
+type KpiDrilldownKey = "total" | "delivered" | "exceptions";
 
 const COLORS = {
   primary: "#0EA5E9",
@@ -47,6 +48,10 @@ export const AdvancedAnalytics: React.FC = () => {
   const [savingPalletRef, setSavingPalletRef] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedTransporterId, setSelectedTransporterId] = useState<string | null>(null);
+  const [activeKpiDrilldown, setActiveKpiDrilldown] = useState<KpiDrilldownKey | null>(null);
+  const drilldownRef = useRef<HTMLDivElement | null>(null);
+  const transporterMetricsRef = useRef<HTMLDivElement | null>(null);
+  const missingPalletsRef = useRef<HTMLDivElement | null>(null);
 
   const getTimeRangeLabel = (range: TimeRange) => {
     const now = new Date();
@@ -607,6 +612,32 @@ export const AdvancedAnalytics: React.FC = () => {
     };
   }, [filteredJobs, drivers, missingPalletAssignments]);
 
+  const drilldownJobs = useMemo(() => {
+    if (activeKpiDrilldown === "delivered") {
+      return filteredJobs.filter((job) => job.status === "delivered");
+    }
+    if (activeKpiDrilldown === "exceptions") {
+      return filteredJobs.filter((job) => job.status === "exception");
+    }
+    if (activeKpiDrilldown === "total") return filteredJobs;
+    return [];
+  }, [activeKpiDrilldown, filteredJobs]);
+
+  const drilldownTitle =
+    activeKpiDrilldown === "delivered" ? "Delivered Orders" :
+    activeKpiDrilldown === "exceptions" ? "Exception Orders" :
+    activeKpiDrilldown === "total" ? "All Orders" :
+    "";
+
+  const scrollToRef = (ref: React.RefObject<HTMLDivElement>) => {
+    window.setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+
+  const openJobDrilldown = (key: KpiDrilldownKey) => {
+    setActiveKpiDrilldown(key);
+    scrollToRef(drilldownRef);
+  };
+
   return (
     <div className="space-y-4">
       {/* Header — compact with filters inline */}
@@ -636,17 +667,16 @@ export const AdvancedAnalytics: React.FC = () => {
       {/* KPI Strip — tighter, stronger hierarchy */}
       <div className="grid gap-3 grid-cols-3 lg:grid-cols-7">
         {([
-          { icon: Package, label: "Total Jobs", value: String(kpis.totalJobs), color: "text-gray-900", iconColor: "text-resilinc-primary", bg: "bg-green-50" },
-          { icon: TrendingUp, label: "Delivered", value: String(kpis.deliveredJobs), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
+          { icon: Package, label: "Total Jobs", value: String(kpis.totalJobs), color: "text-gray-900", iconColor: "text-resilinc-primary", bg: "bg-green-50", onClick: () => openJobDrilldown("total"), disabled: kpis.totalJobs === 0 },
+          { icon: TrendingUp, label: "Delivered", value: String(kpis.deliveredJobs), color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50", onClick: () => openJobDrilldown("delivered"), disabled: kpis.deliveredJobs === 0 },
           { icon: BarChart3, label: "Delivery Rate", value: `${kpis.deliveryRate}%`, color: "text-green-600", iconColor: "text-green-600", bg: "bg-green-50" },
-          { icon: Calendar, label: "Exceptions", value: String(kpis.exceptionsCount), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50" },
+          { icon: Calendar, label: "Exceptions", value: String(kpis.exceptionsCount), color: "text-red-600", iconColor: "text-red-600", bg: "bg-red-50", onClick: () => openJobDrilldown("exceptions"), disabled: kpis.exceptionsCount === 0 },
           { icon: PieChartIcon, label: "Exception Rate", value: `${kpis.exceptionRate}%`, color: "text-amber-600", iconColor: "text-amber-600", bg: "bg-amber-50" },
-          { icon: Truck, label: "Transporters", value: String(kpis.activeTransporters), color: "text-gray-900", iconColor: "text-gray-600", bg: "bg-gray-100" },
-          { icon: Package, label: "Missing Pallets", value: String(kpis.missingPalletQty), color: kpis.missingPalletQty > 0 ? "text-red-600" : "text-gray-900", iconColor: kpis.missingPalletQty > 0 ? "text-red-600" : "text-gray-600", bg: kpis.missingPalletQty > 0 ? "bg-red-50" : "bg-gray-100" },
+          { icon: Truck, label: "Transporters", value: String(kpis.activeTransporters), color: "text-gray-900", iconColor: "text-gray-600", bg: "bg-gray-100", onClick: () => scrollToRef(transporterMetricsRef), disabled: transporterMetrics.length === 0 },
+          { icon: Package, label: "Missing Pallets", value: String(kpis.missingPalletQty), color: kpis.missingPalletQty > 0 ? "text-red-600" : "text-gray-900", iconColor: kpis.missingPalletQty > 0 ? "text-red-600" : "text-gray-600", bg: kpis.missingPalletQty > 0 ? "bg-red-50" : "bg-gray-100", onClick: () => scrollToRef(missingPalletsRef), disabled: kpis.missingPalletQty === 0 },
         ] as const).map((kpi) => {
           const Icon = kpi.icon;
-          return (
-            <Card key={kpi.label} className="p-3">
+          const content = (
               <div className="flex items-center gap-2.5">
                 <div className={`rounded-lg p-1.5 ${kpi.bg}`}>
                   <Icon className={`h-4 w-4 ${kpi.iconColor}`} />
@@ -656,10 +686,103 @@ export const AdvancedAnalytics: React.FC = () => {
                   <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{kpi.label}</div>
                 </div>
               </div>
+          );
+
+          if ("onClick" in kpi && !kpi.disabled) {
+            return (
+              <button
+                key={kpi.label}
+                type="button"
+                onClick={kpi.onClick}
+                className="rounded-card border border-gray-200 bg-white p-3 text-left shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-resilinc-primary focus-visible:ring-offset-2"
+                title={`View ${kpi.label.toLowerCase()}`}
+              >
+                {content}
+              </button>
+            );
+          }
+
+          return (
+            <Card key={kpi.label} className="p-3">
+              {content}
             </Card>
           );
         })}
       </div>
+
+      {activeKpiDrilldown && (
+        <div ref={drilldownRef}>
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle>{drilldownTitle}</CardTitle>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {drilldownJobs.length} orders for {reportPeriodLabel}
+                    {selectedWarehouse !== "all" ? ` â€¢ ${selectedWarehouse}` : ""}
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setActiveKpiDrilldown(null)}>
+                  Close
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-96 overflow-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Reference</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Customer</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Transporter</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-700">Pallets</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drilldownJobs.map((job) => (
+                      <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedJob(job)}
+                            className="font-medium text-resilinc-primary hover:text-resilinc-primary-dark hover:underline"
+                            title="View order details"
+                          >
+                            {job.ref}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">{job.customer}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            job.status === "delivered" ? "bg-green-50 text-green-700" :
+                            job.status === "exception" ? "bg-red-50 text-red-700" :
+                            job.status === "pending" ? "bg-amber-50 text-amber-700" :
+                            "bg-blue-50 text-blue-700"
+                          }`}>
+                            {job.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {job.driverId ? drivers.find((driver) => driver.id === job.driverId)?.name || "Unknown" : "Unassigned"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">{formatDate(job.etd || job.eta || job.createdAt)}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">{job.pallets ?? "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {drilldownJobs.length === 0 && (
+                  <div className="py-10 text-center text-sm text-gray-400">
+                    No orders found for this KPI in the selected filter.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Row 1: Hero Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -796,6 +919,7 @@ export const AdvancedAnalytics: React.FC = () => {
 
       {/* Missing Pallet Qty Fixes */}
       {missingPalletAssignments.length > 0 && (
+        <div ref={missingPalletsRef}>
         <Card>
           <CardHeader>
             <CardTitle>Assigned Orders Missing Pallet Qty</CardTitle>
@@ -865,6 +989,7 @@ export const AdvancedAnalytics: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+        </div>
       )}
 
       {/* Row 4: Capacity Planning */}
@@ -889,6 +1014,7 @@ export const AdvancedAnalytics: React.FC = () => {
       </Card>
 
       {/* Detailed Transporter Table */}
+      <div ref={transporterMetricsRef}>
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -981,6 +1107,7 @@ export const AdvancedAnalytics: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      </div>
 
       {selectedTransporterId && (
         <Card>

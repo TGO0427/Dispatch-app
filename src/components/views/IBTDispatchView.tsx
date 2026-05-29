@@ -57,7 +57,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
   });
 
   // Filter to show only IBT jobs, deduplicated by ref,
-  // and only jobs due within current week + 4 weeks
+  // and only jobs due within the selected ETA range when a range is selected.
   const ibtJobs = useMemo(() => {
     const allIbt = jobs.filter((job) => job.jobType === "ibt");
 
@@ -74,13 +74,27 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
       }
     });
 
-    // Filter to current week + 4 weeks by ETA
+    if (filters.searchQuery && filters.searchQuery.trim()) {
+      return Array.from(refMap.values());
+    }
+
+    const range = filters.etaRange || "all";
+    if (range === "all") {
+      return Array.from(refMap.values());
+    }
+
     const now = new Date();
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
     const endOfRange = new Date(startOfWeek);
-    endOfRange.setDate(endOfRange.getDate() + 5 * 7);
+    if (range === "3months") {
+      endOfRange.setMonth(endOfRange.getMonth() + 3);
+    } else if (range === "6months") {
+      endOfRange.setMonth(endOfRange.getMonth() + 6);
+    } else {
+      endOfRange.setDate(endOfRange.getDate() + 5 * 7);
+    }
     endOfRange.setHours(23, 59, 59, 999);
 
     return Array.from(refMap.values()).filter((job) => {
@@ -88,7 +102,7 @@ export const IBTDispatchView: React.FC<IBTDispatchViewProps> = ({ onOpenAlerts }
       const etaDate = new Date(job.eta);
       return etaDate >= startOfWeek && etaDate <= endOfRange;
     });
-  }, [jobs]);
+  }, [jobs, filters.searchQuery, filters.etaRange]);
 
   // High volume IBT dates — current month + next 2 months. Counts distinct IBT refs, not lines.
   const busyDateAlerts = useMemo(() => {

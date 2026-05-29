@@ -93,7 +93,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   };
 
   // Filter to show only customer order jobs, deduplicated by ASO ref,
-  // and only orders due within the selected ETA range (default: current week + 4 weeks).
+  // and only orders due within the selected ETA range when a range is selected.
   // When a search query is active, the ETA range is bypassed so users can find any order.
   const orderJobs = useMemo(() => {
     const allOrders = jobs.filter((job) => job.jobType === "order" || job.jobType === undefined);
@@ -145,7 +145,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     }
 
     // "all" skips the window too
-    const range = filters.etaRange || "5weeks";
+    const range = filters.etaRange || "all";
     if (range === "all") {
       return Array.from(refMap.values());
     }

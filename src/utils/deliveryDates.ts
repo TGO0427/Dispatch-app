@@ -35,6 +35,23 @@ function subtractBusinessDays(date: Date, days: number): Date {
   return result;
 }
 
+function addBusinessDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  let remaining = days;
+
+  while (remaining > 0) {
+    result.setDate(result.getDate() + 1);
+    const day = result.getDay();
+    if (day !== 0 && day !== 6) remaining--;
+  }
+
+  while (result.getDay() === 0 || result.getDay() === 6) {
+    result.setDate(result.getDate() + 1);
+  }
+
+  return result;
+}
+
 export function calculateETD(eta: string | undefined, service: TransportService | undefined): string | undefined {
   if (!eta || !service) return undefined;
   const serviceConfig = TRANSPORT_SERVICES.find((item) => item.value === service);
@@ -45,6 +62,18 @@ export function calculateETD(eta: string | undefined, service: TransportService 
 
   const businessDays = Math.ceil(serviceConfig.hours / 24);
   return formatDateOnly(subtractBusinessDays(etaDate, businessDays));
+}
+
+export function calculateETA(etd: string | undefined, service: TransportService | undefined): string | undefined {
+  if (!etd || !service) return undefined;
+  const serviceConfig = TRANSPORT_SERVICES.find((item) => item.value === service);
+  const etdDate = parseDate(etd);
+  if (!serviceConfig || !etdDate) return undefined;
+
+  if (serviceConfig.businessDays === 0) return formatDateOnly(etdDate);
+
+  const businessDays = Math.ceil(serviceConfig.hours / 24);
+  return formatDateOnly(addBusinessDays(etdDate, businessDays));
 }
 
 export function getDeliveryDelayDays(job: Pick<Job, "eta" | "actualDeliveryAt">): number | undefined {

@@ -201,7 +201,7 @@ export const JobWorkflow: React.FC<JobWorkflowProps> = ({ job, onUpdate, compact
                 <div className="text-lg font-bold text-amber-950 mt-0.5">{job.actualDeliveryAt?.split("T")[0]}</div>
               </div>
               <div className="col-span-2 text-xs text-amber-800">
-                ETA missed by {deliveryDelayDays} day{deliveryDelayDays === 1 ? "" : "s"}. Original ETD is kept for reporting; revised ETD matches the actual delivery timeline.
+                ETA missed by {deliveryDelayDays} day{deliveryDelayDays === 1 ? "" : "s"}. Saving the job applies the revised ETD and recalculates ETA from it.
               </div>
             </div>
           )}

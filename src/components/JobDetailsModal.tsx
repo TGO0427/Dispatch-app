@@ -11,7 +11,7 @@ import { Card } from "./ui/Card";
 import { flowbinsAPI } from "../services/api";
 import type { FlowbinBatch } from "../types";
 import { JobWorkflow } from "./JobWorkflow";
-import { calculateETD, calculateRevisedETD, getDeliveryDelayDays } from "../utils/deliveryDates";
+import { calculateETA, calculateETD, calculateRevisedETD, getDeliveryDelayDays } from "../utils/deliveryDates";
 import { hasCompletedPallets } from "../utils/jobValidation";
 import { formatDateTime, formatNumber } from "../utils/format";
 
@@ -224,6 +224,16 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     }
     if (editedJob.status !== "exception") updates.exceptionReason = undefined;
 
+    const revisedTimelineETD = calculateRevisedETD({ ...editedJob, actualDeliveryAt: updates.actualDeliveryAt });
+    const revisedTimelineETA = revisedTimelineETD
+      ? calculateETA(revisedTimelineETD, editedJob.transportService)
+      : undefined;
+
+    if (revisedTimelineETD && revisedTimelineETA) {
+      updates.etd = revisedTimelineETD;
+      updates.eta = revisedTimelineETA;
+    }
+
     const sharedUpdates: Partial<Job> = {};
     const isClosingLine =
       editedJob.status === "delivered" ||
@@ -238,7 +248,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
     if (editedJob.readyForDispatch !== job.readyForDispatch) sharedUpdates.readyForDispatch = editedJob.readyForDispatch;
     if (editedJob.transportService !== job.transportService) sharedUpdates.transportService = editedJob.transportService;
     if (editedJob.truckSize !== job.truckSize) sharedUpdates.truckSize = editedJob.truckSize;
-    if (editedJob.etd !== job.etd) sharedUpdates.etd = editedJob.etd;
+    if (updates.etd !== job.etd) sharedUpdates.etd = updates.etd;
+    if (updates.eta !== job.eta) sharedUpdates.eta = updates.eta;
     if (editedJob.pallets !== job.pallets) sharedUpdates.pallets = editedJob.pallets;
     if (updates.dispatchedAt !== job.dispatchedAt) sharedUpdates.dispatchedAt = updates.dispatchedAt;
     if (updates.actualDeliveryAt !== job.actualDeliveryAt && !isClosingLine) sharedUpdates.actualDeliveryAt = updates.actualDeliveryAt;
@@ -266,6 +277,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
       };
 
       if (updates.dispatchedAt !== job.dispatchedAt) closingUpdates.dispatchedAt = updates.dispatchedAt;
+      if (updates.etd !== job.etd) closingUpdates.etd = updates.etd;
+      if (updates.eta !== job.eta) closingUpdates.eta = updates.eta;
       if (updates.actualDeliveryAt !== job.actualDeliveryAt) closingUpdates.actualDeliveryAt = updates.actualDeliveryAt;
       if (updates.returnedAt !== job.returnedAt) closingUpdates.returnedAt = updates.returnedAt;
       if (editedJob.returnReason !== job.returnReason) closingUpdates.returnReason = editedJob.returnReason;
@@ -575,7 +588,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, 
                 </div>
               </div>
               <p className="text-xs text-amber-800 mt-2">
-                Actual delivery missed ETA by {deliveryDelayDays} day{deliveryDelayDays === 1 ? "" : "s"}, so this revised ETD reflects the corrected timeline while keeping the original ETD unchanged.
+                Actual delivery missed ETA by {deliveryDelayDays} day{deliveryDelayDays === 1 ? "" : "s"}. Saving will apply the revised ETD and use its recalculated delivery date as the new ETA.
               </p>
             </div>
           )}

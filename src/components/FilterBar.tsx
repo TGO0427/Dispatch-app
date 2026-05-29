@@ -31,7 +31,7 @@ export const FilterBar: React.FC<{ showMore?: boolean }> = ({ showMore }) => {
     (filters.priority && filters.priority.length > 0) ||
     filters.driverId ||
     filters.etaWeek ||
-    (filters.etaRange && filters.etaRange !== "5weeks") ||
+    (filters.etaRange && filters.etaRange !== "all") ||
     filters.workflowStatus ||
     filters.transporterBooked !== undefined ||
     filters.orderPicked !== undefined ||
@@ -77,11 +77,11 @@ export const FilterBar: React.FC<{ showMore?: boolean }> = ({ showMore }) => {
         {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
       </select>
 
-      <select value={filters.etaRange || "5weeks"} onChange={(e) => setFilters({ ...filters, etaRange: e.target.value as "5weeks" | "3months" | "6months" | "all" })} className={selCls} title="ETA range window for the order list. Search ignores this filter.">
+      <select value={filters.etaRange || "all"} onChange={(e) => setFilters({ ...filters, etaRange: e.target.value as "5weeks" | "3months" | "6months" | "all" })} className={selCls} title="ETA range window for the order list. Search ignores this filter.">
+        <option value="all">All Dates</option>
         <option value="5weeks">Next 5 Weeks</option>
         <option value="3months">Next 3 Months</option>
         <option value="6months">Next 6 Months</option>
-        <option value="all">All Dates</option>
       </select>
 
       <select value={filters.etaWeek || "all"} onChange={(e) => setFilters({ ...filters, etaWeek: e.target.value === "all" ? undefined : e.target.value })} className={selCls}>

@@ -21,6 +21,7 @@ const NAV_TITLES: Record<string, string> = {
   ibt: "Import IBT",
   "ibt-dispatch": "IBT Management",
   clipboard: "Order Management",
+  "africa-exports": "Africa Exports",
   calendar: "Scheduling",
   grid: "Order Reports",
   "ibt-reports": "IBT Reports",
@@ -36,6 +37,7 @@ const NAV_TITLES: Record<string, string> = {
 const Dashboard = lazy(() => import("./components/views/Dashboard").then(m => ({ default: m.Dashboard })));
 const ExceptionsView = lazy(() => import("./components/views/ExceptionsView").then(m => ({ default: m.ExceptionsView })));
 const DispatchView = lazy(() => import("./components/views/DispatchView").then(m => ({ default: m.DispatchView })));
+const AfricaExportsView = lazy(() => import("./components/views/AfricaExportsView").then(m => ({ default: m.AfricaExportsView })));
 const IBTDispatchView = lazy(() => import("./components/views/IBTDispatchView").then(m => ({ default: m.IBTDispatchView })));
 const OrderImport = lazy(() => import("./components/views/OrderImport").then(m => ({ default: m.OrderImport })));
 const IBTImport = lazy(() => import("./components/views/IBTImport").then(m => ({ default: m.IBTImport })));
@@ -118,6 +120,8 @@ function AppContent() {
         view = <IBTDispatchView onOpenAlerts={() => setAlertHubOpen(true)} />; break;
       case "clipboard":
         view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} initialTab={dispatchTab as any} />; break;
+      case "africa-exports":
+        view = <AfricaExportsView />; break;
       case "calendar":
         view = <CalendarView />; break;
       case "grid":

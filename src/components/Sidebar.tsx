@@ -22,6 +22,7 @@ import {
   Package,
   Mail,
   AlertTriangle,
+  Globe2,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useDispatch } from "../context/DispatchContext";
@@ -96,6 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         { id: "ibt", icon: ArrowRightLeft, label: "Import IBT" },
         { id: "ibt-dispatch", icon: Truck, label: "IBT Management", badge: sidebarStats.ibtPendingCount, badgeType: "info" },
         { id: "clipboard", icon: ClipboardList, label: "Order Management", badge: sidebarStats.pendingCount, badgeType: "info" },
+        { id: "africa-exports", icon: Globe2, label: "Africa Exports" },
       ],
     },
     {

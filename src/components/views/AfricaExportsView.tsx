@@ -10,13 +10,15 @@ import {
   Search,
   ShieldCheck,
   Truck,
+  UserPlus,
 } from "lucide-react";
 
 import { useDispatch } from "../../context/DispatchContext";
+import { useNotification } from "../../context/NotificationContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 
-import type { Job } from "../../types";
+import type { Driver, Job } from "../../types";
 
 type ExportTab = "overview" | "documents" | "permits" | "incoterms";
 type DocumentStatus = Record<string, boolean>;
@@ -186,13 +188,19 @@ const getCompletion = (shipment: ExportShipment) => {
   return { total, complete, percent: total ? Math.round((complete / total) * 100) : 0 };
 };
 
-export const AfricaExportsView: React.FC = () => {
-  const { jobs } = useDispatch();
+interface AfricaExportsViewProps {
+  onNavigate?: (page: string) => void;
+}
+
+export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate }) => {
+  const { jobs, drivers, updateJobs } = useDispatch();
+  const { showSuccess, showError, showWarning, confirm } = useNotification();
   const orderJobs = useMemo(() => getUniqueOrderJobs(jobs), [jobs]);
   const [shipments, setShipments] = useState<Record<string, ExportShipment>>({});
   const [selectedRef, setSelectedRef] = useState("");
   const [activeTab, setActiveTab] = useState<ExportTab>("overview");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
     const loaded = loadShipments();
@@ -225,6 +233,23 @@ export const AfricaExportsView: React.FC = () => {
 
   const trackedShipments = useMemo(() => Object.values(shipments), [shipments]);
   const completion = getCompletion(shipment);
+  const shipmentLines = useMemo(
+    () => jobs.filter((job) => shipment.ref && job.ref === shipment.ref),
+    [jobs, shipment.ref],
+  );
+  const assignedDriver = useMemo(
+    () => shipmentLines.find((job) => job.driverId)?.driverId,
+    [shipmentLines],
+  );
+  const assignedDriverName = useMemo(
+    () => drivers.find((driver) => driver.id === assignedDriver)?.name,
+    [drivers, assignedDriver],
+  );
+  const shipmentPallets = useMemo(
+    () => Math.max(...shipmentLines.map((job) => job.pallets || 0), 0),
+    [shipmentLines],
+  );
+  const shipmentLineCount = shipmentLines.length;
   const requiredItems = useMemo(
     () => CHECKLIST_GROUPS.flatMap((group) => group.items).filter((item) => item.required),
     [],
@@ -279,6 +304,55 @@ export const AfricaExportsView: React.FC = () => {
     updateShipment({ lastCheckedAt: new Date().toISOString().slice(0, 10) });
   };
 
+  const assignShipment = async (driver: Driver) => {
+    if (!shipment.ref) {
+      showWarning("Select or create an export shipment first.");
+      return;
+    }
+
+    const lineIds = shipmentLines.map((job) => job.id);
+    if (lineIds.length === 0) {
+      showWarning("No order lines found for this shipment reference. Import or select the order first.");
+      return;
+    }
+
+    if (driver.capacity && shipmentPallets > driver.capacity) {
+      const proceed = await confirm({
+        title: "Capacity Warning",
+        message: `${driver.name} capacity is ${driver.capacity} pallets and this shipment has ${shipmentPallets}. Assign anyway?`,
+        type: "warning",
+        confirmText: "Assign Anyway",
+      });
+      if (!proceed) return;
+    }
+
+    setIsAssigning(true);
+    try {
+      await updateJobs(lineIds, { driverId: driver.id, status: "assigned" });
+      showSuccess(`${shipment.ref} assigned to ${driver.name}`);
+    } catch (error) {
+      console.error("Failed to assign Africa export shipment", error);
+      showError("Failed to assign shipment. Please try again.");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const clearAssignment = async () => {
+    const lineIds = shipmentLines.map((job) => job.id);
+    if (lineIds.length === 0) return;
+    setIsAssigning(true);
+    try {
+      await updateJobs(lineIds, { driverId: undefined, status: "pending" });
+      showSuccess(`${shipment.ref} moved back to unassigned`);
+    } catch (error) {
+      console.error("Failed to clear Africa export assignment", error);
+      showError("Failed to clear assignment. Please try again.");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
   const statusTone = completion.percent >= 85
     ? "bg-emerald-50 text-emerald-700 border-emerald-200"
     : completion.percent >= 45
@@ -302,6 +376,10 @@ export const AfricaExportsView: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => onNavigate?.("home")}>
+            <Package className="h-4 w-4" />
+            Import Orders
+          </Button>
           <span className={`rounded-card border px-3 py-2 text-sm font-semibold ${statusTone}`}>
             {completion.percent}% complete
           </span>
@@ -450,117 +528,191 @@ export const AfricaExportsView: React.FC = () => {
           </Card>
 
           {activeTab === "overview" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Shipment Setup</CardTitle>
-                <p className="text-sm text-gray-600">
-                  Confirm the export basics before dispatch: country, HS code, product type, Incoterm, and destination agent.
-                </p>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">Reference</span>
-                    <input
-                      value={shipment.ref}
-                      onChange={(event) => updateShipment({ ref: event.target.value })}
-                      className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="Order or shipment reference"
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">Customer / Consignee</span>
-                    <input
-                      value={shipment.customer}
-                      onChange={(event) => updateShipment({ customer: event.target.value })}
-                      className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="Customer name"
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">Destination Country</span>
-                    <input
-                      value={shipment.destinationCountry}
-                      onChange={(event) => updateShipment({ destinationCountry: event.target.value })}
-                      className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="e.g. Botswana, Kenya, Zambia"
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">HS Code</span>
-                    <input
-                      value={shipment.hsCode}
-                      onChange={(event) => updateShipment({ hsCode: event.target.value })}
-                      className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="Tariff classification"
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">Product Type</span>
-                    <input
-                      value={shipment.productType}
-                      onChange={(event) => updateShipment({ productType: event.target.value })}
-                      className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="Food ingredient, flavouring, enzyme, premix"
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">Incoterm</span>
-                    <select
-                      value={shipment.incoterm}
-                      onChange={(event) => updateShipment({ incoterm: event.target.value })}
-                      className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+              <Card className="xl:col-span-2">
+                <CardHeader>
+                  <CardTitle>Shipment Setup</CardTitle>
+                  <p className="text-sm text-gray-600">
+                    Confirm the export basics before dispatch: country, HS code, product type, Incoterm, and destination agent.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">Reference</span>
+                      <input
+                        value={shipment.ref}
+                        onChange={(event) => updateShipment({ ref: event.target.value })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="Order or shipment reference"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">Customer / Consignee</span>
+                      <input
+                        value={shipment.customer}
+                        onChange={(event) => updateShipment({ customer: event.target.value })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="Customer name"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">Destination Country</span>
+                      <input
+                        value={shipment.destinationCountry}
+                        onChange={(event) => updateShipment({ destinationCountry: event.target.value })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="e.g. Botswana, Kenya, Zambia"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">HS Code</span>
+                      <input
+                        value={shipment.hsCode}
+                        onChange={(event) => updateShipment({ hsCode: event.target.value })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="Tariff classification"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">Product Type</span>
+                      <input
+                        value={shipment.productType}
+                        onChange={(event) => updateShipment({ productType: event.target.value })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="Food ingredient, flavouring, enzyme, premix"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">Incoterm</span>
+                      <select
+                        value={shipment.incoterm}
+                        onChange={(event) => updateShipment({ incoterm: event.target.value })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      >
+                        {["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"].map((term) => (
+                          <option key={term} value={term}>{term}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">Transport Mode</span>
+                      <select
+                        value={shipment.transportMode}
+                        onChange={(event) => updateShipment({ transportMode: event.target.value })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      >
+                        {["Road", "Air", "Sea", "Courier"].map((mode) => (
+                          <option key={mode} value={mode}>{mode}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">Origin Preference</span>
+                      <select
+                        value={shipment.preferenceScheme}
+                        onChange={(event) => updateShipment({ preferenceScheme: event.target.value })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      >
+                        {["To confirm", "No preference", "General COO", "SADC COO", "AfCFTA COO"].map((scheme) => (
+                          <option key={scheme} value={scheme}>{scheme}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-2 md:col-span-2">
+                      <span className="text-sm font-semibold text-gray-700">Destination Clearing Agent</span>
+                      <input
+                        value={shipment.destinationAgent}
+                        onChange={(event) => updateShipment({ destinationAgent: event.target.value })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="Agent name, email, or contact notes"
+                      />
+                    </label>
+                    <label className="space-y-2 md:col-span-2">
+                      <span className="text-sm font-semibold text-gray-700">Shipment Notes</span>
+                      <textarea
+                        value={shipment.notes}
+                        onChange={(event) => updateShipment({ notes: event.target.value })}
+                        className="min-h-[90px] w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="Destination-specific instructions, permit notes, or document caveats."
+                      />
+                    </label>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Truck className="h-5 w-5 text-gray-600" />
+                    Assign Shipment
+                  </CardTitle>
+                  <p className="text-sm text-gray-600">Assigns every order line with this reference.</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4 rounded-card border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Selected shipment</p>
+                    <p className="mt-1 truncate text-sm font-bold text-gray-900">{shipment.ref || "No reference selected"}</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                      <span>{shipmentLineCount} line{shipmentLineCount === 1 ? "" : "s"}</span>
+                      <span>{shipmentPallets || "-"} pallet{shipmentPallets === 1 ? "" : "s"}</span>
+                      <span className="col-span-2">Transporter: {assignedDriverName || "Unassigned"}</span>
+                    </div>
+                  </div>
+
+                  {assignedDriver && (
+                    <Button
+                      variant="outline"
+                      className="mb-3 w-full border-amber-200 text-amber-700 hover:bg-amber-50"
+                      onClick={clearAssignment}
+                      disabled={isAssigning}
                     >
-                      {["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"].map((term) => (
-                        <option key={term} value={term}>{term}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">Transport Mode</span>
-                    <select
-                      value={shipment.transportMode}
-                      onChange={(event) => updateShipment({ transportMode: event.target.value })}
-                      className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    >
-                      {["Road", "Air", "Sea", "Courier"].map((mode) => (
-                        <option key={mode} value={mode}>{mode}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">Origin Preference</span>
-                    <select
-                      value={shipment.preferenceScheme}
-                      onChange={(event) => updateShipment({ preferenceScheme: event.target.value })}
-                      className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    >
-                      {["To confirm", "No preference", "General COO", "SADC COO", "AfCFTA COO"].map((scheme) => (
-                        <option key={scheme} value={scheme}>{scheme}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-2 md:col-span-2">
-                    <span className="text-sm font-semibold text-gray-700">Destination Clearing Agent</span>
-                    <input
-                      value={shipment.destinationAgent}
-                      onChange={(event) => updateShipment({ destinationAgent: event.target.value })}
-                      className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="Agent name, email, or contact notes"
-                    />
-                  </label>
-                  <label className="space-y-2 md:col-span-2">
-                    <span className="text-sm font-semibold text-gray-700">Shipment Notes</span>
-                    <textarea
-                      value={shipment.notes}
-                      onChange={(event) => updateShipment({ notes: event.target.value })}
-                      className="min-h-[90px] w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="Destination-specific instructions, permit notes, or document caveats."
-                    />
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
+                      Move Back to Unassigned
+                    </Button>
+                  )}
+
+                  <div className="space-y-2">
+                    {drivers.length === 0 ? (
+                      <div className="rounded-card border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+                        No transporters available.
+                      </div>
+                    ) : (
+                      drivers.map((driver) => {
+                        const isAssigned = assignedDriver === driver.id;
+                        return (
+                          <button
+                            key={driver.id}
+                            onClick={() => assignShipment(driver)}
+                            disabled={isAssigning || isAssigned}
+                            className={`w-full rounded-card border p-3 text-left transition-colors disabled:cursor-not-allowed ${
+                              isAssigned
+                                ? "border-emerald-300 bg-emerald-50"
+                                : "border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-60"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate text-sm font-bold text-gray-900">{driver.name}</span>
+                              <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-gray-600">
+                                {driver.status}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between gap-2 text-xs text-gray-500">
+                              <span className="truncate">{driver.callsign || driver.location}</span>
+                              <span>{driver.capacity || 0} pallets</span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <Button variant="outline" className="mt-4 w-full gap-2" onClick={() => onNavigate?.("clipboard")}>
+                    <UserPlus className="h-4 w-4" />
+                    Open Order Management
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {activeTab === "documents" && (

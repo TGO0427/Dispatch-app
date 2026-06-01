@@ -121,7 +121,7 @@ function AppContent() {
       case "clipboard":
         view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} initialTab={dispatchTab as any} />; break;
       case "africa-exports":
-        view = <AfricaExportsView />; break;
+        view = <AfricaExportsView onNavigate={navigateToPage} />; break;
       case "calendar":
         view = <CalendarView />; break;
       case "grid":

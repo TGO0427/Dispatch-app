@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
 import { JobDetailsModal } from "../JobDetailsModal";
+import { africaExportsAPI } from "../../services/api";
 import type { Job } from "../../types";
 import { formatDate, formatDateTime, formatNumber, formatPercent } from "../../utils/format";
 import * as XLSX from "../../lib/spreadsheet";
@@ -60,7 +61,7 @@ export const AnalyticsView: React.FC = () => {
   const [customerSearch, setCustomerSearch] = useState<string>("");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
-  const africaExports = useMemo(() => {
+  const [africaExports, setAfricaExports] = useState<AfricaExportShipment[]>(() => {
     try {
       const raw = localStorage.getItem(AFRICA_EXPORTS_KEY);
       return raw ? JSON.parse(raw) as AfricaExportShipment[] : [];
@@ -68,6 +69,22 @@ export const AnalyticsView: React.FC = () => {
       console.warn("Failed to load Africa export reports data", error);
       return [];
     }
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    africaExportsAPI.getAll()
+      .then((shipments) => {
+        if (cancelled) return;
+        setAfricaExports(shipments);
+        localStorage.setItem(AFRICA_EXPORTS_KEY, JSON.stringify(shipments));
+      })
+      .catch((error) => {
+        console.warn("Failed to load Africa export reports data from database", error);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Helper function to get week number and year from date

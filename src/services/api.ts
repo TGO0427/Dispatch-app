@@ -154,6 +154,107 @@ export const driversAPI = {
   },
 };
 
+// ============ Africa Exports ============
+
+export interface AfricaExportShipment {
+  id?: string;
+  ref: string;
+  customer: string;
+  destinationCountry: string;
+  hsCode: string;
+  productType: string;
+  incoterm: string;
+  transportMode: string;
+  preferenceScheme: string;
+  destinationAgent: string;
+  eta: string;
+  pallets: number;
+  status: "pending" | "assigned" | "in-transit" | "delivered";
+  assignedTransporterId?: string;
+  lastCheckedAt: string;
+  notes: string;
+  documents: Record<string, boolean>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AfricaExportTransporter {
+  id: string;
+  name: string;
+  route: string;
+  contact: string;
+  capacity: number;
+  status: "available" | "busy" | "offline";
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const africaExportsAPI = {
+  getAll: async (): Promise<AfricaExportShipment[]> => {
+    return fetchAPI<AfricaExportShipment[]>("/api/africa-exports");
+  },
+
+  create: async (shipment: AfricaExportShipment): Promise<AfricaExportShipment> => {
+    return fetchAPI<AfricaExportShipment>("/api/africa-exports", {
+      method: "POST",
+      body: JSON.stringify(shipment),
+    });
+  },
+
+  update: async (id: string, shipment: AfricaExportShipment): Promise<AfricaExportShipment> => {
+    return fetchAPI<AfricaExportShipment>(`/api/africa-exports?id=${id}`, {
+      method: "PUT",
+      body: JSON.stringify(shipment),
+    });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    return fetchAPI<void>(`/api/africa-exports?id=${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  bulkUpsert: async (shipments: AfricaExportShipment[]): Promise<AfricaExportShipment[]> => {
+    return fetchAPI<AfricaExportShipment[]>("/api/africa-exports?action=bulk-upsert", {
+      method: "POST",
+      body: JSON.stringify({ shipments }),
+    });
+  },
+};
+
+export const africaExportTransportersAPI = {
+  getAll: async (): Promise<AfricaExportTransporter[]> => {
+    return fetchAPI<AfricaExportTransporter[]>("/api/africa-export-transporters");
+  },
+
+  create: async (transporter: AfricaExportTransporter): Promise<AfricaExportTransporter> => {
+    return fetchAPI<AfricaExportTransporter>("/api/africa-export-transporters", {
+      method: "POST",
+      body: JSON.stringify(transporter),
+    });
+  },
+
+  update: async (id: string, transporter: AfricaExportTransporter): Promise<AfricaExportTransporter> => {
+    return fetchAPI<AfricaExportTransporter>(`/api/africa-export-transporters?id=${id}`, {
+      method: "PUT",
+      body: JSON.stringify(transporter),
+    });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    return fetchAPI<void>(`/api/africa-export-transporters?id=${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  bulkUpsert: async (transporters: AfricaExportTransporter[]): Promise<AfricaExportTransporter[]> => {
+    return fetchAPI<AfricaExportTransporter[]>("/api/africa-export-transporters?action=bulk-upsert", {
+      method: "POST",
+      body: JSON.stringify({ transporters }),
+    });
+  },
+};
+
 // ============ Flowbin Batches ============
 export const flowbinsAPI = {
   getAll: () => fetchAPI<any[]>("/api/flowbins"),

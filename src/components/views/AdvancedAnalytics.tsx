@@ -1,5 +1,5 @@
 // src/components/views/AdvancedAnalytics.tsx
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -21,6 +21,7 @@ import { JobDetailsModal } from "../JobDetailsModal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { africaExportsAPI } from "../../services/api";
 import * as XLSX from "../../lib/spreadsheet";
 import { formatDate, formatDateTime } from "../../utils/format";
 import type { Job } from "../../types";
@@ -73,7 +74,7 @@ export const AdvancedAnalytics: React.FC = () => {
   const transporterMetricsRef = useRef<HTMLDivElement | null>(null);
   const missingPalletsRef = useRef<HTMLDivElement | null>(null);
 
-  const africaExports = useMemo(() => {
+  const [africaExports, setAfricaExports] = useState<AfricaExportShipment[]>(() => {
     try {
       const raw = localStorage.getItem(AFRICA_EXPORTS_KEY);
       return raw ? JSON.parse(raw) as AfricaExportShipment[] : [];
@@ -81,6 +82,22 @@ export const AdvancedAnalytics: React.FC = () => {
       console.warn("Failed to load Africa export analytics data", error);
       return [];
     }
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    africaExportsAPI.getAll()
+      .then((shipments) => {
+        if (cancelled) return;
+        setAfricaExports(shipments);
+        localStorage.setItem(AFRICA_EXPORTS_KEY, JSON.stringify(shipments));
+      })
+      .catch((error) => {
+        console.warn("Failed to load Africa export analytics data from database", error);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const getTimeRangeLabel = (range: TimeRange) => {

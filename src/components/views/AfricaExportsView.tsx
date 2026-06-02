@@ -19,6 +19,7 @@ import {
 import * as XLSX from "../../lib/spreadsheet";
 
 import { useNotification } from "../../context/NotificationContext";
+import { africaExportTransportersAPI, africaExportsAPI } from "../../services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 
@@ -27,6 +28,7 @@ type ExportStatus = "pending" | "assigned" | "in-transit" | "delivered";
 type DocumentStatus = Record<string, boolean>;
 
 interface ExportShipment {
+  id?: string;
   ref: string;
   customer: string;
   destinationCountry: string;
@@ -350,6 +352,8 @@ export const AfricaExportsView: React.FC = () => {
   const [showAddTransporter, setShowAddTransporter] = useState(false);
   const [importPreview, setImportPreview] = useState<ExportShipment[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [remoteReady, setRemoteReady] = useState(false);
+  const [remoteSyncError, setRemoteSyncError] = useState("");
   const [newTransporter, setNewTransporter] = useState<Omit<ExportTransporter, "id">>({
     name: "",
     route: "",
@@ -364,6 +368,47 @@ export const AfricaExportsView: React.FC = () => {
     setShipments(loadedShipments);
     setTransporters(loadedTransporters);
     setSelectedRef(loadedShipments[0]?.ref || "");
+
+    let cancelled = false;
+    const loadRemoteData = async () => {
+      try {
+        const [remoteShipments, remoteTransporters] = await Promise.all([
+          africaExportsAPI.getAll(),
+          africaExportTransportersAPI.getAll(),
+        ]);
+        if (cancelled) return;
+
+        const nextTransporters = remoteTransporters.length > 0
+          ? remoteTransporters
+          : loadedTransporters.length > 0
+            ? await africaExportTransportersAPI.bulkUpsert(loadedTransporters)
+            : await africaExportTransportersAPI.bulkUpsert(DEFAULT_TRANSPORTERS);
+
+        const nextShipments = remoteShipments.length > 0
+          ? remoteShipments
+          : loadedShipments.length > 0
+            ? await africaExportsAPI.bulkUpsert(loadedShipments)
+            : [];
+
+        if (cancelled) return;
+        setTransporters(nextTransporters);
+        setShipments(nextShipments);
+        setSelectedRef((current) => current || nextShipments[0]?.ref || "");
+        saveList(TRANSPORTERS_KEY, nextTransporters);
+        saveList(SHIPMENTS_KEY, nextShipments);
+        setRemoteSyncError("");
+      } catch (error) {
+        console.warn("Africa export database sync unavailable, using local cache", error);
+        if (!cancelled) setRemoteSyncError("Database sync unavailable. Using this browser's saved Africa export data.");
+      } finally {
+        if (!cancelled) setRemoteReady(true);
+      }
+    };
+
+    void loadRemoteData();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -373,6 +418,48 @@ export const AfricaExportsView: React.FC = () => {
   useEffect(() => {
     saveList(TRANSPORTERS_KEY, transporters);
   }, [transporters]);
+
+  useEffect(() => {
+    if (!remoteReady) return;
+    const timeout = window.setTimeout(async () => {
+      try {
+        if (transporters.length > 0) {
+          await africaExportTransportersAPI.bulkUpsert(transporters);
+        }
+        if (shipments.length > 0) {
+          const saved = await africaExportsAPI.bulkUpsert(shipments);
+          setShipments((current) => {
+            if (current.every((item) => item.id)) return current;
+            const byRef = new Map(saved.map((item) => [item.ref, item]));
+            return current.map((item) => item.id ? item : byRef.get(item.ref) || item);
+          });
+        }
+        setRemoteSyncError("");
+      } catch (error) {
+        console.warn("Failed to sync Africa export shipments", error);
+        setRemoteSyncError("Database sync failed. Changes are saved in this browser and will retry while this page is open.");
+      }
+    }, 700);
+
+    return () => window.clearTimeout(timeout);
+  }, [shipments, transporters, remoteReady]);
+
+  useEffect(() => {
+    if (!remoteReady) return;
+    const timeout = window.setTimeout(async () => {
+      try {
+        if (transporters.length > 0) {
+          await africaExportTransportersAPI.bulkUpsert(transporters);
+        }
+        setRemoteSyncError("");
+      } catch (error) {
+        console.warn("Failed to sync Africa export transporters", error);
+        setRemoteSyncError("Database sync failed. Changes are saved in this browser and will retry while this page is open.");
+      }
+    }, 700);
+
+    return () => window.clearTimeout(timeout);
+  }, [transporters, remoteReady]);
 
   const shipment = useMemo(
     () => shipments.find((item) => item.ref === selectedRef) || DEFAULT_SHIPMENT,
@@ -583,6 +670,12 @@ export const AfricaExportsView: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {remoteSyncError && (
+        <div className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+          {remoteSyncError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <Card>

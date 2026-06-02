@@ -86,6 +86,53 @@ model Driver {
   @@map("drivers")
 }
 
+model AfricaExportShipment {
+  id                    String   @id @default(uuid())
+  ref                   String   @unique @db.VarChar(255)
+  customer              String   @db.VarChar(255)
+  destinationCountry    String?  @db.VarChar(255)
+  hsCode                String?  @db.VarChar(100)
+  productType           String?  @db.Text
+  incoterm              String   @default("FCA") @db.VarChar(50)
+  transportMode         String   @default("Road") @db.VarChar(50)
+  preferenceScheme      String   @default("To confirm") @db.VarChar(100)
+  destinationAgent      String?  @db.Text
+  eta                   String?  @db.VarChar(255)
+  pallets               Int      @default(0)
+  status                String   @default("pending") @db.VarChar(50)
+  assignedTransporterId String?  @db.VarChar(255)
+  assignedTransporter   AfricaExportTransporter? @relation(fields: [assignedTransporterId], references: [id], onDelete: SetNull)
+  lastCheckedAt         String?  @db.VarChar(255)
+  notes                 String?  @db.Text
+  documents             Json     @default("{}")
+  createdById           String?  @db.VarChar(255)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([status])
+  @@index([destinationCountry])
+  @@index([assignedTransporterId])
+  @@index([eta])
+  @@index([createdAt])
+  @@map("africa_export_shipments")
+}
+
+model AfricaExportTransporter {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(255)
+  route     String?  @db.VarChar(255)
+  contact   String?  @db.Text
+  capacity  Int      @default(0)
+  status    String   @default("available") @db.VarChar(50)
+  shipments AfricaExportShipment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([name])
+  @@map("africa_export_transporters")
+}
+
 model User {
   id                   String    @id @default(uuid())
   username             String    @unique @db.VarChar(255)

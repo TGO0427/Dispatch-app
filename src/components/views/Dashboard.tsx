@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Package,
   Truck,
@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { useDispatch } from "../../context/DispatchContext";
 import { useAuth } from "../../context/AuthContext";
+import { africaExportsAPI } from "../../services/api";
 import { calculateETD, calculateRevisedETD } from "../../utils/deliveryDates";
 import { formatNumber } from "../../utils/format";
 
@@ -56,7 +57,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
   const { jobs, drivers } = useDispatch();
   const { user } = useAuth();
 
-  const africaExports = useMemo(() => {
+  const [africaExports, setAfricaExports] = useState<DashboardAfricaExport[]>(() => {
     try {
       const raw = localStorage.getItem(AFRICA_EXPORTS_KEY);
       return raw ? JSON.parse(raw) as DashboardAfricaExport[] : [];
@@ -64,6 +65,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       console.warn("Failed to load Africa export dashboard data", error);
       return [];
     }
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    africaExportsAPI.getAll()
+      .then((shipments) => {
+        if (cancelled) return;
+        setAfricaExports(shipments);
+        localStorage.setItem(AFRICA_EXPORTS_KEY, JSON.stringify(shipments));
+      })
+      .catch((error) => {
+        console.warn("Failed to load Africa export dashboard data from database", error);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Filter to order jobs only

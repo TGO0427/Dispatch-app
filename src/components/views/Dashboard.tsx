@@ -12,6 +12,7 @@ import {
   Bell,
 } from "lucide-react";
 import { GlobalSearch } from "../GlobalSearch";
+import { JobDetailsModal } from "../JobDetailsModal";
 import {
   BarChart,
   Bar,
@@ -78,6 +79,7 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }) => {
   const { jobs, drivers } = useDispatch();
   const { user } = useAuth();
+  const [selectedSearchJobId, setSelectedSearchJobId] = useState<string | null>(null);
 
   const [africaExports, setAfricaExports] = useState<DashboardAfricaExport[]>(() => {
     try {
@@ -390,6 +392,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       .slice(0, 6);
   }, [africaExports]);
 
+  const selectedSearchJob = useMemo(
+    () => selectedSearchJobId ? jobs.find((job) => job.id === selectedSearchJobId) || null : null,
+    [jobs, selectedSearchJobId],
+  );
+  const selectedSearchJobDriver = useMemo(
+    () => selectedSearchJob?.driverId ? drivers.find((driver) => driver.id === selectedSearchJob.driverId)?.name : undefined,
+    [drivers, selectedSearchJob],
+  );
+
   const statCards = [
     {
       icon: Package, value: stats.total, label: "TOTAL JOBS",
@@ -452,7 +463,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
 
         <div className="flex items-center gap-4">
           {/* Global Search */}
-          <GlobalSearch onSelectAfricaExport={(ref) => onNavigate?.("africa-exports", undefined, ref)} />
+          <GlobalSearch
+            onSelectJob={(jobId) => setSelectedSearchJobId(jobId)}
+            onSelectAfricaExport={(ref) => onNavigate?.("africa-exports", undefined, ref)}
+          />
 
           {/* User */}
           <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -781,6 +795,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
           )}
         </div>
       </div>
+
+      {selectedSearchJob && (
+        <JobDetailsModal
+          job={selectedSearchJob}
+          onClose={() => setSelectedSearchJobId(null)}
+          driverName={selectedSearchJobDriver}
+        />
+      )}
     </div>
   );
 };

@@ -498,6 +498,64 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     [],
   );
   const requiredDone = requiredItems.filter((item) => shipment.documents[item.id]).length;
+  const complianceAlerts = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return trackedShipments.flatMap((item) => {
+      if (item.status === "delivered") return [];
+
+      const missingRequired = requiredItems.filter((doc) => !item.documents[doc.id]);
+      const alerts: {
+        ref: string;
+        title: string;
+        detail: string;
+        tone: string;
+        tab: ExportTab;
+        priority: number;
+      }[] = [];
+
+      if (!item.lastCheckedAt) {
+        alerts.push({
+          ref: item.ref,
+          title: "Destination agent check not done",
+          detail: `${item.customer} - ${item.destinationCountry || "country to confirm"}`,
+          tone: "border-amber-200 bg-amber-50 text-amber-800",
+          tab: "permits",
+          priority: 1,
+        });
+      }
+
+      if (missingRequired.length > 0) {
+        alerts.push({
+          ref: item.ref,
+          title: `${missingRequired.length} required document${missingRequired.length === 1 ? "" : "s"} outstanding`,
+          detail: missingRequired.slice(0, 3).map((doc) => doc.label).join(", "),
+          tone: "border-red-200 bg-red-50 text-red-800",
+          tab: "documents",
+          priority: 0,
+        });
+      }
+
+      if (item.eta) {
+        const etaDate = new Date(item.eta);
+        etaDate.setHours(0, 0, 0, 0);
+        const daysUntil = Math.ceil((etaDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+        if (daysUntil >= 0 && daysUntil <= 7 && (missingRequired.length > 0 || !item.lastCheckedAt)) {
+          alerts.push({
+            ref: item.ref,
+            title: daysUntil === 0 ? "Dispatch date is today" : `Dispatch in ${daysUntil} day${daysUntil === 1 ? "" : "s"}`,
+            detail: `${item.ref} still has export checks outstanding`,
+            tone: "border-orange-200 bg-orange-50 text-orange-800",
+            tab: missingRequired.length > 0 ? "documents" : "permits",
+            priority: 2,
+          });
+        }
+      }
+
+      return alerts;
+    }).sort((a, b) => a.priority - b.priority).slice(0, 8);
+  }, [requiredItems, trackedShipments]);
   const assignedTransporter = transporters.find((item) => item.id === shipment.assignedTransporterId);
   const countryOptions = useMemo(() => {
     if (!shipment.destinationCountry || AFRICA_COUNTRIES.includes(shipment.destinationCountry)) return AFRICA_COUNTRIES;
@@ -733,6 +791,43 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
           </CardContent>
         </Card>
       </div>
+
+      {complianceAlerts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Export Compliance Alerts
+            </CardTitle>
+            <p className="text-sm text-gray-600">Open checks before loading Africa export shipments.</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {complianceAlerts.map((alert) => (
+                <button
+                  key={`${alert.ref}-${alert.title}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRef(alert.ref);
+                    setActiveTab(alert.tab);
+                  }}
+                  className={`rounded-card border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-card ${alert.tone}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold">{alert.ref} - {alert.title}</p>
+                      <p className="mt-1 truncate text-xs opacity-80">{alert.detail}</p>
+                    </div>
+                    <span className="rounded bg-white/70 px-2 py-0.5 text-[10px] font-bold uppercase">
+                      {alert.tab === "documents" ? "Docs" : "Checks"}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
         <div className="xl:col-span-1">

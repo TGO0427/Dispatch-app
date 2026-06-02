@@ -12,7 +12,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-import { TrendingUp, Package, Truck, Calendar, BarChart3, PieChart as PieChartIcon, FileSpreadsheet, FileText } from "lucide-react";
+import { TrendingUp, Package, Truck, Calendar, BarChart3, PieChart as PieChartIcon, FileSpreadsheet, FileText, Globe2 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useDispatch } from "../../context/DispatchContext";
@@ -27,6 +27,26 @@ import type { Job } from "../../types";
 
 type TimeRange = "7d" | "30d" | "90d" | "current-month" | "previous-month" | "all";
 type KpiDrilldownKey = "total" | "delivered" | "exceptions";
+
+const AFRICA_EXPORTS_KEY = "dispatch_africa_export_shipments_v2";
+
+interface AfricaExportShipment {
+  ref: string;
+  customer: string;
+  destinationCountry: string;
+  hsCode: string;
+  productType: string;
+  incoterm: string;
+  transportMode: string;
+  preferenceScheme: string;
+  destinationAgent: string;
+  eta: string;
+  pallets: number;
+  status: "pending" | "assigned" | "in-transit" | "delivered";
+  lastCheckedAt: string;
+  notes: string;
+  documents: Record<string, boolean>;
+}
 
 const COLORS = {
   primary: "#0EA5E9",
@@ -52,6 +72,16 @@ export const AdvancedAnalytics: React.FC = () => {
   const drilldownRef = useRef<HTMLDivElement | null>(null);
   const transporterMetricsRef = useRef<HTMLDivElement | null>(null);
   const missingPalletsRef = useRef<HTMLDivElement | null>(null);
+
+  const africaExports = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(AFRICA_EXPORTS_KEY);
+      return raw ? JSON.parse(raw) as AfricaExportShipment[] : [];
+    } catch (error) {
+      console.warn("Failed to load Africa export analytics data", error);
+      return [];
+    }
+  }, []);
 
   const getTimeRangeLabel = (range: TimeRange) => {
     const now = new Date();
@@ -139,6 +169,21 @@ export const AdvancedAnalytics: React.FC = () => {
 
   const reportPeriodLabel = getTimeRangeLabel(timeRange);
   const pulledAtLabel = formatDateTime(new Date());
+
+  const scopedAfricaExports = useMemo(() => {
+    const { start, end } = getTimeRangeBounds(timeRange);
+
+    return africaExports.filter((shipment) => {
+      const shipmentDateValue = shipment.eta || shipment.lastCheckedAt;
+      if (!shipmentDateValue || (!start && !end)) return true;
+
+      const shipmentDate = new Date(shipmentDateValue);
+      if (Number.isNaN(shipmentDate.getTime())) return true;
+      if (start && shipmentDate < start) return false;
+      if (end && shipmentDate > end) return false;
+      return true;
+    });
+  }, [africaExports, timeRange]);
 
   // 1. Transporter Performance Metrics
   const transporterMetrics = useMemo(() => {
@@ -521,6 +566,202 @@ export const AdvancedAnalytics: React.FC = () => {
 
 
   // 4. Jobs Frequency Timeline (Daily) — already deduplicated via filteredJobs
+  const africaExportKpis = useMemo(() => {
+    const total = scopedAfricaExports.length;
+    const delivered = scopedAfricaExports.filter((shipment) => shipment.status === "delivered").length;
+    const assigned = scopedAfricaExports.filter((shipment) => shipment.status === "assigned" || shipment.status === "in-transit").length;
+    const pending = scopedAfricaExports.filter((shipment) => shipment.status === "pending").length;
+    const pallets = scopedAfricaExports.reduce((sum, shipment) => sum + (Number(shipment.pallets) || 0), 0);
+    const missingAgentChecks = scopedAfricaExports.filter((shipment) => !shipment.lastCheckedAt).length;
+    const deliveredRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
+
+    return { total, delivered, assigned, pending, pallets, missingAgentChecks, deliveredRate };
+  }, [scopedAfricaExports]);
+
+  const africaDestinationAnalytics = useMemo(() => {
+    const destinationMap = new Map<string, { country: string; shipments: number; pallets: number; delivered: number }>();
+
+    scopedAfricaExports.forEach((shipment) => {
+      const country = shipment.destinationCountry || "To confirm";
+      const existing = destinationMap.get(country) || { country, shipments: 0, pallets: 0, delivered: 0 };
+      existing.shipments += 1;
+      existing.pallets += Number(shipment.pallets) || 0;
+      if (shipment.status === "delivered") existing.delivered += 1;
+      destinationMap.set(country, existing);
+    });
+
+    return Array.from(destinationMap.values()).sort((a, b) => b.shipments - a.shipments);
+  }, [scopedAfricaExports]);
+
+  const africaStatusAnalytics = useMemo(() => {
+    const labels: Record<AfricaExportShipment["status"], string> = {
+      pending: "Pending",
+      assigned: "Assigned",
+      "in-transit": "In Transit",
+      delivered: "Delivered",
+    };
+
+    return (Object.keys(labels) as AfricaExportShipment["status"][]).map((status) => ({
+      status: labels[status],
+      shipments: scopedAfricaExports.filter((shipment) => shipment.status === status).length,
+      pallets: scopedAfricaExports
+        .filter((shipment) => shipment.status === status)
+        .reduce((sum, shipment) => sum + (Number(shipment.pallets) || 0), 0),
+    }));
+  }, [scopedAfricaExports]);
+
+  const africaExportTimeline = useMemo(() => {
+    const timeline: Record<string, { date: string; exports: number; delivered: number }> = {};
+
+    scopedAfricaExports.forEach((shipment) => {
+      const dateKey = (shipment.eta || shipment.lastCheckedAt || "").split("T")[0];
+      if (!dateKey) return;
+      if (!timeline[dateKey]) timeline[dateKey] = { date: dateKey, exports: 0, delivered: 0 };
+      timeline[dateKey].exports += 1;
+      if (shipment.status === "delivered") timeline[dateKey].delivered += 1;
+    });
+
+    return Object.values(timeline).sort((a, b) => a.date.localeCompare(b.date));
+  }, [scopedAfricaExports]);
+
+  const africaDocumentRiskRows = useMemo(() => {
+    return scopedAfricaExports
+      .map((shipment) => {
+        const documentValues = Object.values(shipment.documents || {});
+        const documentTotal = documentValues.length;
+        const documentsComplete = documentValues.filter(Boolean).length;
+        const readiness = documentTotal > 0 ? Math.round((documentsComplete / documentTotal) * 100) : 0;
+        return {
+          ...shipment,
+          documentsComplete,
+          documentTotal,
+          readiness,
+        };
+      })
+      .filter((shipment) => shipment.readiness < 100 || !shipment.lastCheckedAt)
+      .sort((a, b) => a.readiness - b.readiness || (a.eta || "").localeCompare(b.eta || ""));
+  }, [scopedAfricaExports]);
+
+  const africaExportRows = useMemo(() => {
+    return scopedAfricaExports.map((shipment) => {
+      const documentValues = Object.values(shipment.documents || {});
+      const documentsComplete = documentValues.filter(Boolean).length;
+      const documentTotal = documentValues.length;
+      const readiness = documentTotal > 0 ? Math.round((documentsComplete / documentTotal) * 100) : 0;
+
+      return {
+        Reference: shipment.ref,
+        "Africa Client": shipment.customer,
+        "Destination Country": shipment.destinationCountry || "To confirm",
+        Status: shipment.status,
+        "HS Code": shipment.hsCode || "To confirm",
+        "Product Type": shipment.productType || "To confirm",
+        Incoterm: shipment.incoterm,
+        "Transport Mode": shipment.transportMode,
+        Pallets: shipment.pallets || 0,
+        ETA: shipment.eta || "N/A",
+        "Origin Preference": shipment.preferenceScheme,
+        "Destination Agent": shipment.destinationAgent || "To confirm",
+        "Agent Check": shipment.lastCheckedAt || "Not done",
+        "Document Readiness": `${readiness}%`,
+        Notes: shipment.notes || "",
+      };
+    });
+  }, [scopedAfricaExports]);
+
+  const exportAfricaAnalyticsExcel = async () => {
+    const metadata = XLSX.utils.aoa_to_sheet([
+      ["Africa Export Analytics"],
+      ["Report Period", reportPeriodLabel],
+      ["Pulled At", pulledAtLabel],
+      ["Shipments", africaExportKpis.total],
+      ["Delivered Rate", `${africaExportKpis.deliveredRate}%`],
+      ["Pallets", africaExportKpis.pallets],
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, metadata, "Report Info");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(africaExportRows), "Africa Exports");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(africaDestinationAnalytics), "Destinations");
+    const fileDate = new Date().toISOString().split("T")[0];
+    await XLSX.writeFile(workbook, `africa-export-analytics-${timeRange}-${fileDate}.xlsx`);
+  };
+
+  const exportAfricaAnalyticsPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const generatedDate = formatDate(new Date());
+
+    doc.setFillColor(6, 95, 70);
+    doc.rect(0, 0, pageWidth, 24, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text("Africa Export Analytics", 14, 10);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(209, 250, 229);
+    doc.text(`Period: ${reportPeriodLabel}`, 14, 17);
+    doc.text(`Pulled at: ${pulledAtLabel}`, pageWidth - 14, 10, { align: "right" });
+
+    autoTable(doc, {
+      startY: 32,
+      head: [["Metric", "Value"]],
+      body: [
+        ["Shipments", String(africaExportKpis.total)],
+        ["Assigned / In Transit", String(africaExportKpis.assigned)],
+        ["Delivered", String(africaExportKpis.delivered)],
+        ["Delivered Rate", `${africaExportKpis.deliveredRate}%`],
+        ["Total Pallets", String(africaExportKpis.pallets)],
+        ["No Agent Check", String(africaExportKpis.missingAgentChecks)],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [6, 95, 70], textColor: [255, 255, 255], fontStyle: "bold" },
+      margin: { left: 14, right: pageWidth - 110 },
+    });
+
+    autoTable(doc, {
+      startY: 32,
+      head: [["Destination", "Shipments", "Pallets", "Delivered"]],
+      body: africaDestinationAnalytics.map((row) => [row.country, String(row.shipments), String(row.pallets), String(row.delivered)]),
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold" },
+      margin: { left: 118, right: 14 },
+    });
+
+    autoTable(doc, {
+      startY: 104,
+      head: [["Reference", "Africa Client", "Country", "Status", "HS Code", "Incoterm", "Pallets", "Agent Check", "Doc Readiness"]],
+      body: africaExportRows.map((row) => [
+        row.Reference,
+        row["Africa Client"],
+        row["Destination Country"],
+        row.Status,
+        row["HS Code"],
+        row.Incoterm,
+        String(row.Pallets),
+        row["Agent Check"],
+        row["Document Readiness"],
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
+      bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      styles: { lineColor: [226, 232, 240], lineWidth: 0.15, overflow: "linebreak" },
+      margin: { left: 14, right: 14 },
+      didDrawPage: () => {
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(6.5);
+        doc.text("K58 Dispatch", 14, pageHeight - 5);
+        doc.text(`Generated ${generatedDate}`, pageWidth / 2, pageHeight - 5, { align: "center" });
+        doc.text(`Page ${(doc as any).internal.getCurrentPageInfo().pageNumber}`, pageWidth - 14, pageHeight - 5, { align: "right" });
+      },
+    });
+
+    const fileDate = new Date().toISOString().split("T")[0];
+    doc.save(`africa-export-analytics-${timeRange}-${fileDate}.pdf`);
+  };
+
   const jobsTimeline = useMemo(() => {
     const timeline: Record<string, { date: string; created: number; delivered: number }> = {};
 
@@ -719,6 +960,160 @@ export const AdvancedAnalytics: React.FC = () => {
           );
         })}
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Globe2 className="h-5 w-5 text-emerald-600" />
+                Africa Export Analytics
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Independent Africa export shipments for {reportPeriodLabel}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={exportAfricaAnalyticsPdf}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={scopedAfricaExports.length === 0}
+              >
+                <FileText className="h-4 w-4" />
+                PDF
+              </Button>
+              <Button
+                onClick={exportAfricaAnalyticsExcel}
+                size="sm"
+                className="gap-2"
+                disabled={scopedAfricaExports.length === 0}
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Excel
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-6">
+            {[
+              { label: "Exports", value: africaExportKpis.total, color: "text-emerald-700", bg: "bg-emerald-50" },
+              { label: "Assigned / Transit", value: africaExportKpis.assigned, color: "text-blue-700", bg: "bg-blue-50" },
+              { label: "Pending", value: africaExportKpis.pending, color: "text-amber-700", bg: "bg-amber-50" },
+              { label: "Delivered", value: africaExportKpis.delivered, color: "text-green-700", bg: "bg-green-50" },
+              { label: "Pallets", value: africaExportKpis.pallets, color: "text-gray-900", bg: "bg-gray-100" },
+              { label: "No Agent Check", value: africaExportKpis.missingAgentChecks, color: africaExportKpis.missingAgentChecks > 0 ? "text-red-700" : "text-gray-900", bg: africaExportKpis.missingAgentChecks > 0 ? "bg-red-50" : "bg-gray-100" },
+            ].map((item) => (
+              <div key={item.label} className={`${item.bg} rounded-lg p-3`}>
+                <div className={`text-xl font-bold ${item.color}`}>{item.value}</div>
+                <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">{item.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border border-gray-200 p-3">
+              <div className="mb-2">
+                <h3 className="text-sm font-semibold text-gray-900">Destination Volume</h3>
+                <p className="text-xs text-gray-400">Shipments and pallets by Africa country</p>
+              </div>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={africaDestinationAnalytics} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <YAxis dataKey="country" type="category" tick={{ fontSize: 10 }} width={118} />
+                  <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <Bar dataKey="shipments" fill={COLORS.success} name="Shipments" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="pallets" fill={COLORS.warning} name="Pallets" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 p-3">
+              <div className="mb-2">
+                <h3 className="text-sm font-semibold text-gray-900">Export Status Trend</h3>
+                <p className="text-xs text-gray-400">ETA/check-date trend for exports and delivered shipments</p>
+              </div>
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={africaExportTimeline}>
+                  <defs>
+                    <linearGradient id="colorAfricaExports" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS.success} stopOpacity={0.8} />
+                      <stop offset="95%" stopColor={COLORS.success} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorAfricaDelivered" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.8} />
+                      <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <Area type="monotone" dataKey="exports" stroke={COLORS.success} fillOpacity={1} fill="url(#colorAfricaExports)" name="Exports" />
+                  <Area type="monotone" dataKey="delivered" stroke={COLORS.primary} fillOpacity={1} fill="url(#colorAfricaDelivered)" name="Delivered" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border border-gray-200 p-3">
+              <div className="mb-2">
+                <h3 className="text-sm font-semibold text-gray-900">Status Load</h3>
+                <p className="text-xs text-gray-400">Shipment count and pallet load by export status</p>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={africaStatusAnalytics}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="status" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #E5E7EB", borderRadius: "8px" }} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <Bar dataKey="shipments" fill={COLORS.success} name="Shipments" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="pallets" fill={COLORS.primary} name="Pallets" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 p-3">
+              <div className="mb-2">
+                <h3 className="text-sm font-semibold text-gray-900">Document & Agent Checks</h3>
+                <p className="text-xs text-gray-400">Exports still needing document completion or destination agent confirmation</p>
+              </div>
+              <div className="max-h-56 overflow-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-gray-50">
+                    <tr className="border-b border-gray-200">
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Reference</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Country</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Agent Check</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-700">Docs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {africaDocumentRiskRows.slice(0, 8).map((shipment) => (
+                      <tr key={shipment.ref} className="border-b border-gray-100">
+                        <td className="px-3 py-2 font-medium text-resilinc-primary">{shipment.ref}</td>
+                        <td className="px-3 py-2 text-gray-700">{shipment.destinationCountry || "To confirm"}</td>
+                        <td className="px-3 py-2 text-gray-700">{shipment.lastCheckedAt || "Not done"}</td>
+                        <td className="px-3 py-2 text-right text-gray-700">{shipment.readiness}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {africaDocumentRiskRows.length === 0 && (
+                  <div className="py-8 text-center text-sm text-gray-400">No document or agent check gaps for this period.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {activeKpiDrilldown && (
         <div ref={drilldownRef}>

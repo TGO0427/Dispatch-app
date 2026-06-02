@@ -265,14 +265,23 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     };
   }, [orderJobs, jobs]);
 
-  const dispatchedWeekPallets = useMemo(() => {
-    const palletsByRef = new Map<string, number>();
+  const dispatchedWeekSummary = useMemo(() => {
+    const byRef = new Map<string, { pallets: number; qty: number }>();
     orderJobs.forEach((job) => {
       if ((job.status === "en-route" || job.status === "delivered") && isThisWeek(getDispatchDate(job))) {
-        palletsByRef.set(job.ref, Math.max(palletsByRef.get(job.ref) || 0, job.pallets || 0));
+        const existing = byRef.get(job.ref) || { pallets: 0, qty: 0 };
+        existing.pallets = Math.max(existing.pallets, job.pallets || 0);
+        existing.qty += job.outstandingQty || 0;
+        byRef.set(job.ref, existing);
       }
     });
-    return Array.from(palletsByRef.values()).reduce((sum, pallets) => sum + pallets, 0);
+    return Array.from(byRef.values()).reduce(
+      (summary, order) => ({
+        pallets: summary.pallets + order.pallets,
+        qty: summary.qty + order.qty,
+      }),
+      { pallets: 0, qty: 0 },
+    );
   }, [orderJobs]);
 
   // Compute assigned pallets per driver by order ref. Pallets are order-level,
@@ -658,7 +667,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     <div className="flex items-center gap-2">
                       <Briefcase className="h-5 w-5 text-gray-600" />
                       <CardTitle>
-                        {activeTab === "open" ? "Open Orders" : activeTab === "assigned" ? "Assigned Orders" : activeTab === "in-transit" ? "In Transit" : activeTab === "dispatched-week" ? `Dispatched This Week (${filteredAndSortedJobs.length} orders, ${dispatchedWeekPallets} pallets)` : `Delivered Orders (${filteredAndSortedJobs.length})`}
+                        {activeTab === "open" ? "Open Orders" : activeTab === "assigned" ? "Assigned Orders" : activeTab === "in-transit" ? "In Transit" : activeTab === "dispatched-week" ? `Dispatched This Week (${filteredAndSortedJobs.length} orders, ${dispatchedWeekSummary.pallets} pallets, ${dispatchedWeekSummary.qty} qty)` : `Delivered Orders (${filteredAndSortedJobs.length})`}
                         {activeTab !== "dispatched-week" && activeTab !== "delivered" && ` (${filteredAndSortedJobs.length})`}
                       </CardTitle>
                     </div>

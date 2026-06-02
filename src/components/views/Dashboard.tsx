@@ -371,7 +371,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       icon: Archive, value: formatNumber(stats.qtyDispatchedThisWeek), label: "QTY DISPATCHED",
       change: `${stats.qtyOrdersDispatchedThisWeek} orders dispatched`,
       changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.qtyDispatchedThisWeek > 1000 ? "Big Push" : stats.qtyDispatchedThisWeek > 0 ? "Qty Cleared" : "Nothing Moved",
-      borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clock", tab: undefined,
+      borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clipboard", tab: "dispatched-week",
     },
     {
       icon: Globe2, value: africaExportStats.total, label: "AFRICA EXPORTS",

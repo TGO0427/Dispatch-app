@@ -1,10 +1,21 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, X, Package, User } from "lucide-react";
+import { Search, X, Package, User, Globe2 } from "lucide-react";
 import { useDispatch } from "../context/DispatchContext";
+import { africaExportsAPI } from "../services/api";
+
+interface AfricaExportSearchItem {
+  ref: string;
+  customer: string;
+  destinationCountry: string;
+  hsCode: string;
+  productType: string;
+  status: "pending" | "assigned" | "in-transit" | "delivered";
+  eta: string;
+}
 
 interface SearchResult {
   id: string;
-  type: "job" | "driver";
+  type: "job" | "driver" | "africa-export";
   title: string;
   subtitle: string;
   status?: string;
@@ -14,12 +25,14 @@ interface SearchResult {
 interface GlobalSearchProps {
   onSelectJob?: (jobId: string) => void;
   onSelectDriver?: (driverId: string) => void;
+  onSelectAfricaExport?: (ref: string) => void;
 }
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-700",
   assigned: "bg-blue-100 text-blue-700",
   "en-route": "bg-indigo-100 text-indigo-700",
+  "in-transit": "bg-indigo-100 text-indigo-700",
   delivered: "bg-green-100 text-green-700",
   returned: "bg-amber-100 text-amber-700",
   exception: "bg-red-100 text-red-700",
@@ -30,8 +43,9 @@ const statusColors: Record<string, string> = {
   break: "bg-purple-100 text-purple-700",
 };
 
-export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelectDriver }) => {
+export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelectDriver, onSelectAfricaExport }) => {
   const { jobs, drivers } = useDispatch();
+  const [africaExports, setAfricaExports] = useState<AfricaExportSearchItem[]>([]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -47,6 +61,26 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    africaExportsAPI.getAll()
+      .then((shipments) => {
+        if (!cancelled) setAfricaExports(shipments);
+      })
+      .catch((error) => {
+        console.warn("Failed to load Africa exports for global search", error);
+        try {
+          const raw = localStorage.getItem("dispatch_africa_export_shipments_v2");
+          if (!cancelled && raw) setAfricaExports(JSON.parse(raw));
+        } catch {
+          if (!cancelled) setAfricaExports([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Search results
@@ -97,18 +131,40 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
       }
     });
 
+    // Search Africa exports
+    africaExports.forEach((shipment) => {
+      const match =
+        shipment.ref?.toLowerCase().includes(q) ||
+        shipment.customer?.toLowerCase().includes(q) ||
+        shipment.destinationCountry?.toLowerCase().includes(q) ||
+        shipment.hsCode?.toLowerCase().includes(q) ||
+        shipment.productType?.toLowerCase().includes(q);
+
+      if (match) {
+        matches.push({
+          id: shipment.ref,
+          type: "africa-export",
+          title: `${shipment.ref} - ${shipment.customer}`,
+          subtitle: `${shipment.destinationCountry || "Country to confirm"} - ${shipment.hsCode || "HS code to confirm"}`,
+          status: shipment.status,
+        });
+      }
+    });
+
     return matches.slice(0, 10);
-  }, [query, jobs, drivers]);
+  }, [query, jobs, drivers, africaExports]);
 
   const handleSelect = useCallback((result: SearchResult) => {
     if (result.type === "job" && onSelectJob) {
       onSelectJob(result.id);
     } else if (result.type === "driver" && onSelectDriver) {
       onSelectDriver(result.id);
+    } else if (result.type === "africa-export" && onSelectAfricaExport) {
+      onSelectAfricaExport(result.id);
     }
     setOpen(false);
     setQuery("");
-  }, [onSelectDriver, onSelectJob]);
+  }, [onSelectAfricaExport, onSelectDriver, onSelectJob]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -149,6 +205,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
   // Group results
   const jobResults = results.filter((r) => r.type === "job");
   const driverResults = results.filter((r) => r.type === "driver");
+  const africaExportResults = results.filter((r) => r.type === "africa-export");
 
   return (
     <div ref={wrapperRef} className="relative w-80">
@@ -157,7 +214,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
         <input
           ref={inputRef}
           type="text"
-          placeholder="Search jobs, drivers, customers..."
+          placeholder="Search jobs, drivers, exports..."
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -204,6 +261,40 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
                         }`}
                       >
                         <Package className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">
+                            {highlight(result.title)}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">{highlight(result.subtitle)}</div>
+                        </div>
+                        {result.status && (
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${statusColors[result.status] || "bg-gray-100 text-gray-600"}`}>
+                            {result.status}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Africa Exports */}
+              {africaExportResults.length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                    Africa Exports ({africaExportResults.length})
+                  </div>
+                  {africaExportResults.map((result) => {
+                    const globalIdx = results.indexOf(result);
+                    return (
+                      <button
+                        key={result.id}
+                        onClick={() => handleSelect(result)}
+                        className={`w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors ${
+                          globalIdx === selectedIndex ? "bg-emerald-50" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <Globe2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-gray-900 truncate">
                             {highlight(result.title)}

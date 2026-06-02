@@ -419,7 +419,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
 
         <div className="flex items-center gap-4">
           {/* Global Search */}
-          <GlobalSearch />
+          <GlobalSearch onSelectAfricaExport={() => onNavigate?.("africa-exports")} />
 
           {/* User */}
           <div className="flex items-center gap-2 text-sm text-gray-600">

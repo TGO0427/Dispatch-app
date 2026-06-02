@@ -3,6 +3,7 @@ import {
   X, ChevronRight,
   LayoutDashboard, Home, ClipboardList, Calendar, Grid3x3, Clock,
   BarChart3, ArrowRightLeft, Truck, Users, Search, Settings, Package, Mail,
+  Globe2,
 } from "lucide-react";
 
 interface HelpGuideProps {
@@ -77,6 +78,25 @@ const guideSections: GuideSection[] = [
     ],
   },
   {
+    id: "africa-exports",
+    icon: Globe2,
+    title: "Africa Exports",
+    description: "Independent workspace for shipments from South Africa into Africa, with Africa clients, export transporters, document packs, and destination checks kept separate from local order management.",
+    steps: [
+      { title: "Import or Create Exports", detail: "Use Import Africa Orders for CSV/XLSX uploads or New Export for one shipment. These exports do not appear in local customer orders." },
+      { title: "Complete Shipment Setup", detail: "Capture the Africa client, destination country, HS code, product type, Incoterm, transport mode, ETA, pallet count, preference scheme, and destination agent." },
+      { title: "Assign Export Transporters", detail: "Use the Africa export transporter list on the right. These transporters are separate from local dispatch transporters." },
+      { title: "Tick the Document Pack", detail: "The Document Pack tab tracks core export documents, origin documents, food ingredient documents, permits, and destination customs items per shipment." },
+      { title: "Run Destination Checks", detail: "Use Destination Checks before dispatch. Egypt shows NAFEZA/CargoX/ACID guidance and Cameroon shows SGS conformity guidance when selected." },
+      { title: "Review in Reports", detail: "Africa exports appear in Dashboard, Order Reports, Analytics, and Global Search using the shared database-backed export records." },
+    ],
+    tips: [
+      "Use the HS Code lookup button beside the HS Code field when tariff classification needs checking.",
+      "Mark Agent Check only after the destination clearing agent confirms permits, certificates, originals, and COC/PVOC requirements.",
+      "Existing browser-saved Africa exports are uploaded to the database automatically when the Africa Exports page loads.",
+    ],
+  },
+  {
     id: "ibt",
     icon: ArrowRightLeft,
     title: "Import IBT",
@@ -136,7 +156,7 @@ const guideSections: GuideSection[] = [
     title: "Order Reports",
     description: "Generate detailed reports with filters for status, priority, warehouse, transporter, and date range.",
     steps: [
-      { title: "Select Report Type", detail: "Choose from Job Summary, Driver Performance, Customer Analysis, Exception Report, Delivery Performance, or Warehouse Utilization." },
+      { title: "Select Report Type", detail: "Choose from Job Summary, Driver Performance, Customer Analysis, Exception Report, Delivery Performance, Warehouse Utilization, Overdue Analysis, or Africa Export Report." },
       { title: "Apply Filters", detail: "Use the filter controls to narrow results by date range, status, priority, warehouse, or transporter." },
       { title: "Export", detail: "Click 'Export to Excel' to download the filtered report as a spreadsheet." },
     ],
@@ -149,7 +169,7 @@ const guideSections: GuideSection[] = [
     steps: [
       { title: "Set Time Range", detail: "Choose 7 days, 30 days, 90 days, or All to adjust the chart period." },
       { title: "Filter by Warehouse", detail: "Select a warehouse to see its specific performance data." },
-      { title: "Read the Charts", detail: "Bar charts show transporter performance, line charts show job trends, and pie charts show status distribution." },
+      { title: "Read the Charts", detail: "Bar charts show transporter performance, line charts show job trends, and Africa export charts show destination volume, status load, and document or agent check gaps." },
     ],
   },
   {

@@ -89,6 +89,13 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
 
   const getDispatchDate = (job: Job) => {
     if (job.status !== "en-route" && job.status !== "delivered") return undefined;
+    if (job.status === "delivered" && job.dispatchedAt && job.actualDeliveryAt) {
+      const dispatchTime = new Date(job.dispatchedAt).getTime();
+      const deliveryTime = new Date(job.actualDeliveryAt).getTime();
+      if (!Number.isNaN(dispatchTime) && !Number.isNaN(deliveryTime) && dispatchTime > deliveryTime) {
+        return undefined;
+      }
+    }
     return job.dispatchedAt;
   };
 

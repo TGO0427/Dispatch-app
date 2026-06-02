@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Download,
+  ExternalLink,
   FileCheck2,
   FileText,
   Globe2,
@@ -69,6 +70,62 @@ interface ChecklistGroup {
 
 const SHIPMENTS_KEY = "dispatch_africa_export_shipments_v2";
 const TRANSPORTERS_KEY = "dispatch_africa_export_transporters_v1";
+
+const AFRICA_COUNTRIES = [
+  "Algeria",
+  "Angola",
+  "Benin",
+  "Botswana",
+  "Burkina Faso",
+  "Burundi",
+  "Cabo Verde",
+  "Cameroon",
+  "Central African Republic",
+  "Chad",
+  "Comoros",
+  "Democratic Republic of the Congo",
+  "Republic of the Congo",
+  "Cote d'Ivoire",
+  "Djibouti",
+  "Egypt",
+  "Equatorial Guinea",
+  "Eritrea",
+  "Eswatini",
+  "Ethiopia",
+  "Gabon",
+  "Gambia",
+  "Ghana",
+  "Guinea",
+  "Guinea-Bissau",
+  "Kenya",
+  "Lesotho",
+  "Liberia",
+  "Libya",
+  "Madagascar",
+  "Malawi",
+  "Mali",
+  "Mauritania",
+  "Mauritius",
+  "Morocco",
+  "Mozambique",
+  "Namibia",
+  "Niger",
+  "Nigeria",
+  "Rwanda",
+  "Sao Tome and Principe",
+  "Senegal",
+  "Seychelles",
+  "Sierra Leone",
+  "Somalia",
+  "South Sudan",
+  "Sudan",
+  "Tanzania",
+  "Togo",
+  "Tunisia",
+  "Uganda",
+  "Zambia",
+  "Zimbabwe",
+];
 
 const CORE_DOCUMENTS: ChecklistItem[] = [
   { id: "proforma-invoice", label: "Proforma Invoice", purpose: "Pre-shipment quote document used by the buyer or destination agent to apply for import permits, approvals, or foreign payment where required.", conditional: "Prepare before shipment when the importer, bank, or destination authority needs it." },
@@ -151,6 +208,29 @@ const PRE_DISPATCH_CHECKS = [
 
 const AGENT_QUESTION =
   "Please confirm, based on the HS code and product description, whether any import permit, standards approval, COC/PVOC, health certificate, phytosanitary/veterinary certificate, or original certificate of origin is required before shipment.";
+
+const DESTINATION_REQUIREMENTS: Record<string, { title: string; points: string[] }> = {
+  Egypt: {
+    title: "Egypt NAFEZA / CargoX / ACID Requirements",
+    points: [
+      "Egyptian importer or authorised clearing agent must register the shipment on NAFEZA using the exporter's CargoX details and request the ACID number.",
+      "Exporter must already be registered and verified on CargoX before the importer can complete the NAFEZA ACI request.",
+      "Once NAFEZA approves the ACI request, the supplier/exporter receives the ACID notification by email and inside CargoX.",
+      "ACID details should appear in the CargoX inbox/envelope and must be checked before sending documents.",
+      "Supplier uploads the ACI document envelope via CargoX, usually including commercial invoice, packing list, bill of lading or airway bill when available, and any product-specific certificates.",
+      "Important: the supplier cannot generate the ACID number unless they are the Egyptian importer or authorised NAFEZA agent.",
+    ],
+  },
+  Cameroon: {
+    title: "Cameroon SGS / Conformity Requirements",
+    points: [
+      "Confirm whether the shipment requires SGS pre-shipment conformity assessment before dispatch.",
+      "Destination importer or clearing agent must confirm whether a Certificate of Conformity, inspection booking, product testing, or document review is required for the HS code and product type.",
+      "Do not dispatch until SGS or the destination agent confirms the required route, certificate status, and whether originals are needed.",
+      "Keep SGS confirmation or certificate with the export pack and align it to invoice, packing list, HS code, batch, and product description.",
+    ],
+  },
+};
 
 const DEFAULT_SHIPMENT: ExportShipment = {
   ref: "",
@@ -322,6 +402,11 @@ export const AfricaExportsView: React.FC = () => {
   );
   const requiredDone = requiredItems.filter((item) => shipment.documents[item.id]).length;
   const assignedTransporter = transporters.find((item) => item.id === shipment.assignedTransporterId);
+  const countryOptions = useMemo(() => {
+    if (!shipment.destinationCountry || AFRICA_COUNTRIES.includes(shipment.destinationCountry)) return AFRICA_COUNTRIES;
+    return [shipment.destinationCountry, ...AFRICA_COUNTRIES];
+  }, [shipment.destinationCountry]);
+  const destinationRequirement = DESTINATION_REQUIREMENTS[shipment.destinationCountry];
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return CHECKLIST_GROUPS;
@@ -349,6 +434,10 @@ export const AfricaExportsView: React.FC = () => {
       if (!exists) return [nextShipment, ...prev];
       return prev.map((item) => (item.ref === shipment.ref || item.ref === selectedRef ? nextShipment : item));
     });
+  };
+
+  const openTariffLookup = () => {
+    window.open("https://www.freightnews.co.za/customs", "_blank", "noopener,noreferrer");
   };
 
   const createBlankShipment = () => {
@@ -628,8 +717,34 @@ export const AfricaExportsView: React.FC = () => {
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <Field label="Reference" value={shipment.ref} onChange={(value) => updateShipment({ ref: value })} placeholder="AFX-0001" />
                     <Field label="Africa Client / Consignee" value={shipment.customer} onChange={(value) => updateShipment({ customer: value })} placeholder="Client name" />
-                    <Field label="Destination Country" value={shipment.destinationCountry} onChange={(value) => updateShipment({ destinationCountry: value })} placeholder="Botswana, Kenya, Zambia" />
-                    <Field label="HS Code" value={shipment.hsCode} onChange={(value) => updateShipment({ hsCode: value })} placeholder="Tariff classification" />
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">Destination Country</span>
+                      <select
+                        value={shipment.destinationCountry}
+                        onChange={(event) => updateShipment({ destinationCountry: event.target.value })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      >
+                        <option value="">Select Africa country</option>
+                        {countryOptions.map((country) => (
+                          <option key={country} value={country}>{country}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">HS Code</span>
+                      <div className="flex gap-2">
+                        <input
+                          value={shipment.hsCode}
+                          onChange={(event) => updateShipment({ hsCode: event.target.value })}
+                          className="min-w-0 flex-1 rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Tariff classification"
+                        />
+                        <Button type="button" variant="outline" className="h-10 flex-shrink-0 gap-2" onClick={openTariffLookup}>
+                          <ExternalLink className="h-4 w-4" />
+                          Lookup
+                        </Button>
+                      </div>
+                    </div>
                     <Field label="Product Type" value={shipment.productType} onChange={(value) => updateShipment({ productType: value })} placeholder="Food ingredient, flavouring, enzyme" />
                     <label className="space-y-2">
                       <span className="text-sm font-semibold text-gray-700">Incoterm</span>
@@ -813,6 +928,25 @@ export const AfricaExportsView: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {destinationRequirement && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{destinationRequirement.title}</CardTitle>
+                    <p className="text-sm text-gray-600">Applies to the selected destination country: {shipment.destinationCountry}.</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {destinationRequirement.points.map((point) => (
+                        <div key={point} className="flex gap-3 rounded-card border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-900">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                          <span>{point}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader>

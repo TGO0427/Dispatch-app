@@ -340,7 +340,11 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
     .map((shipment, index) => ({ ...shipment, ref: shipment.ref || `AFX-${Date.now()}-${index}` }));
 };
 
-export const AfricaExportsView: React.FC = () => {
+interface AfricaExportsViewProps {
+  initialRef?: string;
+}
+
+export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef }) => {
   const { showSuccess, showError, showWarning, confirm } = useNotification();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [shipments, setShipments] = useState<ExportShipment[]>([]);
@@ -410,6 +414,12 @@ export const AfricaExportsView: React.FC = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (initialRef) {
+      setSelectedRef(initialRef);
+    }
+  }, [initialRef]);
 
   useEffect(() => {
     saveList(SHIPMENTS_KEY, shipments);

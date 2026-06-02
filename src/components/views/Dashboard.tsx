@@ -50,7 +50,7 @@ function getWeekNumber(date: Date): number {
 
 interface DashboardProps {
   onOpenAlerts?: () => void;
-  onNavigate?: (page: string, tab?: string) => void;
+  onNavigate?: (page: string, tab?: string, ref?: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }) => {
@@ -419,7 +419,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
 
         <div className="flex items-center gap-4">
           {/* Global Search */}
-          <GlobalSearch onSelectAfricaExport={() => onNavigate?.("africa-exports")} />
+          <GlobalSearch onSelectAfricaExport={(ref) => onNavigate?.("africa-exports", undefined, ref)} />
 
           {/* User */}
           <div className="flex items-center gap-2 text-sm text-gray-600">

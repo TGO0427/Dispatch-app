@@ -70,6 +70,7 @@ function AppContent() {
   const [alertHubOpen, setAlertHubOpen] = useState(false);
   const [helpGuideOpen, setHelpGuideOpen] = useState(false);
   const [dispatchTab, setDispatchTab] = useState<string | undefined>(undefined);
+  const [selectedAfricaExportRef, setSelectedAfricaExportRef] = useState<string | undefined>(undefined);
   const [selectedJobFromAlert, setSelectedJobFromAlert] = useState<string | null>(null);
   const [authView, setAuthView] = useState<AuthView>("login");
   const [openTabs, setOpenTabs] = useState([{ id: "dashboard", title: NAV_TITLES.dashboard }]);
@@ -81,10 +82,15 @@ function AppContent() {
     });
   };
 
-  const navigateToPage = (page: string, tab?: string) => {
+  const navigateToPage = (page: string, tab?: string, ref?: string) => {
     openPageTab(page);
     setActiveNavItem(page);
     setDispatchTab(tab);
+    if (page === "africa-exports") {
+      setSelectedAfricaExportRef(ref);
+    } else if (ref) {
+      setSelectedAfricaExportRef(undefined);
+    }
   };
 
   // Unread message count
@@ -121,7 +127,7 @@ function AppContent() {
       case "clipboard":
         view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} initialTab={dispatchTab as any} />; break;
       case "africa-exports":
-        view = <AfricaExportsView />; break;
+        view = <AfricaExportsView initialRef={selectedAfricaExportRef} />; break;
       case "calendar":
         view = <CalendarView />; break;
       case "grid":

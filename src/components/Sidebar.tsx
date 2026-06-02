@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useDispatch } from "../context/DispatchContext";
-import { messagesAPI } from "../services/api";
+import { africaExportsAPI, messagesAPI } from "../services/api";
 import { useTheme } from "../hooks/useTheme";
 import { countExceptionQueueItems } from "../utils/exceptionQueues";
 
@@ -53,11 +53,46 @@ interface NavSection {
   items: NavItem[];
 }
 
+interface SidebarAfricaExport {
+  ref: string;
+  status: "pending" | "assigned" | "in-transit" | "delivered";
+  eta: string;
+  lastCheckedAt: string;
+  documents: Record<string, boolean>;
+}
+
+const AFRICA_EXPORTS_KEY = "dispatch_africa_export_shipments_v2";
+const REQUIRED_AFRICA_DOCUMENT_IDS = [
+  "commercial-invoice",
+  "packing-list",
+  "sad-500",
+  "transport-document",
+  "hs-code",
+  "exporter-code",
+  "proof-export",
+  "coa",
+  "tds",
+  "sds",
+  "allergen",
+  "non-gmo",
+  "food-grade",
+  "shelf-life",
+  "batch-traceability",
+];
+
 export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, collapsed, onToggleCollapse, onOpenHelp }) => {
   const { user, logout } = useAuth();
   const { jobs } = useDispatch();
   const { theme, toggle: toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
+  const [africaExports, setAfricaExports] = useState<SidebarAfricaExport[]>(() => {
+    try {
+      const raw = localStorage.getItem(AFRICA_EXPORTS_KEY);
+      return raw ? JSON.parse(raw) as SidebarAfricaExport[] : [];
+    } catch {
+      return [];
+    }
+  });
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     dispatch: true,
     operations: true,
@@ -76,6 +111,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const fetchAfricaExports = () => {
+      africaExportsAPI.getAll()
+        .then((shipments) => {
+          setAfricaExports(shipments);
+          localStorage.setItem(AFRICA_EXPORTS_KEY, JSON.stringify(shipments));
+        })
+        .catch((err) => {
+          console.warn("Failed to fetch Africa export sidebar stats", err);
+        });
+    };
+    fetchAfricaExports();
+    const interval = setInterval(fetchAfricaExports, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const sidebarStats = useMemo(() => {
     const orderJobs = jobs.filter((j) => j.jobType === "order" || j.jobType === undefined);
     const ibtJobs = jobs.filter((j) => j.jobType === "ibt");
@@ -85,8 +136,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       exceptions: countExceptionQueueItems(orderJobs),
       pendingCount: orderJobs.filter((j) => j.status === "pending").length,
       ibtPendingCount: ibtJobs.filter((j) => j.status === "pending").length,
+      africaExportRiskCount: africaExports.filter((shipment) => {
+        if (shipment.status === "delivered") return false;
+        const missingRequiredDocs = REQUIRED_AFRICA_DOCUMENT_IDS.some((id) => !shipment.documents?.[id]);
+        return missingRequiredDocs || !shipment.lastCheckedAt;
+      }).length,
     };
-  }, [jobs]);
+  }, [africaExports, jobs]);
 
   const navSections: NavSection[] = [
     {
@@ -97,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         { id: "ibt", icon: ArrowRightLeft, label: "Import IBT" },
         { id: "ibt-dispatch", icon: Truck, label: "IBT Management", badge: sidebarStats.ibtPendingCount, badgeType: "info" },
         { id: "clipboard", icon: ClipboardList, label: "Order Management", badge: sidebarStats.pendingCount, badgeType: "info" },
-        { id: "africa-exports", icon: Globe2, label: "Africa Exports" },
+        { id: "africa-exports", icon: Globe2, label: "Africa Exports", badge: sidebarStats.africaExportRiskCount, badgeType: "danger" },
       ],
     },
     {
@@ -164,6 +220,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           <span className="absolute left-[3px] top-[25%] bottom-[25%] w-[3px] rounded-full bg-emerald-400" />
         )}
         <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-emerald-400" : ""}`} />
+        {collapsed && badge !== undefined && badge > 0 && (
+          <span className={`absolute right-1.5 top-1.5 min-w-[16px] rounded-full px-1 text-[9px] font-bold leading-4 ${
+            badgeType === "danger" ? "bg-red-500 text-white" : "bg-emerald-400 text-emerald-950"
+          }`}>
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
         {!collapsed && (
           <>
             <span className={`text-[14px] flex-1 text-left ${isActive ? "text-white font-semibold" : "font-medium"}`}>{label}</span>

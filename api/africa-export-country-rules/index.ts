@@ -20,6 +20,8 @@ const toRuleData = (body: Record<string, unknown>) => {
     title,
     points: Array.isArray(body.points) ? body.points.map(String).filter(Boolean) : [],
     requiredDocumentIds: Array.isArray(body.requiredDocumentIds) ? body.requiredDocumentIds.map(String).filter(Boolean) : [],
+    history: Array.isArray(body.history) ? body.history : [],
+    updatedBy: body.updatedBy ? String(body.updatedBy) : null,
   };
 };
 

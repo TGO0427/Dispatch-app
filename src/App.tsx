@@ -71,6 +71,7 @@ function AppContent() {
   const [helpGuideOpen, setHelpGuideOpen] = useState(false);
   const [dispatchTab, setDispatchTab] = useState<string | undefined>(undefined);
   const [selectedAfricaExportRef, setSelectedAfricaExportRef] = useState<string | undefined>(undefined);
+  const [selectedAfricaExportFilter, setSelectedAfricaExportFilter] = useState<string | undefined>(undefined);
   const [selectedJobFromAlert, setSelectedJobFromAlert] = useState<string | null>(null);
   const [authView, setAuthView] = useState<AuthView>("login");
   const [openTabs, setOpenTabs] = useState([{ id: "dashboard", title: NAV_TITLES.dashboard }]);
@@ -88,8 +89,10 @@ function AppContent() {
     setDispatchTab(tab);
     if (page === "africa-exports") {
       setSelectedAfricaExportRef(ref);
-    } else if (ref) {
+      setSelectedAfricaExportFilter(tab);
+    } else {
       setSelectedAfricaExportRef(undefined);
+      setSelectedAfricaExportFilter(undefined);
     }
   };
 
@@ -127,7 +130,7 @@ function AppContent() {
       case "clipboard":
         view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} initialTab={dispatchTab as any} />; break;
       case "africa-exports":
-        view = <AfricaExportsView initialRef={selectedAfricaExportRef} />; break;
+        view = <AfricaExportsView initialRef={selectedAfricaExportRef} initialFilter={selectedAfricaExportFilter} />; break;
       case "calendar":
         view = <CalendarView />; break;
       case "grid":

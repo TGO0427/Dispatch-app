@@ -37,8 +37,29 @@ interface DashboardAfricaExport {
   status: "pending" | "assigned" | "in-transit" | "delivered";
   pallets: number;
   eta: string;
+  lastCheckedAt?: string;
+  documents?: Record<string, boolean>;
+  dispatchApprovedAt?: string;
   archived?: boolean;
 }
+
+const DASHBOARD_AFRICA_REQUIRED_DOCUMENT_IDS = [
+  "commercial-invoice",
+  "packing-list",
+  "sad-500",
+  "transport-document",
+  "hs-code",
+  "exporter-code",
+  "proof-export",
+  "coa",
+  "tds",
+  "sds",
+  "allergen",
+  "non-gmo",
+  "food-grade",
+  "shelf-life",
+  "batch-traceability",
+];
 
 // Helper to get week number
 function getWeekNumber(date: Date): number {
@@ -337,12 +358,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
     const assigned = activeAfricaExports.filter((shipment) => shipment.status === "assigned" || shipment.status === "in-transit").length;
     const delivered = activeAfricaExports.filter((shipment) => shipment.status === "delivered").length;
     const pallets = activeAfricaExports.reduce((sum, shipment) => sum + (Number(shipment.pallets) || 0), 0);
+    const atRisk = activeAfricaExports.filter((shipment) => {
+      if (shipment.status === "delivered") return false;
+      const missingDocs = DASHBOARD_AFRICA_REQUIRED_DOCUMENT_IDS.some((id) => !shipment.documents?.[id]);
+      return missingDocs || !shipment.lastCheckedAt;
+    }).length;
+    const approved = activeAfricaExports.filter((shipment) => Boolean(shipment.dispatchApprovedAt)).length;
+    const pendingApproval = activeAfricaExports.filter((shipment) => shipment.status !== "delivered" && !shipment.dispatchApprovedAt).length;
     return {
       total: activeAfricaExports.length,
       open,
       assigned,
       delivered,
       pallets,
+      atRisk,
+      approved,
+      pendingApproval,
     };
   }, [africaExports]);
 
@@ -531,22 +562,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
             <Globe2 className="h-7 w-7 text-emerald-600" />
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-emerald-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Open</p>
-              <p className="mt-1 text-2xl font-bold text-emerald-900">{africaExportStats.open}</p>
-            </div>
-            <div className="rounded-lg bg-blue-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Assigned</p>
+            <button type="button" onClick={() => onNavigate?.("africa-exports", "pending-approval")} className="rounded-lg bg-amber-50 p-3 text-left transition hover:shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Pending Approval</p>
+              <p className="mt-1 text-2xl font-bold text-amber-900">{africaExportStats.pendingApproval}</p>
+            </button>
+            <button type="button" onClick={() => onNavigate?.("africa-exports", "approved")} className="rounded-lg bg-emerald-50 p-3 text-left transition hover:shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Approved</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-900">{africaExportStats.approved}</p>
+            </button>
+            <button type="button" onClick={() => onNavigate?.("africa-exports", "risks")} className="rounded-lg bg-red-50 p-3 text-left transition hover:shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-red-700">At Risk</p>
+              <p className="mt-1 text-2xl font-bold text-red-900">{africaExportStats.atRisk}</p>
+            </button>
+            <button type="button" onClick={() => onNavigate?.("africa-exports", "all")} className="rounded-lg bg-blue-50 p-3 text-left transition hover:shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Assigned / Transit</p>
               <p className="mt-1 text-2xl font-bold text-blue-900">{africaExportStats.assigned}</p>
-            </div>
-            <div className="rounded-lg bg-gray-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Delivered</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">{africaExportStats.delivered}</p>
-            </div>
-            <div className="rounded-lg bg-amber-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Pallets</p>
-              <p className="mt-1 text-2xl font-bold text-amber-900">{africaExportStats.pallets}</p>
-            </div>
+            </button>
           </div>
         </div>
 

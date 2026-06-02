@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "../../lib/spreadsheet";
 
+import { useAuth } from "../../context/AuthContext";
 import { useNotification } from "../../context/NotificationContext";
 import { africaExportCountryRulesAPI, africaExportTransportersAPI, africaExportsAPI } from "../../services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
@@ -39,6 +40,16 @@ interface CountryRule {
   title: string;
   points: string[];
   requiredDocumentIds: string[];
+  history?: CountryRuleHistoryEntry[];
+  updatedBy?: string;
+}
+
+interface CountryRuleHistoryEntry {
+  id: string;
+  at: string;
+  action: string;
+  detail: string;
+  user: string;
 }
 
 interface ShipmentHistoryEntry {
@@ -394,6 +405,22 @@ const appendHistory = (
   ...(history || []),
 ].slice(0, 80);
 
+const appendRuleHistory = (
+  history: CountryRuleHistoryEntry[] | undefined,
+  action: string,
+  detail: string,
+  user: string,
+): CountryRuleHistoryEntry[] => [
+  {
+    id: `rule-history-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    at: new Date().toISOString(),
+    action,
+    detail,
+    user,
+  },
+  ...(history || []),
+].slice(0, 80);
+
 const getDaysUntil = (dateValue: string) => {
   if (!dateValue) return null;
   const date = new Date(dateValue);
@@ -441,19 +468,23 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
     .map((shipment, index) => ({ ...shipment, ref: shipment.ref || `AFX-${Date.now()}-${index}` }));
 };
 
+type ExportQueueFilter = "all" | "risks" | "approved" | "pending-approval" | "archived";
+
 interface AfricaExportsViewProps {
   initialRef?: string;
+  initialFilter?: string;
 }
 
-export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef }) => {
+export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef, initialFilter }) => {
   const { showSuccess, showError, showWarning, confirm } = useNotification();
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [shipments, setShipments] = useState<ExportShipment[]>([]);
   const [transporters, setTransporters] = useState<ExportTransporter[]>([]);
   const [selectedRef, setSelectedRef] = useState("");
   const [activeTab, setActiveTab] = useState<ExportTab>("overview");
   const [searchQuery, setSearchQuery] = useState("");
-  const [queueFilter, setQueueFilter] = useState<"all" | "risks" | "archived">("all");
+  const [queueFilter, setQueueFilter] = useState<ExportQueueFilter>("all");
   const [showImport, setShowImport] = useState(false);
   const [showAddTransporter, setShowAddTransporter] = useState(false);
   const [importPreview, setImportPreview] = useState<ExportShipment[]>([]);
@@ -532,6 +563,13 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       setSelectedRef(initialRef);
     }
   }, [initialRef]);
+
+  useEffect(() => {
+    const allowedFilters: ExportQueueFilter[] = ["all", "risks", "approved", "pending-approval", "archived"];
+    if (initialFilter && allowedFilters.includes(initialFilter as ExportQueueFilter)) {
+      setQueueFilter(initialFilter as ExportQueueFilter);
+    }
+  }, [initialFilter]);
 
   useEffect(() => {
     saveList(SHIPMENTS_KEY, shipments);
@@ -652,9 +690,16 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       return getMissingRequiredDocs(item).length > 0 || !item.lastCheckedAt;
     });
   }, [activeShipments, countryRules, allChecklistItems, baseRequiredIds]);
+  const approvedShipments = useMemo(() => activeShipments.filter((item) => Boolean(item.dispatchApprovedAt)), [activeShipments]);
+  const pendingApprovalShipments = useMemo(() => activeShipments.filter((item) => item.status !== "delivered" && !item.dispatchApprovedAt), [activeShipments]);
 
   const filteredShipments = useMemo(() => {
-    const baseShipments = queueFilter === "risks" ? riskyShipments : queueFilter === "archived" ? archivedShipments : activeShipments;
+    const baseShipments =
+      queueFilter === "risks" ? riskyShipments :
+      queueFilter === "approved" ? approvedShipments :
+      queueFilter === "pending-approval" ? pendingApprovalShipments :
+      queueFilter === "archived" ? archivedShipments :
+      activeShipments;
     if (!searchQuery.trim()) return baseShipments;
     const query = searchQuery.toLowerCase();
     return baseShipments.filter((item) =>
@@ -663,7 +708,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         .toLowerCase()
         .includes(query),
     );
-  }, [activeShipments, archivedShipments, queueFilter, riskyShipments, searchQuery]);
+  }, [activeShipments, approvedShipments, archivedShipments, pendingApprovalShipments, queueFilter, riskyShipments, searchQuery]);
 
   const completion = getCompletion(shipment);
   const requiredItems = getRequiredItemsForShipment(shipment);
@@ -930,9 +975,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     }
 
     const approvedAt = new Date().toISOString().slice(0, 10);
+    const approvedBy = user?.username || user?.email || "Unknown user";
     updateShipment(
-      { dispatchApprovedAt: approvedAt, dispatchApprovedBy: "Current user" },
-      { action: "Dispatch approved", detail: "Shipment passed Africa export dispatch gate" },
+      { dispatchApprovedAt: approvedAt, dispatchApprovedBy: approvedBy },
+      { action: "Dispatch approved", detail: `Shipment passed Africa export dispatch gate by ${approvedBy}` },
     );
     showSuccess(`${shipment.ref} approved for dispatch.`);
   };
@@ -1004,7 +1050,23 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       return;
     }
 
-    const nextRule = { country, title, points, requiredDocumentIds: countryRuleDraft.requiredDocumentIds };
+    const existingRule = countryRules[country];
+    const changedDocs = countryRuleDraft.requiredDocumentIds.length;
+    const changedBy = user?.username || user?.email || "Unknown user";
+    const nextRule = {
+      ...existingRule,
+      country,
+      title,
+      points,
+      requiredDocumentIds: countryRuleDraft.requiredDocumentIds,
+      updatedBy: changedBy,
+      history: appendRuleHistory(
+        existingRule?.history,
+        existingRule ? "Country rule updated" : "Country rule created",
+        `${points.length} guidance line${points.length === 1 ? "" : "s"} and ${changedDocs} required document${changedDocs === 1 ? "" : "s"} saved`,
+        changedBy,
+      ),
+    };
     setCountryRules((prev) => ({
       ...prev,
       [country]: nextRule,
@@ -1267,44 +1329,35 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                   placeholder="Search exports..."
                 />
               </div>
-              <div className="mb-3 grid grid-cols-3 rounded-card border border-gray-200 bg-gray-50 p-1">
-                <button
-                  type="button"
-                  onClick={() => setQueueFilter("all")}
-                  className={`rounded px-2 py-1.5 text-xs font-bold transition-colors ${
-                    queueFilter === "all" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  All {activeShipments.length}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQueueFilter("risks")}
-                  className={`rounded px-2 py-1.5 text-xs font-bold transition-colors ${
-                    queueFilter === "risks" ? "bg-red-50 text-red-700 shadow-sm" : "text-gray-500 hover:text-red-700"
-                  }`}
-                >
-                  Risks {riskyShipments.length}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQueueFilter("archived")}
-                  className={`rounded px-2 py-1.5 text-xs font-bold transition-colors ${
-                    queueFilter === "archived" ? "bg-gray-200 text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  Archive {archivedShipments.length}
-                </button>
+              <div className="mb-3 flex flex-wrap gap-1 rounded-card border border-gray-200 bg-gray-50 p-1">
+                {[
+                  { id: "all" as ExportQueueFilter, label: "All", count: activeShipments.length, activeClass: "bg-white text-gray-900" },
+                  { id: "risks" as ExportQueueFilter, label: "Risks", count: riskyShipments.length, activeClass: "bg-red-50 text-red-700" },
+                  { id: "approved" as ExportQueueFilter, label: "Approved", count: approvedShipments.length, activeClass: "bg-emerald-50 text-emerald-700" },
+                  { id: "pending-approval" as ExportQueueFilter, label: "Pending", count: pendingApprovalShipments.length, activeClass: "bg-amber-50 text-amber-700" },
+                  { id: "archived" as ExportQueueFilter, label: "Archive", count: archivedShipments.length, activeClass: "bg-gray-200 text-gray-800" },
+                ].map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setQueueFilter(filter.id)}
+                    className={`rounded px-2 py-1.5 text-xs font-bold transition-colors ${
+                      queueFilter === filter.id ? `${filter.activeClass} shadow-sm` : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {filter.label} {filter.count}
+                  </button>
+                ))}
               </div>
               <div className="max-h-[620px] space-y-2 overflow-y-auto pr-1">
                 {filteredShipments.length === 0 ? (
                   <div className="rounded-card border border-dashed border-gray-300 p-6 text-center">
                     <Package className="mx-auto mb-2 h-8 w-8 text-gray-300" />
                     <p className="text-sm font-semibold text-gray-600">
-                      {queueFilter === "risks" ? "No export risks found" : queueFilter === "archived" ? "No archived exports" : "No Africa exports yet"}
+                      {queueFilter === "risks" ? "No export risks found" : queueFilter === "approved" ? "No approved exports" : queueFilter === "pending-approval" ? "No exports pending approval" : queueFilter === "archived" ? "No archived exports" : "No Africa exports yet"}
                     </p>
                     <p className="mt-1 text-xs text-gray-400">
-                      {queueFilter === "risks" ? "Required documents and agent checks are clear for this filter." : queueFilter === "archived" ? "Archived shipments will appear here." : "Import or create an export shipment to start."}
+                      {queueFilter === "risks" ? "Required documents and agent checks are clear for this filter." : queueFilter === "approved" ? "Approved dispatches will appear here." : queueFilter === "pending-approval" ? "Shipments still needing approval will appear here." : queueFilter === "archived" ? "Archived shipments will appear here." : "Import or create an export shipment to start."}
                     </p>
                   </div>
                 ) : (
@@ -1502,7 +1555,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                       <span>{shipment.status}</span>
                       <span className={`col-span-2 rounded border px-2 py-1 font-bold ${readiness.tone}`}>Readiness: {readiness.label}</span>
                       <span className="col-span-2">
-                        Dispatch approval: {shipment.dispatchApprovedAt ? shipment.dispatchApprovedAt : "Not approved"}
+                        Dispatch approval: {shipment.dispatchApprovedAt ? `${shipment.dispatchApprovedAt} by ${shipment.dispatchApprovedBy || "unknown"}` : "Not approved"}
                       </span>
                       {missingRequiredDocs.length > 0 && (
                         <span className="col-span-2 text-red-700">{missingRequiredDocs.length} required document{missingRequiredDocs.length === 1 ? "" : "s"} outstanding</span>
@@ -1728,6 +1781,23 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                         Save Country Rule
                       </Button>
                     </div>
+                    {(countryRules[countryRuleDraft.country]?.history || []).length > 0 && (
+                      <div className="md:col-span-2">
+                        <p className="mb-2 text-sm font-semibold text-gray-700">Rule Audit History</p>
+                        <div className="max-h-48 space-y-2 overflow-y-auto rounded-card border border-gray-200 bg-gray-50 p-3">
+                          {(countryRules[countryRuleDraft.country]?.history || []).map((entry) => (
+                            <div key={entry.id} className="rounded bg-white p-2 text-xs text-gray-700">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="font-bold text-gray-900">{entry.action}</span>
+                                <span className="text-gray-500">{new Date(entry.at).toLocaleString()}</span>
+                              </div>
+                              <p className="mt-1">{entry.detail}</p>
+                              <p className="mt-1 font-semibold text-gray-500">By {entry.user}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

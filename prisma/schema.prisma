@@ -129,6 +129,8 @@ model AfricaExportCountryRule {
   title               String   @db.VarChar(255)
   points              Json     @default("[]")
   requiredDocumentIds Json     @default("[]")
+  history             Json     @default("[]")
+  updatedBy           String?  @db.VarChar(255)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

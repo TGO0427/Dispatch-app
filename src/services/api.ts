@@ -189,6 +189,8 @@ export interface AfricaExportCountryRule {
   title: string;
   points: string[];
   requiredDocumentIds: string[];
+  history?: { id: string; at: string; action: string; detail: string; user: string }[];
+  updatedBy?: string;
   createdAt?: string;
   updatedAt?: string;
 }

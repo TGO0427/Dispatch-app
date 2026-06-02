@@ -31,6 +31,7 @@ interface AfricaExportShipment {
   lastCheckedAt: string;
   notes: string;
   documents: Record<string, boolean>;
+  archived?: boolean;
 }
 
 type ReportType =
@@ -218,6 +219,7 @@ export const AnalyticsView: React.FC = () => {
 
   const filteredAfricaExports = useMemo(() => {
     return africaExports.filter((shipment) => {
+      if (shipment.archived) return false;
       if (selectedStatus !== "all" && shipment.status !== selectedStatus) return false;
       if (customerSearch.trim()) {
         const query = customerSearch.toLowerCase();

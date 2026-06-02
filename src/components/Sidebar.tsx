@@ -60,6 +60,7 @@ interface SidebarAfricaExport {
   eta: string;
   lastCheckedAt: string;
   documents: Record<string, boolean>;
+  archived?: boolean;
 }
 
 const AFRICA_EXPORTS_KEY = "dispatch_africa_export_shipments_v2";
@@ -138,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       pendingCount: orderJobs.filter((j) => j.status === "pending").length,
       ibtPendingCount: ibtJobs.filter((j) => j.status === "pending").length,
       africaExportRiskCount: africaExports.filter((shipment) => {
-        if (shipment.status === "delivered") return false;
+        if (shipment.archived || shipment.status === "delivered") return false;
         const missingRequiredDocs = REQUIRED_AFRICA_DOCUMENT_IDS.some((id) => !shipment.documents?.[id]);
         return missingRequiredDocs || !shipment.lastCheckedAt;
       }).length,

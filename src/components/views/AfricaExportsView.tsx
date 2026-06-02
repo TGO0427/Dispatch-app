@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Archive,
   CheckCircle2,
   ClipboardCheck,
   Download,
@@ -8,10 +9,14 @@ import {
   FileCheck2,
   FileText,
   Globe2,
+  History,
   Package,
   Plus,
+  RotateCcw,
+  Save,
   Search,
   ShieldCheck,
+  Trash2,
   Truck,
   Upload,
   X,
@@ -23,9 +28,17 @@ import { africaExportTransportersAPI, africaExportsAPI } from "../../services/ap
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 
-type ExportTab = "overview" | "documents" | "permits" | "incoterms";
+type ExportTab = "overview" | "documents" | "permits" | "incoterms" | "history";
 type ExportStatus = "pending" | "assigned" | "in-transit" | "delivered";
 type DocumentStatus = Record<string, boolean>;
+type DocumentDetails = Record<string, { reference: string; expiry: string; notes: string }>;
+
+interface ShipmentHistoryEntry {
+  id: string;
+  at: string;
+  action: string;
+  detail: string;
+}
 
 interface ExportShipment {
   id?: string;
@@ -45,6 +58,9 @@ interface ExportShipment {
   lastCheckedAt: string;
   notes: string;
   documents: DocumentStatus;
+  documentDetails?: DocumentDetails;
+  history?: ShipmentHistoryEntry[];
+  archived?: boolean;
 }
 
 interface ExportTransporter {
@@ -72,6 +88,7 @@ interface ChecklistGroup {
 
 const SHIPMENTS_KEY = "dispatch_africa_export_shipments_v2";
 const TRANSPORTERS_KEY = "dispatch_africa_export_transporters_v1";
+const COUNTRY_RULES_KEY = "dispatch_africa_export_country_rules_v1";
 
 const AFRICA_COUNTRIES = [
   "Algeria",
@@ -250,6 +267,9 @@ const DEFAULT_SHIPMENT: ExportShipment = {
   lastCheckedAt: "",
   notes: "",
   documents: {},
+  documentDetails: {},
+  history: [],
+  archived: false,
 };
 
 const DEFAULT_TRANSPORTERS: ExportTransporter[] = [
@@ -297,6 +317,25 @@ const saveList = <T,>(key: string, value: T[]) => {
   }
 };
 
+const loadCountryRules = () => {
+  try {
+    const raw = localStorage.getItem(COUNTRY_RULES_KEY);
+    const customRules = raw ? JSON.parse(raw) as Record<string, { title: string; points: string[] }> : {};
+    return { ...DESTINATION_REQUIREMENTS, ...customRules };
+  } catch (error) {
+    console.warn("Failed to load Africa export country rules", error);
+    return DESTINATION_REQUIREMENTS;
+  }
+};
+
+const saveCountryRules = (rules: Record<string, { title: string; points: string[] }>) => {
+  try {
+    localStorage.setItem(COUNTRY_RULES_KEY, JSON.stringify(rules));
+  } catch (error) {
+    console.warn("Failed to save Africa export country rules", error);
+  }
+};
+
 const getCompletion = (shipment: ExportShipment) => {
   const total = CHECKLIST_GROUPS.reduce((sum, group) => sum + group.items.length, 0);
   const complete = CHECKLIST_GROUPS.reduce(
@@ -305,6 +344,20 @@ const getCompletion = (shipment: ExportShipment) => {
   );
   return { total, complete, percent: total ? Math.round((complete / total) * 100) : 0 };
 };
+
+const appendHistory = (
+  history: ShipmentHistoryEntry[] | undefined,
+  action: string,
+  detail: string,
+): ShipmentHistoryEntry[] => [
+  {
+    id: `history-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    at: new Date().toISOString(),
+    action,
+    detail,
+  },
+  ...(history || []),
+].slice(0, 80);
 
 const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
   const isExcel = /\.(xlsx|xls)$/i.test(file.name);
@@ -316,7 +369,7 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
   if (rows.length < 2) return [];
 
   const headers = rows[0].map(normalizeHeader);
-  return rows.slice(1).map((row) => {
+  return rows.slice(1).map((row): ExportShipment | null => {
     const ref = String(findValue(headers, row, ["ref", "reference", "document no", "export ref", "shipment ref", "order no"]) ?? "").trim();
     const customer = String(findValue(headers, row, ["customer", "customer name", "client", "consignee", "buyer"]) ?? "").trim();
     if (!ref || !customer) return null;
@@ -335,6 +388,9 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
       notes: String(findValue(headers, row, ["notes", "remarks", "comment"]) ?? "").trim(),
       status: "pending" as ExportStatus,
       documents: {},
+      documentDetails: {},
+      history: appendHistory([], "Imported", `Imported from ${file.name}`),
+      archived: false,
     };
   }).filter((shipment): shipment is ExportShipment => Boolean(shipment && shipment.ref && shipment.customer))
     .map((shipment, index) => ({ ...shipment, ref: shipment.ref || `AFX-${Date.now()}-${index}` }));
@@ -352,13 +408,15 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const [selectedRef, setSelectedRef] = useState("");
   const [activeTab, setActiveTab] = useState<ExportTab>("overview");
   const [searchQuery, setSearchQuery] = useState("");
-  const [queueFilter, setQueueFilter] = useState<"all" | "risks">("all");
+  const [queueFilter, setQueueFilter] = useState<"all" | "risks" | "archived">("all");
   const [showImport, setShowImport] = useState(false);
   const [showAddTransporter, setShowAddTransporter] = useState(false);
   const [importPreview, setImportPreview] = useState<ExportShipment[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [remoteReady, setRemoteReady] = useState(false);
   const [remoteSyncError, setRemoteSyncError] = useState("");
+  const [countryRules, setCountryRules] = useState<Record<string, { title: string; points: string[] }>>(() => loadCountryRules());
+  const [countryRuleDraft, setCountryRuleDraft] = useState({ country: "Egypt", title: "", points: "" });
   const [newTransporter, setNewTransporter] = useState<Omit<ExportTransporter, "id">>({
     name: "",
     route: "",
@@ -431,6 +489,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   }, [transporters]);
 
   useEffect(() => {
+    saveCountryRules(countryRules);
+  }, [countryRules]);
+
+  useEffect(() => {
     if (!remoteReady) return;
     const timeout = window.setTimeout(async () => {
       try {
@@ -477,26 +539,60 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     [shipments, selectedRef],
   );
 
+  useEffect(() => {
+    if (!shipment.destinationCountry) return;
+    const rule = countryRules[shipment.destinationCountry];
+    setCountryRuleDraft({
+      country: shipment.destinationCountry,
+      title: rule?.title || "",
+      points: rule?.points.join("\n") || "",
+    });
+  }, [countryRules, shipment.destinationCountry]);
+
   const trackedShipments = useMemo(
     () => [...shipments].sort((a, b) => (a.eta || "9999").localeCompare(b.eta || "9999")),
     [shipments],
   );
+  const activeShipments = useMemo(() => trackedShipments.filter((item) => !item.archived), [trackedShipments]);
+  const archivedShipments = useMemo(() => trackedShipments.filter((item) => item.archived), [trackedShipments]);
 
   const requiredItems = useMemo(
     () => CHECKLIST_GROUPS.flatMap((group) => group.items).filter((item) => item.required),
     [],
   );
 
+  const getMissingRequiredDocs = (item: ExportShipment) => requiredItems.filter((doc) => !item.documents?.[doc.id]);
+
+  const getReadiness = (item: ExportShipment) => {
+    if (item.archived) return { label: "Archived", detail: "Hidden from live export work", tone: "border-gray-200 bg-gray-100 text-gray-700" };
+    if (item.status === "delivered") return { label: "Delivered", detail: "Shipment has been completed", tone: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+    if (!item.ref || !item.customer) return { label: "Draft", detail: "Reference and client are still needed", tone: "border-gray-200 bg-gray-50 text-gray-600" };
+
+    const missingRequired = getMissingRequiredDocs(item);
+    if (missingRequired.length > 0 || !item.lastCheckedAt) {
+      return {
+        label: "At Risk",
+        detail: missingRequired.length > 0 ? `${missingRequired.length} required document${missingRequired.length === 1 ? "" : "s"} missing` : "Destination agent check not marked",
+        tone: "border-red-200 bg-red-50 text-red-700",
+      };
+    }
+
+    if (!item.assignedTransporterId) {
+      return { label: "Needs Transporter", detail: "Documents are clear, assign export transporter", tone: "border-amber-200 bg-amber-50 text-amber-700" };
+    }
+
+    return { label: "Ready", detail: "Required pack, agent check, and transporter are in place", tone: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+  };
+
   const riskyShipments = useMemo(() => {
-    return trackedShipments.filter((item) => {
+    return activeShipments.filter((item) => {
       if (item.status === "delivered") return false;
-      const missingRequired = requiredItems.some((doc) => !item.documents[doc.id]);
-      return missingRequired || !item.lastCheckedAt;
+      return getMissingRequiredDocs(item).length > 0 || !item.lastCheckedAt;
     });
-  }, [requiredItems, trackedShipments]);
+  }, [activeShipments, requiredItems]);
 
   const filteredShipments = useMemo(() => {
-    const baseShipments = queueFilter === "risks" ? riskyShipments : trackedShipments;
+    const baseShipments = queueFilter === "risks" ? riskyShipments : queueFilter === "archived" ? archivedShipments : activeShipments;
     if (!searchQuery.trim()) return baseShipments;
     const query = searchQuery.toLowerCase();
     return baseShipments.filter((item) =>
@@ -505,7 +601,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         .toLowerCase()
         .includes(query),
     );
-  }, [queueFilter, riskyShipments, trackedShipments, searchQuery]);
+  }, [activeShipments, archivedShipments, queueFilter, riskyShipments, searchQuery]);
 
   const completion = getCompletion(shipment);
   const requiredDone = requiredItems.filter((item) => shipment.documents[item.id]).length;
@@ -513,10 +609,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return trackedShipments.flatMap((item) => {
+    return activeShipments.flatMap((item) => {
       if (item.status === "delivered") return [];
 
-      const missingRequired = requiredItems.filter((doc) => !item.documents[doc.id]);
+      const missingRequired = requiredItems.filter((doc) => !item.documents?.[doc.id]);
       const alerts: {
         ref: string;
         title: string;
@@ -566,13 +662,16 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
       return alerts;
     }).sort((a, b) => a.priority - b.priority).slice(0, 8);
-  }, [requiredItems, trackedShipments]);
+  }, [activeShipments, requiredItems]);
   const assignedTransporter = transporters.find((item) => item.id === shipment.assignedTransporterId);
   const countryOptions = useMemo(() => {
-    if (!shipment.destinationCountry || AFRICA_COUNTRIES.includes(shipment.destinationCountry)) return AFRICA_COUNTRIES;
-    return [shipment.destinationCountry, ...AFRICA_COUNTRIES];
-  }, [shipment.destinationCountry]);
-  const destinationRequirement = DESTINATION_REQUIREMENTS[shipment.destinationCountry];
+    const countries = Array.from(new Set([...AFRICA_COUNTRIES, ...Object.keys(countryRules)]));
+    if (!shipment.destinationCountry || countries.includes(shipment.destinationCountry)) return countries;
+    return [shipment.destinationCountry, ...countries];
+  }, [countryRules, shipment.destinationCountry]);
+  const destinationRequirement = countryRules[shipment.destinationCountry];
+  const readiness = getReadiness(shipment);
+  const missingRequiredDocs = getMissingRequiredDocs(shipment);
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return CHECKLIST_GROUPS;
@@ -591,9 +690,18 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       ? "bg-amber-50 text-amber-700 border-amber-200"
       : "bg-red-50 text-red-700 border-red-200";
 
-  const updateShipment = (updates: Partial<ExportShipment>) => {
+  const updateShipment = (updates: Partial<ExportShipment>, historyEntry?: { action: string; detail: string }) => {
     const ref = updates.ref || shipment.ref || selectedRef || `AFX-${Date.now()}`;
-    const nextShipment = { ...shipment, ...updates, ref };
+    const nextShipment = {
+      ...shipment,
+      documentDetails: shipment.documentDetails || {},
+      history: shipment.history || [],
+      ...updates,
+      ref,
+    };
+    if (historyEntry) {
+      nextShipment.history = appendHistory(nextShipment.history, historyEntry.action, historyEntry.detail);
+    }
     setSelectedRef(ref);
     setShipments((prev) => {
       const exists = prev.some((item) => item.ref === shipment.ref || item.ref === selectedRef || item.ref === ref);
@@ -608,7 +716,11 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
   const createBlankShipment = () => {
     const ref = `AFX-${Date.now()}`;
-    const nextShipment = { ...DEFAULT_SHIPMENT, ref };
+    const nextShipment = {
+      ...DEFAULT_SHIPMENT,
+      ref,
+      history: appendHistory([], "Created", "Blank Africa export shipment created"),
+    };
     setShipments((prev) => [nextShipment, ...prev]);
     setSelectedRef(ref);
     setActiveTab("overview");
@@ -616,16 +728,38 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
   const toggleDocument = (id: string) => {
     if (!shipment.ref) return;
+    const item = CHECKLIST_GROUPS.flatMap((group) => group.items).find((doc) => doc.id === id);
+    const nextChecked = !shipment.documents?.[id];
     updateShipment({
       documents: {
         ...shipment.documents,
-        [id]: !shipment.documents[id],
+        [id]: nextChecked,
+      },
+    }, {
+      action: nextChecked ? "Document marked complete" : "Document reopened",
+      detail: item?.label || id,
+    });
+  };
+
+  const updateDocumentDetail = (id: string, field: "reference" | "expiry" | "notes", value: string) => {
+    updateShipment({
+      documentDetails: {
+        ...(shipment.documentDetails || {}),
+        [id]: {
+          reference: shipment.documentDetails?.[id]?.reference || "",
+          expiry: shipment.documentDetails?.[id]?.expiry || "",
+          notes: shipment.documentDetails?.[id]?.notes || "",
+          [field]: value,
+        },
       },
     });
   };
 
   const markPreDispatchConfirmed = () => {
-    updateShipment({ lastCheckedAt: new Date().toISOString().slice(0, 10) });
+    updateShipment(
+      { lastCheckedAt: new Date().toISOString().slice(0, 10) },
+      { action: "Agent check marked", detail: "Destination agent pre-dispatch question confirmed" },
+    );
   };
 
   const assignShipment = async (transporter: ExportTransporter) => {
@@ -644,13 +778,87 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       if (!proceed) return;
     }
 
-    updateShipment({ assignedTransporterId: transporter.id, status: "assigned" });
+    updateShipment(
+      { assignedTransporterId: transporter.id, status: "assigned" },
+      { action: "Transporter assigned", detail: transporter.name },
+    );
     showSuccess(`${shipment.ref} assigned to ${transporter.name}`);
   };
 
   const clearAssignment = () => {
-    updateShipment({ assignedTransporterId: undefined, status: "pending" });
+    updateShipment(
+      { assignedTransporterId: undefined, status: "pending" },
+      { action: "Transporter cleared", detail: assignedTransporter?.name || "Shipment moved back to unassigned" },
+    );
     showSuccess(`${shipment.ref} moved back to unassigned`);
+  };
+
+  const archiveShipment = async () => {
+    if (!shipment.ref) return;
+    const proceed = await confirm({
+      title: "Archive Export Shipment",
+      message: `Archive ${shipment.ref}? It will move out of the live Africa export queue but can be restored.`,
+      type: "warning",
+      confirmText: "Archive",
+    });
+    if (!proceed) return;
+    updateShipment({ archived: true }, { action: "Archived", detail: "Moved out of live Africa export queue" });
+    const nextLive = activeShipments.find((item) => item.ref !== shipment.ref);
+    setSelectedRef(nextLive?.ref || shipment.ref);
+    showSuccess(`${shipment.ref} archived.`);
+  };
+
+  const restoreShipment = () => {
+    if (!shipment.ref) return;
+    updateShipment({ archived: false }, { action: "Restored", detail: "Returned to live Africa export queue" });
+    setQueueFilter("all");
+    showSuccess(`${shipment.ref} restored to the live queue.`);
+  };
+
+  const deleteShipment = async () => {
+    if (!shipment.ref) return;
+    const proceed = await confirm({
+      title: "Delete Export Shipment",
+      message: `Permanently delete ${shipment.ref}? This cannot be restored.`,
+      type: "danger",
+      confirmText: "Delete",
+    });
+    if (!proceed) return;
+
+    try {
+      if (shipment.id) await africaExportsAPI.delete(shipment.id);
+      setShipments((prev) => prev.filter((item) => item.ref !== shipment.ref));
+      const nextShipment = filteredShipments.find((item) => item.ref !== shipment.ref) || activeShipments.find((item) => item.ref !== shipment.ref);
+      setSelectedRef(nextShipment?.ref || "");
+      showSuccess(`${shipment.ref} deleted.`);
+    } catch (error) {
+      console.error("Failed to delete Africa export shipment", error);
+      showError("Could not delete the Africa export shipment.");
+    }
+  };
+
+  const saveCountryRule = () => {
+    const country = countryRuleDraft.country.trim();
+    const title = countryRuleDraft.title.trim() || `${country} Export Requirements`;
+    const points = countryRuleDraft.points
+      .split("\n")
+      .map((point) => point.trim())
+      .filter(Boolean);
+
+    if (!country) {
+      showWarning("Choose an Africa country for the rule.");
+      return;
+    }
+    if (points.length === 0) {
+      showWarning("Add at least one destination requirement line.");
+      return;
+    }
+
+    setCountryRules((prev) => ({
+      ...prev,
+      [country]: { title, points },
+    }));
+    showSuccess(`${country} destination rules saved.`);
   };
 
   const addTransporter = () => {
@@ -694,7 +902,15 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     setShipments((prev) => {
       const byRef = new Map(prev.map((item) => [item.ref, item]));
       importPreview.forEach((item) => {
-        byRef.set(item.ref, { ...byRef.get(item.ref), ...item, documents: byRef.get(item.ref)?.documents || {} });
+        const existing = byRef.get(item.ref);
+        byRef.set(item.ref, {
+          ...existing,
+          ...item,
+          documents: existing?.documents || item.documents || {},
+          documentDetails: existing?.documentDetails || item.documentDetails || {},
+          history: appendHistory(existing?.history || item.history, existing ? "Re-imported" : "Imported", "Africa export order imported from file"),
+          archived: existing?.archived || false,
+        });
       });
       return Array.from(byRef.values());
     });
@@ -720,6 +936,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     { id: "documents", label: "Document Pack", icon: FileCheck2 },
     { id: "permits", label: "Destination Checks", icon: ShieldCheck },
     { id: "incoterms", label: "Incoterms", icon: Truck },
+    { id: "history", label: "History", icon: History },
   ];
 
   return (
@@ -743,9 +960,27 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
           <span className={`rounded-card border px-3 py-2 text-sm font-semibold ${statusTone}`}>
             {completion.percent}% complete
           </span>
+          <span className={`rounded-card border px-3 py-2 text-sm font-semibold ${readiness.tone}`}>
+            {readiness.label}
+          </span>
           <Button variant="outline" className="gap-2" onClick={markPreDispatchConfirmed} disabled={!shipment.ref}>
             <ClipboardCheck className="h-4 w-4" />
             Mark Agent Check
+          </Button>
+          {shipment.archived ? (
+            <Button variant="outline" className="gap-2" onClick={restoreShipment} disabled={!shipment.ref}>
+              <RotateCcw className="h-4 w-4" />
+              Restore
+            </Button>
+          ) : (
+            <Button variant="outline" className="gap-2" onClick={archiveShipment} disabled={!shipment.ref}>
+              <Archive className="h-4 w-4" />
+              Archive
+            </Button>
+          )}
+          <Button variant="outline" className="gap-2 border-red-200 text-red-700 hover:bg-red-50" onClick={deleteShipment} disabled={!shipment.ref}>
+            <Trash2 className="h-4 w-4" />
+            Delete
           </Button>
         </div>
       </div>
@@ -763,7 +998,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
               <FileText className="h-5 w-5 text-emerald-600" />
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Africa Exports</p>
-                <p className="text-2xl font-bold text-gray-900">{trackedShipments.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{activeShipments.length}</p>
               </div>
             </div>
           </CardContent>
@@ -797,6 +1032,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Last Agent Check</p>
                 <p className="text-base font-bold text-gray-900">{shipment.lastCheckedAt || "Not done"}</p>
+                <p className="text-xs font-semibold text-gray-500">{readiness.detail}</p>
               </div>
             </div>
           </CardContent>
@@ -857,7 +1093,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                   placeholder="Search exports..."
                 />
               </div>
-              <div className="mb-3 grid grid-cols-2 rounded-card border border-gray-200 bg-gray-50 p-1">
+              <div className="mb-3 grid grid-cols-3 rounded-card border border-gray-200 bg-gray-50 p-1">
                 <button
                   type="button"
                   onClick={() => setQueueFilter("all")}
@@ -865,7 +1101,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     queueFilter === "all" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
-                  All {trackedShipments.length}
+                  All {activeShipments.length}
                 </button>
                 <button
                   type="button"
@@ -876,22 +1112,32 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                 >
                   Risks {riskyShipments.length}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setQueueFilter("archived")}
+                  className={`rounded px-2 py-1.5 text-xs font-bold transition-colors ${
+                    queueFilter === "archived" ? "bg-gray-200 text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Archive {archivedShipments.length}
+                </button>
               </div>
               <div className="max-h-[620px] space-y-2 overflow-y-auto pr-1">
                 {filteredShipments.length === 0 ? (
                   <div className="rounded-card border border-dashed border-gray-300 p-6 text-center">
                     <Package className="mx-auto mb-2 h-8 w-8 text-gray-300" />
                     <p className="text-sm font-semibold text-gray-600">
-                      {queueFilter === "risks" ? "No export risks found" : "No Africa exports yet"}
+                      {queueFilter === "risks" ? "No export risks found" : queueFilter === "archived" ? "No archived exports" : "No Africa exports yet"}
                     </p>
                     <p className="mt-1 text-xs text-gray-400">
-                      {queueFilter === "risks" ? "Required documents and agent checks are clear for this filter." : "Import or create an export shipment to start."}
+                      {queueFilter === "risks" ? "Required documents and agent checks are clear for this filter." : queueFilter === "archived" ? "Archived shipments will appear here." : "Import or create an export shipment to start."}
                     </p>
                   </div>
                 ) : (
                   filteredShipments.map((item) => {
                     const active = selectedRef === item.ref;
                     const itemCompletion = getCompletion(item);
+                    const itemReadiness = getReadiness(item);
                     return (
                       <button
                         key={item.ref}
@@ -908,6 +1154,9 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                         <p className="mt-1 truncate text-xs text-gray-400">
                           {item.destinationCountry || "Country to confirm"} - {item.status}
                         </p>
+                        <span className={`mt-2 inline-flex rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${itemReadiness.tone}`}>
+                          {itemReadiness.label}
+                        </span>
                       </button>
                     );
                   })
@@ -954,7 +1203,15 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                       <span className="text-sm font-semibold text-gray-700">Destination Country</span>
                       <select
                         value={shipment.destinationCountry}
-                        onChange={(event) => updateShipment({ destinationCountry: event.target.value })}
+                        onChange={(event) => {
+                          updateShipment({ destinationCountry: event.target.value });
+                          const rule = countryRules[event.target.value];
+                          setCountryRuleDraft({
+                            country: event.target.value || "Egypt",
+                            title: rule?.title || "",
+                            points: rule?.points.join("\n") || "",
+                          });
+                        }}
                         className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       >
                         <option value="">Select Africa country</option>
@@ -1007,7 +1264,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                       <span className="text-sm font-semibold text-gray-700">Status</span>
                       <select
                         value={shipment.status}
-                        onChange={(event) => updateShipment({ status: event.target.value as ExportStatus })}
+                        onChange={(event) => updateShipment(
+                          { status: event.target.value as ExportStatus },
+                          { action: "Status changed", detail: `Shipment status set to ${event.target.value}` },
+                        )}
                         className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       >
                         {["pending", "assigned", "in-transit", "delivered"].map((status) => (
@@ -1065,6 +1325,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-600">
                       <span>{shipment.pallets || "-"} pallets</span>
                       <span>{shipment.status}</span>
+                      <span className={`col-span-2 rounded border px-2 py-1 font-bold ${readiness.tone}`}>Readiness: {readiness.label}</span>
+                      {missingRequiredDocs.length > 0 && (
+                        <span className="col-span-2 text-red-700">{missingRequiredDocs.length} required document{missingRequiredDocs.length === 1 ? "" : "s"} outstanding</span>
+                      )}
                       <span className="col-span-2">Transporter: {assignedTransporter?.name || "Unassigned"}</span>
                     </div>
                   </div>
@@ -1116,26 +1380,52 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                   </CardHeader>
                   <CardContent>
                     <div className="divide-y divide-gray-100 rounded-card border border-gray-200">
-                      {group.items.map((item) => (
-                        <label key={item.id} className="flex cursor-pointer gap-3 p-4 hover:bg-gray-50">
-                          <input
-                            type="checkbox"
-                            checked={!!shipment.documents[item.id]}
-                            onChange={() => toggleDocument(item.id)}
-                            disabled={!shipment.ref}
-                            className="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex flex-wrap items-center gap-2">
-                              <span className="font-semibold text-gray-900">{item.label}</span>
-                              {item.required && <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase text-red-700">Required</span>}
-                              {item.conditional && <span className="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">Conditional</span>}
-                            </span>
-                            <span className="mt-1 block text-sm text-gray-600">{item.purpose}</span>
-                            {item.conditional && <span className="mt-1 block text-xs text-amber-700">{item.conditional}</span>}
-                          </span>
-                        </label>
-                      ))}
+                      {group.items.map((item) => {
+                        const detail = shipment.documentDetails?.[item.id] || { reference: "", expiry: "", notes: "" };
+                        return (
+                          <div key={item.id} className="flex gap-3 p-4 hover:bg-gray-50">
+                            <input
+                              type="checkbox"
+                              checked={!!shipment.documents?.[item.id]}
+                              onChange={() => toggleDocument(item.id)}
+                              disabled={!shipment.ref}
+                              className="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-semibold text-gray-900">{item.label}</span>
+                                {item.required && <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase text-red-700">Required</span>}
+                                {item.conditional && <span className="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">Conditional</span>}
+                              </div>
+                              <p className="mt-1 text-sm text-gray-600">{item.purpose}</p>
+                              {item.conditional && <p className="mt-1 text-xs text-amber-700">{item.conditional}</p>}
+                              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                                <input
+                                  value={detail.reference}
+                                  onChange={(event) => updateDocumentDetail(item.id, "reference", event.target.value)}
+                                  disabled={!shipment.ref}
+                                  className="rounded-card border border-gray-300 px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  placeholder="Reference / cert no."
+                                />
+                                <input
+                                  type="date"
+                                  value={detail.expiry}
+                                  onChange={(event) => updateDocumentDetail(item.id, "expiry", event.target.value)}
+                                  disabled={!shipment.ref}
+                                  className="rounded-card border border-gray-300 px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                                <input
+                                  value={detail.notes}
+                                  onChange={(event) => updateDocumentDetail(item.id, "notes", event.target.value)}
+                                  disabled={!shipment.ref}
+                                  className="rounded-card border border-gray-300 px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  placeholder="Notes / originals / expiry"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
@@ -1183,6 +1473,57 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
               <Card>
                 <CardHeader>
+                  <CardTitle>Country Rules Library</CardTitle>
+                  <p className="text-sm text-gray-600">Maintain destination-specific requirements for Africa export clients.</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">Country</span>
+                      <select
+                        value={countryRuleDraft.country}
+                        onChange={(event) => {
+                          const rule = countryRules[event.target.value];
+                          setCountryRuleDraft({
+                            country: event.target.value,
+                            title: rule?.title || "",
+                            points: rule?.points.join("\n") || "",
+                          });
+                        }}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      >
+                        {countryOptions.map((country) => (
+                          <option key={country} value={country}>{country}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <Field
+                      label="Rule Heading"
+                      value={countryRuleDraft.title}
+                      onChange={(value) => setCountryRuleDraft((prev) => ({ ...prev, title: value }))}
+                      placeholder="Country requirement heading"
+                    />
+                    <label className="space-y-2 md:col-span-2">
+                      <span className="text-sm font-semibold text-gray-700">Requirement Lines</span>
+                      <textarea
+                        value={countryRuleDraft.points}
+                        onChange={(event) => setCountryRuleDraft((prev) => ({ ...prev, points: event.target.value }))}
+                        className="min-h-[120px] w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="Add one requirement per line."
+                      />
+                    </label>
+                    <div className="md:col-span-2">
+                      <Button className="gap-2" onClick={saveCountryRule}>
+                        <Save className="h-4 w-4" />
+                        Save Country Rule
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>Question for Destination Agent</CardTitle>
                   <p className="text-sm text-gray-600">Send this before dispatch and keep the response with the shipment pack.</p>
                 </CardHeader>
@@ -1223,6 +1564,40 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     </tbody>
                   </table>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === "history" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Shipment History</CardTitle>
+                <p className="text-sm text-gray-600">Key Africa export actions recorded against the selected shipment.</p>
+              </CardHeader>
+              <CardContent>
+                {!shipment.ref ? (
+                  <div className="rounded-card border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
+                    Select or create an Africa export shipment to see its history.
+                  </div>
+                ) : (shipment.history || []).length === 0 ? (
+                  <div className="rounded-card border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
+                    No history recorded yet.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {(shipment.history || []).map((entry) => (
+                      <div key={entry.id} className="rounded-card border border-gray-200 bg-white p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-bold text-gray-900">{entry.action}</p>
+                          <span className="text-xs font-semibold text-gray-500">
+                            {new Date(entry.at).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-600">{entry.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

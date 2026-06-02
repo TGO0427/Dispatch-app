@@ -11,6 +11,7 @@ interface AfricaExportSearchItem {
   productType: string;
   status: "pending" | "assigned" | "in-transit" | "delivered";
   eta: string;
+  archived?: boolean;
 }
 
 interface SearchResult {
@@ -132,7 +133,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
     });
 
     // Search Africa exports
-    africaExports.forEach((shipment) => {
+    africaExports.filter((shipment) => !shipment.archived).forEach((shipment) => {
       const match =
         shipment.ref?.toLowerCase().includes(q) ||
         shipment.customer?.toLowerCase().includes(q) ||

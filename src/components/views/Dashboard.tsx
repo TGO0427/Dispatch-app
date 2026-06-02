@@ -37,6 +37,7 @@ interface DashboardAfricaExport {
   status: "pending" | "assigned" | "in-transit" | "delivered";
   pallets: number;
   eta: string;
+  archived?: boolean;
 }
 
 // Helper to get week number
@@ -331,12 +332,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
   }, [orderJobs]);
 
   const africaExportStats = useMemo(() => {
-    const open = africaExports.filter((shipment) => shipment.status !== "delivered").length;
-    const assigned = africaExports.filter((shipment) => shipment.status === "assigned" || shipment.status === "in-transit").length;
-    const delivered = africaExports.filter((shipment) => shipment.status === "delivered").length;
-    const pallets = africaExports.reduce((sum, shipment) => sum + (Number(shipment.pallets) || 0), 0);
+    const activeAfricaExports = africaExports.filter((shipment) => !shipment.archived);
+    const open = activeAfricaExports.filter((shipment) => shipment.status !== "delivered").length;
+    const assigned = activeAfricaExports.filter((shipment) => shipment.status === "assigned" || shipment.status === "in-transit").length;
+    const delivered = activeAfricaExports.filter((shipment) => shipment.status === "delivered").length;
+    const pallets = activeAfricaExports.reduce((sum, shipment) => sum + (Number(shipment.pallets) || 0), 0);
     return {
-      total: africaExports.length,
+      total: activeAfricaExports.length,
       open,
       assigned,
       delivered,
@@ -346,7 +348,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
 
   const africaDestinationData = useMemo(() => {
     const byCountry: Record<string, { name: string; shipments: number; pallets: number }> = {};
-    africaExports.forEach((shipment) => {
+    africaExports.filter((shipment) => !shipment.archived).forEach((shipment) => {
       const name = shipment.destinationCountry || "To confirm";
       if (!byCountry[name]) byCountry[name] = { name, shipments: 0, pallets: 0 };
       byCountry[name].shipments += 1;

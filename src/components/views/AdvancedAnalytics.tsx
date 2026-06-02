@@ -47,6 +47,7 @@ interface AfricaExportShipment {
   lastCheckedAt: string;
   notes: string;
   documents: Record<string, boolean>;
+  archived?: boolean;
 }
 
 const COLORS = {
@@ -191,6 +192,7 @@ export const AdvancedAnalytics: React.FC = () => {
     const { start, end } = getTimeRangeBounds(timeRange);
 
     return africaExports.filter((shipment) => {
+      if (shipment.archived) return false;
       const shipmentDateValue = shipment.eta || shipment.lastCheckedAt;
       if (!shipmentDateValue || (!start && !end)) return true;
 

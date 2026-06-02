@@ -174,6 +174,9 @@ export interface AfricaExportShipment {
   lastCheckedAt: string;
   notes: string;
   documents: Record<string, boolean>;
+  documentDetails?: Record<string, { reference: string; expiry: string; notes: string }>;
+  history?: { id: string; at: string; action: string; detail: string }[];
+  archived?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

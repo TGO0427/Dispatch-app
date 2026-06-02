@@ -43,6 +43,9 @@ const toShipmentData = (body: Record<string, unknown>, createdById?: string) => 
     lastCheckedAt: body.lastCheckedAt ? String(body.lastCheckedAt) : null,
     notes: body.notes ? String(body.notes) : null,
     documents: body.documents && typeof body.documents === "object" && !Array.isArray(body.documents) ? body.documents : {},
+    documentDetails: body.documentDetails && typeof body.documentDetails === "object" && !Array.isArray(body.documentDetails) ? body.documentDetails : {},
+    history: Array.isArray(body.history) ? body.history : [],
+    archived: Boolean(body.archived),
     ...(createdById ? { createdById } : {}),
   };
 };

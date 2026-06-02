@@ -44,6 +44,7 @@ interface NavItem {
   label: string;
   adminOnly?: boolean;
   badge?: number;
+  badgeLabel?: string;
   badgeType?: "danger" | "info";
 }
 
@@ -153,7 +154,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         { id: "ibt", icon: ArrowRightLeft, label: "Import IBT" },
         { id: "ibt-dispatch", icon: Truck, label: "IBT Management", badge: sidebarStats.ibtPendingCount, badgeType: "info" },
         { id: "clipboard", icon: ClipboardList, label: "Order Management", badge: sidebarStats.pendingCount, badgeType: "info" },
-        { id: "africa-exports", icon: Globe2, label: "Africa Exports", badge: sidebarStats.africaExportRiskCount, badgeType: "danger" },
+        {
+          id: "africa-exports",
+          icon: Globe2,
+          label: "Africa Exports",
+          badge: sidebarStats.africaExportRiskCount,
+          badgeLabel: sidebarStats.africaExportRiskCount > 0 ? String(sidebarStats.africaExportRiskCount) : "OK",
+          badgeType: sidebarStats.africaExportRiskCount > 0 ? "danger" : "info",
+        },
       ],
     },
     {
@@ -200,8 +208,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
     });
   };
 
-  const renderNavButton = ({ id, icon: Icon, label, badge, badgeType }: NavItem) => {
+  const renderNavButton = ({ id, icon: Icon, label, badge, badgeLabel, badgeType }: NavItem) => {
     const isActive = activeItem === id;
+    const showBadge = badgeLabel !== undefined || (badge !== undefined && badge > 0);
+    const displayBadge = badgeLabel ?? (badge && badge > 99 ? "99+" : String(badge));
     return (
       <button
         key={id}
@@ -220,23 +230,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           <span className="absolute left-[3px] top-[25%] bottom-[25%] w-[3px] rounded-full bg-emerald-400" />
         )}
         <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-emerald-400" : ""}`} />
-        {collapsed && badge !== undefined && badge > 0 && (
+        {collapsed && showBadge && (
           <span className={`absolute right-1.5 top-1.5 min-w-[16px] rounded-full px-1 text-[9px] font-bold leading-4 ${
             badgeType === "danger" ? "bg-red-500 text-white" : "bg-emerald-400 text-emerald-950"
           }`}>
-            {badge > 99 ? "99+" : badge}
+            {displayBadge}
           </span>
         )}
         {!collapsed && (
           <>
             <span className={`text-[14px] flex-1 text-left ${isActive ? "text-white font-semibold" : "font-medium"}`}>{label}</span>
-            {badge !== undefined && badge > 0 && (
+            {showBadge && (
               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                 isActive
                   ? "bg-emerald-500/20 text-emerald-300"
                   : badgeType === "danger" ? "bg-red-500/20 text-red-400" : "bg-emerald-500/15 text-emerald-400"
               }`}>
-                {badge}
+                {displayBadge}
               </span>
             )}
           </>

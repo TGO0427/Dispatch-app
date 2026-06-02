@@ -352,6 +352,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const [selectedRef, setSelectedRef] = useState("");
   const [activeTab, setActiveTab] = useState<ExportTab>("overview");
   const [searchQuery, setSearchQuery] = useState("");
+  const [queueFilter, setQueueFilter] = useState<"all" | "risks">("all");
   const [showImport, setShowImport] = useState(false);
   const [showAddTransporter, setShowAddTransporter] = useState(false);
   const [importPreview, setImportPreview] = useState<ExportShipment[]>([]);
@@ -481,22 +482,32 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     [shipments],
   );
 
+  const requiredItems = useMemo(
+    () => CHECKLIST_GROUPS.flatMap((group) => group.items).filter((item) => item.required),
+    [],
+  );
+
+  const riskyShipments = useMemo(() => {
+    return trackedShipments.filter((item) => {
+      if (item.status === "delivered") return false;
+      const missingRequired = requiredItems.some((doc) => !item.documents[doc.id]);
+      return missingRequired || !item.lastCheckedAt;
+    });
+  }, [requiredItems, trackedShipments]);
+
   const filteredShipments = useMemo(() => {
-    if (!searchQuery.trim()) return trackedShipments;
+    const baseShipments = queueFilter === "risks" ? riskyShipments : trackedShipments;
+    if (!searchQuery.trim()) return baseShipments;
     const query = searchQuery.toLowerCase();
-    return trackedShipments.filter((item) =>
+    return baseShipments.filter((item) =>
       [item.ref, item.customer, item.destinationCountry, item.hsCode, item.productType, item.status]
         .join(" ")
         .toLowerCase()
         .includes(query),
     );
-  }, [trackedShipments, searchQuery]);
+  }, [queueFilter, riskyShipments, trackedShipments, searchQuery]);
 
   const completion = getCompletion(shipment);
-  const requiredItems = useMemo(
-    () => CHECKLIST_GROUPS.flatMap((group) => group.items).filter((item) => item.required),
-    [],
-  );
   const requiredDone = requiredItems.filter((item) => shipment.documents[item.id]).length;
   const complianceAlerts = useMemo(() => {
     const today = new Date();
@@ -846,12 +857,36 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                   placeholder="Search exports..."
                 />
               </div>
+              <div className="mb-3 grid grid-cols-2 rounded-card border border-gray-200 bg-gray-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setQueueFilter("all")}
+                  className={`rounded px-2 py-1.5 text-xs font-bold transition-colors ${
+                    queueFilter === "all" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  All {trackedShipments.length}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQueueFilter("risks")}
+                  className={`rounded px-2 py-1.5 text-xs font-bold transition-colors ${
+                    queueFilter === "risks" ? "bg-red-50 text-red-700 shadow-sm" : "text-gray-500 hover:text-red-700"
+                  }`}
+                >
+                  Risks {riskyShipments.length}
+                </button>
+              </div>
               <div className="max-h-[620px] space-y-2 overflow-y-auto pr-1">
                 {filteredShipments.length === 0 ? (
                   <div className="rounded-card border border-dashed border-gray-300 p-6 text-center">
                     <Package className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                    <p className="text-sm font-semibold text-gray-600">No Africa exports yet</p>
-                    <p className="mt-1 text-xs text-gray-400">Import or create an export shipment to start.</p>
+                    <p className="text-sm font-semibold text-gray-600">
+                      {queueFilter === "risks" ? "No export risks found" : "No Africa exports yet"}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      {queueFilter === "risks" ? "Required documents and agent checks are clear for this filter." : "Import or create an export shipment to start."}
+                    </p>
                   </div>
                 ) : (
                   filteredShipments.map((item) => {

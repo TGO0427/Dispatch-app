@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ClipboardList,
   Clock,
+  Globe2,
   TrendingUp,
   Minus,
   Bell,
@@ -26,6 +27,17 @@ import { useAuth } from "../../context/AuthContext";
 import { calculateETD, calculateRevisedETD } from "../../utils/deliveryDates";
 import { formatNumber } from "../../utils/format";
 
+const AFRICA_EXPORTS_KEY = "dispatch_africa_export_shipments_v2";
+
+interface DashboardAfricaExport {
+  ref: string;
+  customer: string;
+  destinationCountry: string;
+  status: "pending" | "assigned" | "in-transit" | "delivered";
+  pallets: number;
+  eta: string;
+}
+
 // Helper to get week number
 function getWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -43,6 +55,16 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }) => {
   const { jobs, drivers } = useDispatch();
   const { user } = useAuth();
+
+  const africaExports = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(AFRICA_EXPORTS_KEY);
+      return raw ? JSON.parse(raw) as DashboardAfricaExport[] : [];
+    } catch (error) {
+      console.warn("Failed to load Africa export dashboard data", error);
+      return [];
+    }
+  }, []);
 
   // Filter to order jobs only
   const orderJobs = useMemo(() => {
@@ -284,6 +306,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       .slice(0, 5);
   }, [orderJobs]);
 
+  const africaExportStats = useMemo(() => {
+    const open = africaExports.filter((shipment) => shipment.status !== "delivered").length;
+    const assigned = africaExports.filter((shipment) => shipment.status === "assigned" || shipment.status === "in-transit").length;
+    const delivered = africaExports.filter((shipment) => shipment.status === "delivered").length;
+    const pallets = africaExports.reduce((sum, shipment) => sum + (Number(shipment.pallets) || 0), 0);
+    return {
+      total: africaExports.length,
+      open,
+      assigned,
+      delivered,
+      pallets,
+    };
+  }, [africaExports]);
+
+  const africaDestinationData = useMemo(() => {
+    const byCountry: Record<string, { name: string; shipments: number; pallets: number }> = {};
+    africaExports.forEach((shipment) => {
+      const name = shipment.destinationCountry || "To confirm";
+      if (!byCountry[name]) byCountry[name] = { name, shipments: 0, pallets: 0 };
+      byCountry[name].shipments += 1;
+      byCountry[name].pallets += Number(shipment.pallets) || 0;
+    });
+    return Object.values(byCountry)
+      .sort((a, b) => b.shipments - a.shipments)
+      .slice(0, 6);
+  }, [africaExports]);
+
   const statCards = [
     {
       icon: Package, value: stats.total, label: "TOTAL JOBS",
@@ -323,6 +372,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       change: `${stats.qtyOrdersDispatchedThisWeek} orders dispatched`,
       changeType: stats.qtyDispatchedThisWeek > 0 ? "up" as const : "neutral" as const, sublabel: stats.qtyDispatchedThisWeek > 1000 ? "Big Push" : stats.qtyDispatchedThisWeek > 0 ? "Qty Cleared" : "Nothing Moved",
       borderColor: "border-l-cyan-500", iconBg: "bg-cyan-50", iconColor: "text-cyan-500", nav: "clock", tab: undefined,
+    },
+    {
+      icon: Globe2, value: africaExportStats.total, label: "AFRICA EXPORTS",
+      change: `${africaExportStats.assigned} assigned`,
+      changeType: africaExportStats.total > 0 ? "up" as const : "neutral" as const,
+      sublabel: africaExportStats.open > 0 ? `${africaExportStats.open} Open` : "No Open Exports",
+      borderColor: "border-l-emerald-500", iconBg: "bg-emerald-50", iconColor: "text-emerald-500", nav: "africa-exports", tab: undefined,
     },
   ];
 
@@ -400,7 +456,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         {statCards.map((card, idx) => (
           <div
             key={idx}
@@ -436,6 +492,63 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
             )}
           </div>
         ))}
+      </div>
+
+      {/* Africa Export Snapshot */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Africa Exports</h3>
+              <p className="text-sm text-gray-500">Independent export queue</p>
+            </div>
+            <Globe2 className="h-7 w-7 text-emerald-600" />
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-lg bg-emerald-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Open</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-900">{africaExportStats.open}</p>
+            </div>
+            <div className="rounded-lg bg-blue-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Assigned</p>
+              <p className="mt-1 text-2xl font-bold text-blue-900">{africaExportStats.assigned}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Delivered</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{africaExportStats.delivered}</p>
+            </div>
+            <div className="rounded-lg bg-amber-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Pallets</p>
+              <p className="mt-1 text-2xl font-bold text-amber-900">{africaExportStats.pallets}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-lg font-semibold text-gray-900">Africa Export Destinations</h3>
+            <span className="text-sm text-gray-500">By shipment count</span>
+          </div>
+          <div className="h-64 mt-2">
+            {africaDestinationData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={africaDestinationData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#9CA3AF" allowDecimals={false} />
+                  <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid #E5E7EB" }} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <Bar dataKey="shipments" fill="#10B981" name="Shipments" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="pallets" fill="#F59E0B" name="Pallets" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-gray-400">
+                No Africa export data yet
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* High Volume Dates — current month + 2 months, orders + IBT */}

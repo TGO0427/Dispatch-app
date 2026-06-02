@@ -1,26 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
+  Download,
   FileCheck2,
   FileText,
   Globe2,
   Package,
+  Plus,
   Search,
   ShieldCheck,
   Truck,
-  UserPlus,
+  Upload,
+  X,
 } from "lucide-react";
+import * as XLSX from "../../lib/spreadsheet";
 
-import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 
-import type { Driver, Job } from "../../types";
-
 type ExportTab = "overview" | "documents" | "permits" | "incoterms";
+type ExportStatus = "pending" | "assigned" | "in-transit" | "delivered";
 type DocumentStatus = Record<string, boolean>;
 
 interface ExportShipment {
@@ -33,9 +35,22 @@ interface ExportShipment {
   transportMode: string;
   preferenceScheme: string;
   destinationAgent: string;
+  eta: string;
+  pallets: number;
+  status: ExportStatus;
+  assignedTransporterId?: string;
   lastCheckedAt: string;
   notes: string;
   documents: DocumentStatus;
+}
+
+interface ExportTransporter {
+  id: string;
+  name: string;
+  route: string;
+  contact: string;
+  capacity: number;
+  status: "available" | "busy" | "offline";
 }
 
 interface ChecklistItem {
@@ -52,7 +67,8 @@ interface ChecklistGroup {
   items: ChecklistItem[];
 }
 
-const STORAGE_KEY = "dispatch_africa_export_shipments";
+const SHIPMENTS_KEY = "dispatch_africa_export_shipments_v2";
+const TRANSPORTERS_KEY = "dispatch_africa_export_transporters_v1";
 
 const CORE_DOCUMENTS: ChecklistItem[] = [
   { id: "commercial-invoice", label: "Commercial Invoice", purpose: "Customs valuation, buyer and seller details, Incoterm, currency, HS code, product description, and country of origin.", required: true },
@@ -145,37 +161,56 @@ const DEFAULT_SHIPMENT: ExportShipment = {
   transportMode: "Road",
   preferenceScheme: "To confirm",
   destinationAgent: "",
+  eta: "",
+  pallets: 0,
+  status: "pending",
   lastCheckedAt: "",
   notes: "",
   documents: {},
 };
 
-const getUniqueOrderJobs = (jobs: Job[]) => {
-  const byRef = new Map<string, Job>();
-  jobs
-    .filter((job) => job.jobType === "order" || job.jobType === undefined)
-    .forEach((job) => {
-      if (!byRef.has(job.ref)) byRef.set(job.ref, job);
-    });
-  return Array.from(byRef.values()).sort((a, b) => (a.eta || "").localeCompare(b.eta || ""));
+const DEFAULT_TRANSPORTERS: ExportTransporter[] = [
+  { id: "export-road-crossborder", name: "Cross-border Road Carrier", route: "SADC Road", contact: "", capacity: 26, status: "available" },
+  { id: "export-airfreight-agent", name: "Export Airfreight Agent", route: "Africa Air", contact: "", capacity: 8, status: "available" },
+];
+
+const parseNumber = (value: unknown) => {
+  if (value === undefined || value === null || value === "") return 0;
+  const parsed = Number(String(value).replace(/,/g, "").trim());
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const loadShipments = (): Record<string, ExportShipment> => {
+const normalizeDate = (value: unknown) => {
+  if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString().slice(0, 10);
+};
+
+const normalizeHeader = (value: unknown) => String(value ?? "").trim().toLowerCase();
+
+const findValue = (headers: string[], row: unknown[], aliases: string[]) => {
+  const index = headers.findIndex((header) => aliases.includes(header));
+  return index >= 0 ? row[index] : undefined;
+};
+
+const loadList = <T,>(key: string, fallback: T[]): T[] => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as Record<string, ExportShipment>;
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) as T[] : fallback;
   } catch (error) {
-    console.warn("Failed to load Africa export shipments", error);
-    return {};
+    console.warn(`Failed to load ${key}`, error);
+    return fallback;
   }
 };
 
-const saveShipments = (shipments: Record<string, ExportShipment>) => {
+const saveList = <T,>(key: string, value: T[]) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(shipments));
+    localStorage.setItem(key, JSON.stringify(value));
   } catch (error) {
-    console.warn("Failed to save Africa export shipments", error);
+    console.warn(`Failed to save ${key}`, error);
   }
 };
 
@@ -188,73 +223,104 @@ const getCompletion = (shipment: ExportShipment) => {
   return { total, complete, percent: total ? Math.round((complete / total) * 100) : 0 };
 };
 
-interface AfricaExportsViewProps {
-  onNavigate?: (page: string) => void;
-}
+const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
+  const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+  const workbook = isExcel
+    ? await XLSX.read(await file.arrayBuffer(), { type: "array" })
+    : await XLSX.read(await file.text(), { type: "string" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as unknown[][];
+  if (rows.length < 2) return [];
 
-export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate }) => {
-  const { jobs, drivers, updateJobs } = useDispatch();
+  const headers = rows[0].map(normalizeHeader);
+  return rows.slice(1).map((row) => {
+    const ref = String(findValue(headers, row, ["ref", "reference", "document no", "export ref", "shipment ref", "order no"]) ?? "").trim();
+    const customer = String(findValue(headers, row, ["customer", "customer name", "client", "consignee", "buyer"]) ?? "").trim();
+    if (!ref || !customer) return null;
+
+    return {
+      ...DEFAULT_SHIPMENT,
+      ref,
+      customer,
+      destinationCountry: String(findValue(headers, row, ["destination country", "country", "destination"]) ?? "").trim(),
+      hsCode: String(findValue(headers, row, ["hs code", "tariff", "tariff code"]) ?? "").trim(),
+      productType: String(findValue(headers, row, ["product type", "inventory description", "description", "product"]) ?? "").trim(),
+      incoterm: String(findValue(headers, row, ["incoterm", "inco term"]) ?? "FCA").trim() || "FCA",
+      transportMode: String(findValue(headers, row, ["transport mode", "mode"]) ?? "Road").trim() || "Road",
+      eta: normalizeDate(findValue(headers, row, ["eta", "delivery date", "dispatch date", "shipment date"])),
+      pallets: parseNumber(findValue(headers, row, ["pallets", "pallet qty", "pallet quantity"])),
+      notes: String(findValue(headers, row, ["notes", "remarks", "comment"]) ?? "").trim(),
+      status: "pending" as ExportStatus,
+      documents: {},
+    };
+  }).filter((shipment): shipment is ExportShipment => Boolean(shipment && shipment.ref && shipment.customer))
+    .map((shipment, index) => ({ ...shipment, ref: shipment.ref || `AFX-${Date.now()}-${index}` }));
+};
+
+export const AfricaExportsView: React.FC = () => {
   const { showSuccess, showError, showWarning, confirm } = useNotification();
-  const orderJobs = useMemo(() => getUniqueOrderJobs(jobs), [jobs]);
-  const [shipments, setShipments] = useState<Record<string, ExportShipment>>({});
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [shipments, setShipments] = useState<ExportShipment[]>([]);
+  const [transporters, setTransporters] = useState<ExportTransporter[]>([]);
   const [selectedRef, setSelectedRef] = useState("");
   const [activeTab, setActiveTab] = useState<ExportTab>("overview");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isAssigning, setIsAssigning] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [showAddTransporter, setShowAddTransporter] = useState(false);
+  const [importPreview, setImportPreview] = useState<ExportShipment[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [newTransporter, setNewTransporter] = useState<Omit<ExportTransporter, "id">>({
+    name: "",
+    route: "",
+    contact: "",
+    capacity: 0,
+    status: "available",
+  });
 
   useEffect(() => {
-    const loaded = loadShipments();
-    setShipments(loaded);
-    const firstRef = Object.keys(loaded)[0] || orderJobs[0]?.ref || "";
-    setSelectedRef(firstRef);
+    const loadedShipments = loadList<ExportShipment>(SHIPMENTS_KEY, []);
+    const loadedTransporters = loadList<ExportTransporter>(TRANSPORTERS_KEY, DEFAULT_TRANSPORTERS);
+    setShipments(loadedShipments);
+    setTransporters(loadedTransporters);
+    setSelectedRef(loadedShipments[0]?.ref || "");
   }, []);
 
   useEffect(() => {
-    saveShipments(shipments);
+    saveList(SHIPMENTS_KEY, shipments);
   }, [shipments]);
 
-  const selectedOrder = useMemo(
-    () => orderJobs.find((job) => job.ref === selectedRef),
-    [orderJobs, selectedRef],
+  useEffect(() => {
+    saveList(TRANSPORTERS_KEY, transporters);
+  }, [transporters]);
+
+  const shipment = useMemo(
+    () => shipments.find((item) => item.ref === selectedRef) || DEFAULT_SHIPMENT,
+    [shipments, selectedRef],
   );
 
-  const shipment = useMemo<ExportShipment>(() => {
-    if (selectedRef && shipments[selectedRef]) return shipments[selectedRef];
-    if (selectedOrder) {
-      return {
-        ...DEFAULT_SHIPMENT,
-        ref: selectedOrder.ref,
-        customer: selectedOrder.customer,
-        productType: selectedOrder.notes || "",
-      };
-    }
-    return DEFAULT_SHIPMENT;
-  }, [selectedOrder, selectedRef, shipments]);
+  const trackedShipments = useMemo(
+    () => [...shipments].sort((a, b) => (a.eta || "9999").localeCompare(b.eta || "9999")),
+    [shipments],
+  );
 
-  const trackedShipments = useMemo(() => Object.values(shipments), [shipments]);
+  const filteredShipments = useMemo(() => {
+    if (!searchQuery.trim()) return trackedShipments;
+    const query = searchQuery.toLowerCase();
+    return trackedShipments.filter((item) =>
+      [item.ref, item.customer, item.destinationCountry, item.hsCode, item.productType, item.status]
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [trackedShipments, searchQuery]);
+
   const completion = getCompletion(shipment);
-  const shipmentLines = useMemo(
-    () => jobs.filter((job) => shipment.ref && job.ref === shipment.ref),
-    [jobs, shipment.ref],
-  );
-  const assignedDriver = useMemo(
-    () => shipmentLines.find((job) => job.driverId)?.driverId,
-    [shipmentLines],
-  );
-  const assignedDriverName = useMemo(
-    () => drivers.find((driver) => driver.id === assignedDriver)?.name,
-    [drivers, assignedDriver],
-  );
-  const shipmentPallets = useMemo(
-    () => Math.max(...shipmentLines.map((job) => job.pallets || 0), 0),
-    [shipmentLines],
-  );
-  const shipmentLineCount = shipmentLines.length;
   const requiredItems = useMemo(
     () => CHECKLIST_GROUPS.flatMap((group) => group.items).filter((item) => item.required),
     [],
   );
   const requiredDone = requiredItems.filter((item) => shipment.documents[item.id]).length;
+  const assignedTransporter = transporters.find((item) => item.id === shipment.assignedTransporterId);
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return CHECKLIST_GROUPS;
@@ -267,14 +333,29 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
     })).filter((group) => group.items.length > 0);
   }, [searchQuery]);
 
+  const statusTone = completion.percent >= 85
+    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+    : completion.percent >= 45
+      ? "bg-amber-50 text-amber-700 border-amber-200"
+      : "bg-red-50 text-red-700 border-red-200";
+
   const updateShipment = (updates: Partial<ExportShipment>) => {
-    const ref = updates.ref || shipment.ref || selectedRef || `EXPORT-${Date.now()}`;
+    const ref = updates.ref || shipment.ref || selectedRef || `AFX-${Date.now()}`;
     const nextShipment = { ...shipment, ...updates, ref };
     setSelectedRef(ref);
-    setShipments((prev) => ({
-      ...prev,
-      [ref]: nextShipment,
-    }));
+    setShipments((prev) => {
+      const exists = prev.some((item) => item.ref === shipment.ref || item.ref === selectedRef || item.ref === ref);
+      if (!exists) return [nextShipment, ...prev];
+      return prev.map((item) => (item.ref === shipment.ref || item.ref === selectedRef ? nextShipment : item));
+    });
+  };
+
+  const createBlankShipment = () => {
+    const ref = `AFX-${Date.now()}`;
+    const nextShipment = { ...DEFAULT_SHIPMENT, ref };
+    setShipments((prev) => [nextShipment, ...prev]);
+    setSelectedRef(ref);
+    setActiveTab("overview");
   };
 
   const toggleDocument = (id: string) => {
@@ -287,77 +368,96 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
     });
   };
 
-  const startFromOrder = (job: Job) => {
-    setSelectedRef(job.ref);
-    setShipments((prev) => ({
-      ...prev,
-      [job.ref]: prev[job.ref] || {
-        ...DEFAULT_SHIPMENT,
-        ref: job.ref,
-        customer: job.customer,
-        productType: job.notes || "",
-      },
-    }));
-  };
-
   const markPreDispatchConfirmed = () => {
     updateShipment({ lastCheckedAt: new Date().toISOString().slice(0, 10) });
   };
 
-  const assignShipment = async (driver: Driver) => {
+  const assignShipment = async (transporter: ExportTransporter) => {
     if (!shipment.ref) {
-      showWarning("Select or create an export shipment first.");
+      showWarning("Create or import an Africa export shipment first.");
       return;
     }
 
-    const lineIds = shipmentLines.map((job) => job.id);
-    if (lineIds.length === 0) {
-      showWarning("No order lines found for this shipment reference. Import or select the order first.");
-      return;
-    }
-
-    if (driver.capacity && shipmentPallets > driver.capacity) {
+    if (transporter.capacity && shipment.pallets > transporter.capacity) {
       const proceed = await confirm({
         title: "Capacity Warning",
-        message: `${driver.name} capacity is ${driver.capacity} pallets and this shipment has ${shipmentPallets}. Assign anyway?`,
+        message: `${transporter.name} capacity is ${transporter.capacity} pallets and this shipment has ${shipment.pallets}. Assign anyway?`,
         type: "warning",
         confirmText: "Assign Anyway",
       });
       if (!proceed) return;
     }
 
-    setIsAssigning(true);
+    updateShipment({ assignedTransporterId: transporter.id, status: "assigned" });
+    showSuccess(`${shipment.ref} assigned to ${transporter.name}`);
+  };
+
+  const clearAssignment = () => {
+    updateShipment({ assignedTransporterId: undefined, status: "pending" });
+    showSuccess(`${shipment.ref} moved back to unassigned`);
+  };
+
+  const addTransporter = () => {
+    if (!newTransporter.name.trim()) {
+      showWarning("Transporter name is required.");
+      return;
+    }
+
+    const transporter: ExportTransporter = {
+      ...newTransporter,
+      id: `export-transporter-${Date.now()}`,
+      capacity: Number(newTransporter.capacity) || 0,
+    };
+    setTransporters((prev) => [transporter, ...prev]);
+    setNewTransporter({ name: "", route: "", contact: "", capacity: 0, status: "available" });
+    setShowAddTransporter(false);
+    showSuccess("Africa export transporter added.");
+  };
+
+  const handleFileSelect = async (file?: File) => {
+    if (!file) return;
+    setIsImporting(true);
     try {
-      await updateJobs(lineIds, { driverId: driver.id, status: "assigned" });
-      showSuccess(`${shipment.ref} assigned to ${driver.name}`);
+      const parsed = await parseShipmentRows(file);
+      if (parsed.length === 0) {
+        showError("No valid Africa export rows found. Check the reference and customer columns.");
+        return;
+      }
+      setImportPreview(parsed);
+      showSuccess(`Parsed ${parsed.length} Africa export shipment${parsed.length === 1 ? "" : "s"}.`);
     } catch (error) {
-      console.error("Failed to assign Africa export shipment", error);
-      showError("Failed to assign shipment. Please try again.");
+      console.error("Failed to import Africa export shipments", error);
+      showError("Could not read the import file.");
     } finally {
-      setIsAssigning(false);
+      setIsImporting(false);
     }
   };
 
-  const clearAssignment = async () => {
-    const lineIds = shipmentLines.map((job) => job.id);
-    if (lineIds.length === 0) return;
-    setIsAssigning(true);
-    try {
-      await updateJobs(lineIds, { driverId: undefined, status: "pending" });
-      showSuccess(`${shipment.ref} moved back to unassigned`);
-    } catch (error) {
-      console.error("Failed to clear Africa export assignment", error);
-      showError("Failed to clear assignment. Please try again.");
-    } finally {
-      setIsAssigning(false);
-    }
+  const commitImport = () => {
+    if (importPreview.length === 0) return;
+    setShipments((prev) => {
+      const byRef = new Map(prev.map((item) => [item.ref, item]));
+      importPreview.forEach((item) => {
+        byRef.set(item.ref, { ...byRef.get(item.ref), ...item, documents: byRef.get(item.ref)?.documents || {} });
+      });
+      return Array.from(byRef.values());
+    });
+    setSelectedRef(importPreview[0].ref);
+    setImportPreview([]);
+    setShowImport(false);
+    showSuccess("Africa export shipments imported.");
   };
 
-  const statusTone = completion.percent >= 85
-    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-    : completion.percent >= 45
-      ? "bg-amber-50 text-amber-700 border-amber-200"
-      : "bg-red-50 text-red-700 border-red-200";
+  const downloadTemplate = async () => {
+    const data = [
+      ["Reference", "Customer", "Destination Country", "HS Code", "Product Type", "Incoterm", "Transport Mode", "ETA", "Pallets", "Notes"],
+      ["AFX-0001", "Africa Client", "Botswana", "2106.90", "Food ingredient blend", "FCA", "Road", "2026-06-15", "4", "Confirm import permit before dispatch"],
+    ];
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "AfricaExports");
+    await XLSX.writeFile(workbook, "africa_exports_template.xlsx");
+  };
 
   const tabs: { id: ExportTab; label: string; icon: React.FC<any> }[] = [
     { id: "overview", label: "Shipment Setup", icon: Globe2 },
@@ -372,13 +472,17 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Africa Export Shipments</h1>
           <p className="text-sm text-gray-500">
-            Practical customs and document readiness for South Africa exports into Africa.
+            Independent export workspace for Africa clients, export documents, and cross-border transporters.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => onNavigate?.("home")}>
-            <Package className="h-4 w-4" />
-            Import Orders
+          <Button variant="outline" className="gap-2" onClick={() => setShowImport(true)}>
+            <Upload className="h-4 w-4" />
+            Import Africa Orders
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={createBlankShipment}>
+            <Plus className="h-4 w-4" />
+            New Export
           </Button>
           <span className={`rounded-card border px-3 py-2 text-sm font-semibold ${statusTone}`}>
             {completion.percent}% complete
@@ -396,7 +500,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-emerald-600" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tracked Exports</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Africa Exports</p>
                 <p className="text-2xl font-bold text-gray-900">{trackedShipments.length}</p>
               </div>
             </div>
@@ -416,10 +520,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <Package className="h-5 w-5 text-blue-600" />
+              <Truck className="h-5 w-5 text-blue-600" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Order Pool</p>
-                <p className="text-2xl font-bold text-gray-900">{orderJobs.length}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Export Transporters</p>
+                <p className="text-2xl font-bold text-gray-900">{transporters.length}</p>
               </div>
             </div>
           </CardContent>
@@ -441,65 +545,50 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
         <div className="xl:col-span-1">
           <Card className="xl:sticky xl:top-8">
             <CardHeader>
-              <CardTitle className="text-lg">Export Queue</CardTitle>
-              <p className="text-sm text-gray-600">Select an order or tracked export.</p>
+              <CardTitle className="text-lg">Africa Export Queue</CardTitle>
+              <p className="text-sm text-gray-600">Only Africa export shipments appear here.</p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {trackedShipments.length > 0 && (
-                  <div className="mb-4">
-                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Tracked</p>
-                    <div className="space-y-1.5">
-                      {trackedShipments.map((item) => {
-                        const itemCompletion = getCompletion(item);
-                        const active = selectedRef === item.ref;
-                        return (
-                          <button
-                            key={item.ref}
-                            onClick={() => setSelectedRef(item.ref)}
-                            className={`w-full rounded-card border p-3 text-left transition-colors ${
-                              active ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white hover:bg-gray-50"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate text-sm font-bold text-gray-900">{item.ref}</span>
-                              <span className="text-xs font-semibold text-emerald-700">{itemCompletion.percent}%</span>
-                            </div>
-                            <p className="mt-1 truncate text-xs text-gray-600">{item.destinationCountry || "Country to confirm"}</p>
-                          </button>
-                        );
-                      })}
-                    </div>
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  className="w-full rounded-card border border-gray-300 py-2 pl-10 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  placeholder="Search exports..."
+                />
+              </div>
+              <div className="max-h-[620px] space-y-2 overflow-y-auto pr-1">
+                {filteredShipments.length === 0 ? (
+                  <div className="rounded-card border border-dashed border-gray-300 p-6 text-center">
+                    <Package className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+                    <p className="text-sm font-semibold text-gray-600">No Africa exports yet</p>
+                    <p className="mt-1 text-xs text-gray-400">Import or create an export shipment to start.</p>
                   </div>
-                )}
-
-                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Customer Orders</p>
-                <div className="max-h-[520px] space-y-1.5 overflow-y-auto pr-1">
-                  {orderJobs.length === 0 ? (
-                    <div className="rounded-card border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
-                      No customer orders available.
-                    </div>
-                  ) : (
-                    orderJobs.slice(0, 80).map((job) => (
+                ) : (
+                  filteredShipments.map((item) => {
+                    const active = selectedRef === item.ref;
+                    const itemCompletion = getCompletion(item);
+                    return (
                       <button
-                        key={job.ref}
-                        onClick={() => startFromOrder(job)}
+                        key={item.ref}
+                        onClick={() => setSelectedRef(item.ref)}
                         className={`w-full rounded-card border p-3 text-left transition-colors ${
-                          selectedRef === job.ref ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                          active ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white hover:bg-gray-50"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-sm font-bold text-gray-900">{job.ref}</span>
-                          <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-gray-600">
-                            {job.status}
-                          </span>
+                          <span className="truncate text-sm font-bold text-gray-900">{item.ref}</span>
+                          <span className="text-xs font-semibold text-emerald-700">{itemCompletion.percent}%</span>
                         </div>
-                        <p className="mt-1 truncate text-xs text-gray-600">{job.customer}</p>
-                        <p className="mt-1 truncate text-xs text-gray-400">{job.dropoff || "Dropoff to confirm"}</p>
+                        <p className="mt-1 truncate text-xs text-gray-600">{item.customer}</p>
+                        <p className="mt-1 truncate text-xs text-gray-400">
+                          {item.destinationCountry || "Country to confirm"} - {item.status}
+                        </p>
                       </button>
-                    ))
-                  )}
-                </div>
+                    );
+                  })
+                )}
               </div>
             </CardContent>
           </Card>
@@ -532,57 +621,15 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
               <Card className="xl:col-span-2">
                 <CardHeader>
                   <CardTitle>Shipment Setup</CardTitle>
-                  <p className="text-sm text-gray-600">
-                    Confirm the export basics before dispatch: country, HS code, product type, Incoterm, and destination agent.
-                  </p>
+                  <p className="text-sm text-gray-600">Africa client, destination, tariff, Incoterm, and product details.</p>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-gray-700">Reference</span>
-                      <input
-                        value={shipment.ref}
-                        onChange={(event) => updateShipment({ ref: event.target.value })}
-                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="Order or shipment reference"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-gray-700">Customer / Consignee</span>
-                      <input
-                        value={shipment.customer}
-                        onChange={(event) => updateShipment({ customer: event.target.value })}
-                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="Customer name"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-gray-700">Destination Country</span>
-                      <input
-                        value={shipment.destinationCountry}
-                        onChange={(event) => updateShipment({ destinationCountry: event.target.value })}
-                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="e.g. Botswana, Kenya, Zambia"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-gray-700">HS Code</span>
-                      <input
-                        value={shipment.hsCode}
-                        onChange={(event) => updateShipment({ hsCode: event.target.value })}
-                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="Tariff classification"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-gray-700">Product Type</span>
-                      <input
-                        value={shipment.productType}
-                        onChange={(event) => updateShipment({ productType: event.target.value })}
-                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="Food ingredient, flavouring, enzyme, premix"
-                      />
-                    </label>
+                    <Field label="Reference" value={shipment.ref} onChange={(value) => updateShipment({ ref: value })} placeholder="AFX-0001" />
+                    <Field label="Africa Client / Consignee" value={shipment.customer} onChange={(value) => updateShipment({ customer: value })} placeholder="Client name" />
+                    <Field label="Destination Country" value={shipment.destinationCountry} onChange={(value) => updateShipment({ destinationCountry: value })} placeholder="Botswana, Kenya, Zambia" />
+                    <Field label="HS Code" value={shipment.hsCode} onChange={(value) => updateShipment({ hsCode: value })} placeholder="Tariff classification" />
+                    <Field label="Product Type" value={shipment.productType} onChange={(value) => updateShipment({ productType: value })} placeholder="Food ingredient, flavouring, enzyme" />
                     <label className="space-y-2">
                       <span className="text-sm font-semibold text-gray-700">Incoterm</span>
                       <select
@@ -608,6 +655,20 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
                       </select>
                     </label>
                     <label className="space-y-2">
+                      <span className="text-sm font-semibold text-gray-700">Status</span>
+                      <select
+                        value={shipment.status}
+                        onChange={(event) => updateShipment({ status: event.target.value as ExportStatus })}
+                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      >
+                        {["pending", "assigned", "in-transit", "delivered"].map((status) => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <Field label="ETA / Dispatch Date" value={shipment.eta} onChange={(value) => updateShipment({ eta: value })} type="date" />
+                    <Field label="Pallets" value={String(shipment.pallets || "")} onChange={(value) => updateShipment({ pallets: parseNumber(value) })} type="number" />
+                    <label className="space-y-2">
                       <span className="text-sm font-semibold text-gray-700">Origin Preference</span>
                       <select
                         value={shipment.preferenceScheme}
@@ -619,15 +680,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
                         ))}
                       </select>
                     </label>
-                    <label className="space-y-2 md:col-span-2">
-                      <span className="text-sm font-semibold text-gray-700">Destination Clearing Agent</span>
-                      <input
-                        value={shipment.destinationAgent}
-                        onChange={(event) => updateShipment({ destinationAgent: event.target.value })}
-                        className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="Agent name, email, or contact notes"
-                      />
-                    </label>
+                    <Field label="Destination Clearing Agent" value={shipment.destinationAgent} onChange={(value) => updateShipment({ destinationAgent: value })} className="md:col-span-2" placeholder="Agent name, email, or contact notes" />
                     <label className="space-y-2 md:col-span-2">
                       <span className="text-sm font-semibold text-gray-700">Shipment Notes</span>
                       <textarea
@@ -643,73 +696,62 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Truck className="h-5 w-5 text-gray-600" />
-                    Assign Shipment
-                  </CardTitle>
-                  <p className="text-sm text-gray-600">Assigns every order line with this reference.</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Truck className="h-5 w-5 text-gray-600" />
+                        Export Transporters
+                      </CardTitle>
+                      <p className="mt-1 text-sm text-gray-600">Separate from local order transporters.</p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => setShowAddTransporter(true)}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4 rounded-card border border-gray-200 bg-gray-50 p-3">
-                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Selected shipment</p>
-                    <p className="mt-1 truncate text-sm font-bold text-gray-900">{shipment.ref || "No reference selected"}</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Selected export</p>
+                    <p className="mt-1 truncate text-sm font-bold text-gray-900">{shipment.ref || "No export selected"}</p>
                     <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-600">
-                      <span>{shipmentLineCount} line{shipmentLineCount === 1 ? "" : "s"}</span>
-                      <span>{shipmentPallets || "-"} pallet{shipmentPallets === 1 ? "" : "s"}</span>
-                      <span className="col-span-2">Transporter: {assignedDriverName || "Unassigned"}</span>
+                      <span>{shipment.pallets || "-"} pallets</span>
+                      <span>{shipment.status}</span>
+                      <span className="col-span-2">Transporter: {assignedTransporter?.name || "Unassigned"}</span>
                     </div>
                   </div>
 
-                  {assignedDriver && (
-                    <Button
-                      variant="outline"
-                      className="mb-3 w-full border-amber-200 text-amber-700 hover:bg-amber-50"
-                      onClick={clearAssignment}
-                      disabled={isAssigning}
-                    >
+                  {shipment.assignedTransporterId && (
+                    <Button variant="outline" className="mb-3 w-full border-amber-200 text-amber-700 hover:bg-amber-50" onClick={clearAssignment}>
                       Move Back to Unassigned
                     </Button>
                   )}
 
                   <div className="space-y-2">
-                    {drivers.length === 0 ? (
-                      <div className="rounded-card border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
-                        No transporters available.
-                      </div>
-                    ) : (
-                      drivers.map((driver) => {
-                        const isAssigned = assignedDriver === driver.id;
-                        return (
-                          <button
-                            key={driver.id}
-                            onClick={() => assignShipment(driver)}
-                            disabled={isAssigning || isAssigned}
-                            className={`w-full rounded-card border p-3 text-left transition-colors disabled:cursor-not-allowed ${
-                              isAssigned
-                                ? "border-emerald-300 bg-emerald-50"
-                                : "border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-60"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate text-sm font-bold text-gray-900">{driver.name}</span>
-                              <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-gray-600">
-                                {driver.status}
-                              </span>
-                            </div>
-                            <div className="mt-1 flex items-center justify-between gap-2 text-xs text-gray-500">
-                              <span className="truncate">{driver.callsign || driver.location}</span>
-                              <span>{driver.capacity || 0} pallets</span>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
+                    {transporters.map((transporter) => {
+                      const isAssigned = shipment.assignedTransporterId === transporter.id;
+                      return (
+                        <button
+                          key={transporter.id}
+                          onClick={() => assignShipment(transporter)}
+                          disabled={isAssigned}
+                          className={`w-full rounded-card border p-3 text-left transition-colors disabled:cursor-not-allowed ${
+                            isAssigned ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm font-bold text-gray-900">{transporter.name}</span>
+                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-gray-600">
+                              {transporter.status}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between gap-2 text-xs text-gray-500">
+                            <span className="truncate">{transporter.route || "Route to confirm"}</span>
+                            <span>{transporter.capacity || 0} pallets</span>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-
-                  <Button variant="outline" className="mt-4 w-full gap-2" onClick={() => onNavigate?.("clipboard")}>
-                    <UserPlus className="h-4 w-4" />
-                    Open Order Management
-                  </Button>
                 </CardContent>
               </Card>
             </div>
@@ -717,20 +759,6 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
 
           {activeTab === "documents" && (
             <div className="space-y-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input
-                      value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      className="w-full rounded-card border border-gray-300 py-2 pl-10 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="Search documents, permits, or customs checks..."
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
               {filteredGroups.map((group) => (
                 <Card key={group.title}>
                   <CardHeader>
@@ -832,6 +860,130 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ onNavigate
           )}
         </div>
       </div>
+
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowImport(false)}>
+          <Card className="max-h-[90vh] w-full max-w-5xl overflow-y-auto" onClick={(event) => event.stopPropagation()}>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle>Import Africa Export Orders</CardTitle>
+                  <p className="mt-1 text-sm text-gray-600">Imports into Africa Exports only. These rows will not appear in local Order Management.</p>
+                </div>
+                <button className="rounded-card p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" onClick={() => setShowImport(false)}>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 flex flex-wrap gap-2">
+                <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
+                  <Upload className="h-4 w-4" />
+                  Choose File
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={downloadTemplate}>
+                  <Download className="h-4 w-4" />
+                  Template
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={(event) => handleFileSelect(event.target.files?.[0])}
+                />
+              </div>
+
+              {importPreview.length === 0 ? (
+                <div className="rounded-card border-2 border-dashed border-gray-200 p-10 text-center">
+                  <Upload className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                  <p className="text-sm font-semibold text-gray-700">Upload a CSV, XLSX, or XLS file</p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Supported columns: Reference, Customer, Destination Country, HS Code, Product Type, Incoterm, Transport Mode, ETA, Pallets, Notes.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between rounded-card border border-emerald-200 bg-emerald-50 p-3">
+                    <span className="text-sm font-semibold text-emerald-800">
+                      {importPreview.length} Africa export shipment{importPreview.length === 1 ? "" : "s"} ready to import
+                    </span>
+                    <Button onClick={commitImport}>Import to Africa Exports</Button>
+                  </div>
+                  <div className="overflow-x-auto rounded-card border border-gray-200">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {["Reference", "Client", "Country", "HS Code", "Product", "Incoterm", "Pallets"].map((heading) => (
+                            <th key={heading} className="p-3 text-left font-semibold text-gray-700">{heading}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {importPreview.slice(0, 100).map((item) => (
+                          <tr key={item.ref}>
+                            <td className="p-3 font-semibold text-gray-900">{item.ref}</td>
+                            <td className="p-3 text-gray-700">{item.customer}</td>
+                            <td className="p-3 text-gray-700">{item.destinationCountry || "-"}</td>
+                            <td className="p-3 text-gray-700">{item.hsCode || "-"}</td>
+                            <td className="p-3 text-gray-700">{item.productType || "-"}</td>
+                            <td className="p-3 text-gray-700">{item.incoterm}</td>
+                            <td className="p-3 text-gray-700">{item.pallets || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {showAddTransporter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddTransporter(false)}>
+          <Card className="w-full max-w-xl" onClick={(event) => event.stopPropagation()}>
+            <CardHeader>
+              <CardTitle>Add Africa Export Transporter</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-4">
+                <Field label="Transporter Name" value={newTransporter.name} onChange={(value) => setNewTransporter((prev) => ({ ...prev, name: value }))} />
+                <Field label="Africa Route / Mode" value={newTransporter.route} onChange={(value) => setNewTransporter((prev) => ({ ...prev, route: value }))} placeholder="SADC road, Africa air, sea freight" />
+                <Field label="Contact" value={newTransporter.contact} onChange={(value) => setNewTransporter((prev) => ({ ...prev, contact: value }))} />
+                <Field label="Pallet Capacity" type="number" value={String(newTransporter.capacity || "")} onChange={(value) => setNewTransporter((prev) => ({ ...prev, capacity: parseNumber(value) }))} />
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={addTransporter}>Add Transporter</Button>
+                  <Button className="flex-1" variant="outline" onClick={() => setShowAddTransporter(false)}>Cancel</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
+
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+  className?: string;
+}
+
+const Field: React.FC<FieldProps> = ({ label, value, onChange, placeholder, type = "text", className }) => (
+  <label className={`space-y-2 ${className || ""}`}>
+    <span className="text-sm font-semibold text-gray-700">{label}</span>
+    <input
+      type={type}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+      placeholder={placeholder}
+    />
+  </label>
+);

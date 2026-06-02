@@ -167,6 +167,11 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
     setQuery("");
   }, [onSelectAfricaExport, onSelectDriver, onSelectJob]);
 
+  const handleResultMouseDown = (event: React.MouseEvent, result: SearchResult) => {
+    event.preventDefault();
+    handleSelect(result);
+  };
+
   // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -256,6 +261,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
                     return (
                       <button
                         key={result.id}
+                        onMouseDown={(event) => handleResultMouseDown(event, result)}
                         onClick={() => handleSelect(result)}
                         className={`w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors ${
                           globalIdx === selectedIndex ? "bg-blue-50" : "hover:bg-gray-50"
@@ -290,6 +296,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
                     return (
                       <button
                         key={result.id}
+                        onMouseDown={(event) => handleResultMouseDown(event, result)}
                         onClick={() => handleSelect(result)}
                         className={`w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors ${
                           globalIdx === selectedIndex ? "bg-emerald-50" : "hover:bg-gray-50"
@@ -324,6 +331,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
                     return (
                       <button
                         key={result.id}
+                        onMouseDown={(event) => handleResultMouseDown(event, result)}
                         onClick={() => handleSelect(result)}
                         className={`w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors ${
                           globalIdx === selectedIndex ? "bg-blue-50" : "hover:bg-gray-50"

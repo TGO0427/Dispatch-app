@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FileSpreadsheet, FileDown, TrendingUp, Package, Truck, AlertCircle, Search } from "lucide-react";
 import { useDispatch } from "../../context/DispatchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
@@ -11,6 +11,27 @@ import type { Job } from "../../types";
 import { formatDate, formatDateTime, formatNumber, formatPercent } from "../../utils/format";
 import * as XLSX from "../../lib/spreadsheet";
 
+const AFRICA_EXPORTS_KEY = "dispatch_africa_export_shipments_v2";
+
+interface AfricaExportShipment {
+  ref: string;
+  customer: string;
+  destinationCountry: string;
+  hsCode: string;
+  productType: string;
+  incoterm: string;
+  transportMode: string;
+  preferenceScheme: string;
+  destinationAgent: string;
+  eta: string;
+  pallets: number;
+  status: "pending" | "assigned" | "in-transit" | "delivered";
+  assignedTransporterId?: string;
+  lastCheckedAt: string;
+  notes: string;
+  documents: Record<string, boolean>;
+}
+
 type ReportType =
   | "job-summary"
   | "driver-performance"
@@ -18,7 +39,8 @@ type ReportType =
   | "exception-report"
   | "delivery-performance"
   | "warehouse-utilization"
-  | "overdue-report";
+  | "overdue-report"
+  | "africa-exports";
 
 type DateRange = "all" | "today" | "week" | "month" | "quarter" | "year" | "custom";
 
@@ -37,6 +59,16 @@ export const AnalyticsView: React.FC = () => {
   const [etaWeekFilter, setEtaWeekFilter] = useState<string>("all");
   const [customerSearch, setCustomerSearch] = useState<string>("");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+  const africaExports = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(AFRICA_EXPORTS_KEY);
+      return raw ? JSON.parse(raw) as AfricaExportShipment[] : [];
+    } catch (error) {
+      console.warn("Failed to load Africa export reports data", error);
+      return [];
+    }
+  }, []);
 
   // Helper function to get week number and year from date
   const getWeekInfo = (dateString: string | undefined) => {
@@ -167,12 +199,91 @@ export const AnalyticsView: React.FC = () => {
     });
   }, [dedupedJobs, selectedStatus, selectedPriority, selectedWarehouse, selectedTransporter, etaWeekFilter, dateRange, startDate, endDate, customerSearch]);
 
+  const filteredAfricaExports = useMemo(() => {
+    return africaExports.filter((shipment) => {
+      if (selectedStatus !== "all" && shipment.status !== selectedStatus) return false;
+      if (customerSearch.trim()) {
+        const query = customerSearch.toLowerCase();
+        const searchable = [
+          shipment.ref,
+          shipment.customer,
+          shipment.destinationCountry,
+          shipment.hsCode,
+          shipment.productType,
+          shipment.incoterm,
+          shipment.transportMode,
+        ].join(" ").toLowerCase();
+        if (!searchable.includes(query)) return false;
+      }
+
+      if (dateRange !== "all" && shipment.eta) {
+        const shipmentDate = new Date(shipment.eta);
+        const now = new Date();
+
+        if (dateRange === "custom" && startDate && endDate) {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          if (shipmentDate < start || shipmentDate > end) return false;
+        } else if (dateRange === "today") {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (shipmentDate < today) return false;
+        } else if (dateRange === "week") {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (shipmentDate < weekAgo) return false;
+        } else if (dateRange === "month") {
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          if (shipmentDate < monthAgo) return false;
+        } else if (dateRange === "quarter") {
+          const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          if (shipmentDate < quarterAgo) return false;
+        } else if (dateRange === "year") {
+          const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          if (shipmentDate < yearAgo) return false;
+        }
+      }
+
+      return true;
+    }).sort((a, b) => (a.eta || "9999").localeCompare(b.eta || "9999"));
+  }, [africaExports, selectedStatus, customerSearch, dateRange, startDate, endDate]);
+
+  const getAfricaExportRows = () => {
+    return filteredAfricaExports.map((shipment) => {
+      const documentTotal = Object.keys(shipment.documents || {}).length;
+      const documentsComplete = Object.values(shipment.documents || {}).filter(Boolean).length;
+      const documentReadiness = documentTotal > 0 ? Math.round((documentsComplete / documentTotal) * 100) : 0;
+      return {
+        Reference: shipment.ref,
+        "Africa Client": shipment.customer,
+        "Destination Country": shipment.destinationCountry || "To confirm",
+        Status: shipment.status,
+        "HS Code": shipment.hsCode || "To confirm",
+        "Product Type": shipment.productType || "To confirm",
+        Incoterm: shipment.incoterm,
+        "Transport Mode": shipment.transportMode,
+        Pallets: shipment.pallets || 0,
+        "ETA / Dispatch Date": shipment.eta || "N/A",
+        "Origin Preference": shipment.preferenceScheme,
+        "Destination Agent": shipment.destinationAgent || "To confirm",
+        "Last Agent Check": shipment.lastCheckedAt || "Not done",
+        "Documents Complete": documentsComplete,
+        "Document Items": documentTotal,
+        "Document Readiness": `${documentReadiness}%`,
+        Notes: shipment.notes || "",
+      };
+    });
+  };
+
   // Export functions
   const exportToExcel = async () => {
     let data: any[] = [];
     let filename = "";
 
     switch (selectedReport) {
+      case "africa-exports":
+        data = getAfricaExportRows();
+        filename = "africa-export-report.xlsx";
+        break;
+
       case "job-summary":
         data = filteredJobs.map(job => {
           const etaWeekInfo = getWeekInfo(job.eta);
@@ -336,6 +447,11 @@ export const AnalyticsView: React.FC = () => {
     let filename = "";
 
     switch (selectedReport) {
+      case "africa-exports":
+        data = getAfricaExportRows();
+        filename = "africa-export-report.csv";
+        break;
+
       case "job-summary":
         data = filteredJobs.map(job => {
           const etaWeekInfo = getWeekInfo(job.eta);
@@ -374,6 +490,24 @@ export const AnalyticsView: React.FC = () => {
 
   // Calculate key metrics
   const metrics = useMemo(() => {
+    if (selectedReport === "africa-exports") {
+      const total = filteredAfricaExports.length;
+      const delivered = filteredAfricaExports.filter((shipment) => shipment.status === "delivered").length;
+      const inProgress = filteredAfricaExports.filter((shipment) => shipment.status === "assigned" || shipment.status === "in-transit").length;
+      const pending = filteredAfricaExports.filter((shipment) => shipment.status === "pending").length;
+      const missingAgentCheck = filteredAfricaExports.filter((shipment) => !shipment.lastCheckedAt).length;
+      const completionRate = total > 0 ? formatPercent((delivered / total) * 100).replace("%", "") : "0";
+      return {
+        total,
+        delivered,
+        exceptions: missingAgentCheck,
+        inProgress,
+        pending,
+        completionRate,
+        exceptionRate: total > 0 ? formatPercent((missingAgentCheck / total) * 100).replace("%", "") : "0",
+      };
+    }
+
     const total = filteredJobs.length;
     const delivered = filteredJobs.filter(j => j.status === "delivered").length;
     const exceptions = filteredJobs.filter(j => j.status === "exception").length;
@@ -392,11 +526,131 @@ export const AnalyticsView: React.FC = () => {
       completionRate,
       exceptionRate,
     };
-  }, [filteredJobs]);
+  }, [filteredJobs, filteredAfricaExports, selectedReport]);
 
   // Render report content based on selected type
   const renderReportContent = () => {
     switch (selectedReport) {
+      case "africa-exports": {
+        const byCountry = filteredAfricaExports.reduce((acc, shipment) => {
+          const country = shipment.destinationCountry || "To confirm";
+          acc[country] = (acc[country] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Africa Export Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div className="bg-emerald-50 p-4 rounded-lg">
+                    <div className="text-3xl font-bold text-emerald-700">{filteredAfricaExports.length}</div>
+                    <div className="text-sm text-gray-600 mt-1">Total Exports</div>
+                  </div>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="text-3xl font-bold text-blue-700">
+                      {filteredAfricaExports.filter((shipment) => shipment.status === "assigned" || shipment.status === "in-transit").length}
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">Assigned / In Transit</div>
+                  </div>
+                  <div className="bg-amber-50 p-4 rounded-lg">
+                    <div className="text-3xl font-bold text-amber-700">
+                      {filteredAfricaExports.reduce((sum, shipment) => sum + (Number(shipment.pallets) || 0), 0)}
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">Total Pallets</div>
+                  </div>
+                  <div className="bg-red-50 p-4 rounded-lg">
+                    <div className="text-3xl font-bold text-red-700">
+                      {filteredAfricaExports.filter((shipment) => !shipment.lastCheckedAt).length}
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">No Agent Check</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Destination Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Object.entries(byCountry).sort((a, b) => b[1] - a[1]).map(([country, count]) => {
+                    const pct = filteredAfricaExports.length > 0 ? Math.round((count / filteredAfricaExports.length) * 100) : 0;
+                    return (
+                      <div key={country}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-gray-700">{country}</span>
+                          <span className="text-sm text-gray-500">{count} shipment{count === 1 ? "" : "s"}</span>
+                        </div>
+                        <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredAfricaExports.length === 0 && (
+                    <div className="py-10 text-center text-sm text-gray-400">No Africa export shipments found for this filter.</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Africa Export Shipments</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="text-left p-3 font-semibold text-gray-700">Reference</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Africa Client</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Country</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Status</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">HS Code</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Incoterm</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Mode</th>
+                        <th className="text-right p-3 font-semibold text-gray-700">Pallets</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">ETA</th>
+                        <th className="text-left p-3 font-semibold text-gray-700">Agent Check</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAfricaExports.map((shipment) => (
+                        <tr key={shipment.ref} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="p-3 font-medium text-resilinc-primary">{shipment.ref}</td>
+                          <td className="p-3 text-gray-700">{shipment.customer}</td>
+                          <td className="p-3 text-gray-700">{shipment.destinationCountry || "To confirm"}</td>
+                          <td className="p-3">
+                            <Badge variant={shipment.status === "delivered" ? "success" : shipment.status === "pending" ? "new" : "default"}>
+                              {shipment.status}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-gray-700">{shipment.hsCode || "To confirm"}</td>
+                          <td className="p-3 text-gray-700">{shipment.incoterm}</td>
+                          <td className="p-3 text-gray-700">{shipment.transportMode}</td>
+                          <td className="p-3 text-right text-gray-700 font-medium">{shipment.pallets || "-"}</td>
+                          <td className="p-3 text-gray-700">{shipment.eta || "N/A"}</td>
+                          <td className="p-3 text-gray-700">{shipment.lastCheckedAt || "Not done"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {filteredAfricaExports.length === 0 && (
+                    <div className="py-10 text-center text-sm text-gray-400">No Africa exports found.</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
+
       case "job-summary":
         return (
           <Card>
@@ -957,7 +1211,21 @@ export const AnalyticsView: React.FC = () => {
     "delivery-performance": "Delivery Performance",
     "warehouse-utilization": "Warehouse Utilization",
     "overdue-report": "Overdue Analysis",
+    "africa-exports": "Africa Export Report",
   };
+
+  const isAfricaExportReport = selectedReport === "africa-exports";
+  const reportRecordCount = isAfricaExportReport ? filteredAfricaExports.length : filteredJobs.length;
+
+  useEffect(() => {
+    const africaStatuses = ["all", "pending", "assigned", "in-transit", "delivered"];
+    const localStatuses = ["all", "pending", "assigned", "en-route", "delivered", "exception", "cancelled"];
+    const validStatuses = isAfricaExportReport ? africaStatuses : localStatuses;
+
+    if (!validStatuses.includes(selectedStatus)) {
+      setSelectedStatus("all");
+    }
+  }, [isAfricaExportReport, selectedStatus]);
 
   return (
     <div className="space-y-4">
@@ -966,7 +1234,7 @@ export const AnalyticsView: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Order Reports</h1>
           <p className="text-sm text-gray-500">
-            {reportLabels[selectedReport]} — {filteredJobs.length} records
+            {reportLabels[selectedReport]} — {reportRecordCount} records
             {dateRange !== "all" && ` (${dateRange === "custom" ? "custom range" : `last ${dateRange === "today" ? "today" : dateRange === "week" ? "7 days" : dateRange === "month" ? "30 days" : dateRange === "quarter" ? "90 days" : "year"}`})`}
           </p>
         </div>
@@ -993,6 +1261,7 @@ export const AnalyticsView: React.FC = () => {
             <option value="delivery-performance">Delivery Performance</option>
             <option value="warehouse-utilization">Warehouse Utilization</option>
             <option value="overdue-report">Overdue Analysis</option>
+            <option value="africa-exports">Africa Export Report</option>
           </Select>
 
           <Select value={dateRange} onChange={(e) => setDateRange(e.target.value as DateRange)} className="w-full text-sm">
@@ -1009,17 +1278,21 @@ export const AnalyticsView: React.FC = () => {
             <option value="all">All Statuses</option>
             <option value="pending">Pending</option>
             <option value="assigned">Assigned</option>
-            <option value="en-route">En Route</option>
+            {isAfricaExportReport ? (
+              <option value="in-transit">In Transit</option>
+            ) : (
+              <option value="en-route">En Route</option>
+            )}
             <option value="delivered">Delivered</option>
-            <option value="exception">Exception</option>
-            <option value="cancelled">Cancelled</option>
+            {!isAfricaExportReport && <option value="exception">Exception</option>}
+            {!isAfricaExportReport && <option value="cancelled">Cancelled</option>}
           </Select>
 
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
             <Input
               type="text"
-              placeholder="Search customer..."
+              placeholder={isAfricaExportReport ? "Search Africa export..." : "Search customer..."}
               value={customerSearch}
               onChange={(e) => setCustomerSearch(e.target.value)}
               className="w-full pl-8 text-sm h-9"
@@ -1028,7 +1301,7 @@ export const AnalyticsView: React.FC = () => {
         </div>
 
         {/* Row 2 — more filters */}
-        {showMoreFilters && (
+        {showMoreFilters && !isAfricaExportReport && (
           <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 mt-3">
             <Select value={selectedPriority} onChange={(e) => setSelectedPriority(e.target.value)} className="w-full text-sm">
               <option value="all">All Priorities</option>
@@ -1063,11 +1336,13 @@ export const AnalyticsView: React.FC = () => {
           </div>
         )}
 
-        <div className="mt-2 text-right">
-          <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-resilinc-primary hover:text-resilinc-primary-dark font-medium">
-            {showMoreFilters ? "Less filters" : "More filters (priority, warehouse, transporter, week)"}
-          </button>
-        </div>
+        {!isAfricaExportReport && (
+          <div className="mt-2 text-right">
+            <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="text-xs text-resilinc-primary hover:text-resilinc-primary-dark font-medium">
+              {showMoreFilters ? "Less filters" : "More filters (priority, warehouse, transporter, week)"}
+            </button>
+          </div>
+        )}
       </Card>
 
       {/* KPI Strip — tighter */}
@@ -1077,7 +1352,7 @@ export const AnalyticsView: React.FC = () => {
             <Package className="h-6 w-6 text-resilinc-primary" />
             <div>
               <div className="text-xl font-bold text-gray-900">{metrics.total}</div>
-              <div className="text-[10px] uppercase tracking-wide text-gray-500">Total Jobs</div>
+              <div className="text-[10px] uppercase tracking-wide text-gray-500">{isAfricaExportReport ? "Total Exports" : "Total Jobs"}</div>
             </div>
           </div>
         </Card>
@@ -1086,7 +1361,7 @@ export const AnalyticsView: React.FC = () => {
             <TrendingUp className="h-6 w-6 text-green-600" />
             <div>
               <div className="text-xl font-bold text-green-600">{metrics.completionRate}%</div>
-              <div className="text-[10px] uppercase tracking-wide text-gray-500">Completion Rate</div>
+              <div className="text-[10px] uppercase tracking-wide text-gray-500">{isAfricaExportReport ? "Delivered Rate" : "Completion Rate"}</div>
             </div>
           </div>
         </Card>
@@ -1095,7 +1370,7 @@ export const AnalyticsView: React.FC = () => {
             <Truck className="h-6 w-6 text-orange-600" />
             <div>
               <div className="text-xl font-bold text-orange-600">{metrics.inProgress}</div>
-              <div className="text-[10px] uppercase tracking-wide text-gray-500">In Progress</div>
+              <div className="text-[10px] uppercase tracking-wide text-gray-500">{isAfricaExportReport ? "Assigned / Transit" : "In Progress"}</div>
             </div>
           </div>
         </Card>
@@ -1104,7 +1379,7 @@ export const AnalyticsView: React.FC = () => {
             <AlertCircle className="h-6 w-6 text-red-600" />
             <div>
               <div className="text-xl font-bold text-red-600">{metrics.exceptions}</div>
-              <div className="text-[10px] uppercase tracking-wide text-gray-500">Exceptions</div>
+              <div className="text-[10px] uppercase tracking-wide text-gray-500">{isAfricaExportReport ? "No Agent Check" : "Exceptions"}</div>
             </div>
           </div>
         </Card>

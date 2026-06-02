@@ -265,6 +265,16 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     };
   }, [orderJobs, jobs]);
 
+  const dispatchedWeekPallets = useMemo(() => {
+    const palletsByRef = new Map<string, number>();
+    orderJobs.forEach((job) => {
+      if ((job.status === "en-route" || job.status === "delivered") && isThisWeek(getDispatchDate(job))) {
+        palletsByRef.set(job.ref, Math.max(palletsByRef.get(job.ref) || 0, job.pallets || 0));
+      }
+    });
+    return Array.from(palletsByRef.values()).reduce((sum, pallets) => sum + pallets, 0);
+  }, [orderJobs]);
+
   // Compute assigned pallets per driver by order ref. Pallets are order-level,
   // so five line items on one pallet must not count as five pallets.
   const palletsByDriver = useMemo(() => {
@@ -648,7 +658,8 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                     <div className="flex items-center gap-2">
                       <Briefcase className="h-5 w-5 text-gray-600" />
                       <CardTitle>
-                        {activeTab === "open" ? "Open Orders" : activeTab === "assigned" ? "Assigned Orders" : activeTab === "in-transit" ? "In Transit" : activeTab === "dispatched-week" ? "Dispatched This Week" : "Delivered Orders"} ({filteredAndSortedJobs.length})
+                        {activeTab === "open" ? "Open Orders" : activeTab === "assigned" ? "Assigned Orders" : activeTab === "in-transit" ? "In Transit" : activeTab === "dispatched-week" ? `Dispatched This Week (${filteredAndSortedJobs.length} orders, ${dispatchedWeekPallets} pallets)` : `Delivered Orders (${filteredAndSortedJobs.length})`}
+                        {activeTab !== "dispatched-week" && activeTab !== "delivered" && ` (${filteredAndSortedJobs.length})`}
                       </CardTitle>
                     </div>
                     <p className="mt-1 text-sm text-gray-600">
@@ -684,11 +695,12 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                       </div>
                     ) : (
                       paginatedJobs.map((job) => (
-                        <JobCard
-                          key={job.id}
-                          job={job}
-                          onSelect={() => handleJobSelect(job)}
-                        />
+                          <JobCard
+                            key={job.id}
+                            job={job}
+                            onSelect={() => handleJobSelect(job)}
+                            showDispatchDate={activeTab === "dispatched-week"}
+                          />
                       ))
                     )}
                   </div>

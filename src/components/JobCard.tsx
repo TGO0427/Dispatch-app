@@ -16,6 +16,7 @@ import { formatNumber } from "../utils/format";
 interface JobCardProps {
   job: Job;
   onSelect: () => void;
+  showDispatchDate?: boolean;
 }
 
 // Helper function to get week number
@@ -28,7 +29,7 @@ const getWeekNumber = (dateString: string | undefined) => {
   return weekNumber;
 };
 
-export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
+export const JobCard: React.FC<JobCardProps> = ({ job, onSelect, showDispatchDate = false }) => {
   const { jobs, drivers, updateJob, updateJobs, removeJob } = useDispatch();
   const { confirm, showWarning } = useNotification();
   const { isViewer } = useAuth();
@@ -56,6 +57,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
     return "default";
   };
   const revisedETD = calculateRevisedETD(job);
+  const dispatchedDate = job.dispatchedAt ? job.dispatchedAt.split("T")[0] : undefined;
 
   const handleDispatch = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -164,9 +166,12 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
         <Badge variant={getBadgeVariant()} className="text-[10px] px-1.5 py-0">
           {job.status}
         </Badge>
-        {(job.eta || job.etd) && (
+        {(showDispatchDate || job.eta || job.etd) && (
           <div className="flex flex-col items-end text-[10px] leading-tight">
-            {(revisedETD || job.etd) && (
+            {showDispatchDate && dispatchedDate && (
+              <span className="font-medium text-indigo-600">Dispatched {dispatchedDate}</span>
+            )}
+            {!showDispatchDate && (revisedETD || job.etd) && (
               <span className={`font-medium ${revisedETD ? "text-amber-600" : "text-blue-600"}`}>
                 {revisedETD ? `Rev ETD ${revisedETD}` : `ETD ${job.etd}`}
               </span>

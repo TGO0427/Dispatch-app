@@ -177,6 +177,18 @@ export interface AfricaExportShipment {
   documentDetails?: Record<string, { reference: string; expiry: string; notes: string }>;
   history?: { id: string; at: string; action: string; detail: string }[];
   archived?: boolean;
+  dispatchApprovedAt?: string;
+  dispatchApprovedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AfricaExportCountryRule {
+  id?: string;
+  country: string;
+  title: string;
+  points: string[];
+  requiredDocumentIds: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -221,6 +233,26 @@ export const africaExportsAPI = {
     return fetchAPI<AfricaExportShipment[]>("/api/africa-exports?action=bulk-upsert", {
       method: "POST",
       body: JSON.stringify({ shipments }),
+    });
+  },
+};
+
+export const africaExportCountryRulesAPI = {
+  getAll: async (): Promise<AfricaExportCountryRule[]> => {
+    return fetchAPI<AfricaExportCountryRule[]>("/api/africa-export-country-rules");
+  },
+
+  upsert: async (rule: AfricaExportCountryRule): Promise<AfricaExportCountryRule> => {
+    return fetchAPI<AfricaExportCountryRule>("/api/africa-export-country-rules", {
+      method: "POST",
+      body: JSON.stringify(rule),
+    });
+  },
+
+  bulkUpsert: async (rules: AfricaExportCountryRule[]): Promise<AfricaExportCountryRule[]> => {
+    return fetchAPI<AfricaExportCountryRule[]>("/api/africa-export-country-rules?action=bulk-upsert", {
+      method: "POST",
+      body: JSON.stringify({ rules }),
     });
   },
 };

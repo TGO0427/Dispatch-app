@@ -24,7 +24,7 @@ import {
 import * as XLSX from "../../lib/spreadsheet";
 
 import { useNotification } from "../../context/NotificationContext";
-import { africaExportTransportersAPI, africaExportsAPI } from "../../services/api";
+import { africaExportCountryRulesAPI, africaExportTransportersAPI, africaExportsAPI } from "../../services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 
@@ -32,6 +32,14 @@ type ExportTab = "overview" | "documents" | "permits" | "incoterms" | "history";
 type ExportStatus = "pending" | "assigned" | "in-transit" | "delivered";
 type DocumentStatus = Record<string, boolean>;
 type DocumentDetails = Record<string, { reference: string; expiry: string; notes: string }>;
+
+interface CountryRule {
+  id?: string;
+  country: string;
+  title: string;
+  points: string[];
+  requiredDocumentIds: string[];
+}
 
 interface ShipmentHistoryEntry {
   id: string;
@@ -61,6 +69,8 @@ interface ExportShipment {
   documentDetails?: DocumentDetails;
   history?: ShipmentHistoryEntry[];
   archived?: boolean;
+  dispatchApprovedAt?: string;
+  dispatchApprovedBy?: string;
 }
 
 interface ExportTransporter {
@@ -184,6 +194,10 @@ const PERMIT_DOCUMENTS: ChecklistItem[] = [
   { id: "itac-permit", label: "ITAC Export Permit", purpose: "Required only for controlled or restricted goods leaving South Africa.", conditional: "Check before dispatch for controlled goods." },
   { id: "import-permit", label: "Destination Import Permit", purpose: "Often needed for food, chemicals, dairy, animal-origin, plant, medicine, or controlled products.", conditional: "Must usually be issued before shipment." },
   { id: "coc-pvoc", label: "COC / PVOC / Pre-shipment Inspection", purpose: "Conformity assessment for countries such as Kenya, Tanzania, Uganda, Cameroon, and others depending on product.", conditional: "Confirm with destination agent before loading." },
+  { id: "sgs-cameroon", label: "Cameroon SGS Confirmation", purpose: "SGS inspection, COC route, or exemption confirmation for Cameroon shipments.", conditional: "Required when Cameroon agent confirms SGS route." },
+  { id: "cargox-registration", label: "CargoX Registration / Verification", purpose: "Exporter CargoX registration and verification needed before Egypt NAFEZA ACI can be completed.", conditional: "Required for Egypt ACI/NAFEZA shipments." },
+  { id: "acid-number", label: "Egypt ACID Number", purpose: "ACID issued through NAFEZA by Egyptian importer or authorised agent and received by exporter in CargoX.", conditional: "Required before Egypt ACI documents are sent." },
+  { id: "aci-envelope", label: "CargoX ACI Document Envelope", purpose: "Commercial invoice, packing list, transport document, and certificates uploaded through CargoX for Egypt ACI.", conditional: "Required for Egypt once ACID is approved." },
   { id: "product-registration", label: "Product Registration", purpose: "Some countries require food additives, enzymes, chemicals, fertilisers, or health-related products to be registered before import." },
   { id: "dg-declaration", label: "Dangerous Goods Declaration", purpose: "Required if product is classified as dangerous goods for air, sea, or road transport." },
   { id: "temperature-control", label: "Temperature Control Declaration", purpose: "Chilled, frozen, culture, or temperature-sensitive products." },
@@ -228,8 +242,9 @@ const PRE_DISPATCH_CHECKS = [
 const AGENT_QUESTION =
   "Please confirm, based on the HS code and product description, whether any import permit, standards approval, COC/PVOC, health certificate, phytosanitary/veterinary certificate, or original certificate of origin is required before shipment.";
 
-const DESTINATION_REQUIREMENTS: Record<string, { title: string; points: string[] }> = {
+const DEFAULT_COUNTRY_RULES: Record<string, CountryRule> = {
   Egypt: {
+    country: "Egypt",
     title: "Egypt NAFEZA / CargoX / ACID Requirements",
     points: [
       "Egyptian importer or authorised clearing agent must register the shipment on NAFEZA using the exporter's CargoX details and request the ACID number.",
@@ -239,8 +254,10 @@ const DESTINATION_REQUIREMENTS: Record<string, { title: string; points: string[]
       "Supplier uploads the ACI document envelope via CargoX, usually including commercial invoice, packing list, bill of lading or airway bill when available, and any product-specific certificates.",
       "Important: the supplier cannot generate the ACID number unless they are the Egyptian importer or authorised NAFEZA agent.",
     ],
+    requiredDocumentIds: ["cargox-registration", "acid-number", "aci-envelope", "commercial-invoice", "packing-list", "transport-document"],
   },
   Cameroon: {
+    country: "Cameroon",
     title: "Cameroon SGS / Conformity Requirements",
     points: [
       "Confirm whether the shipment requires SGS pre-shipment conformity assessment before dispatch.",
@@ -248,6 +265,7 @@ const DESTINATION_REQUIREMENTS: Record<string, { title: string; points: string[]
       "Do not dispatch until SGS or the destination agent confirms the required route, certificate status, and whether originals are needed.",
       "Keep SGS confirmation or certificate with the export pack and align it to invoice, packing list, HS code, batch, and product description.",
     ],
+    requiredDocumentIds: ["sgs-cameroon", "coc-pvoc"],
   },
 };
 
@@ -317,24 +335,41 @@ const saveList = <T,>(key: string, value: T[]) => {
   }
 };
 
-const loadCountryRules = () => {
+const loadCountryRules = (): Record<string, CountryRule> => {
   try {
     const raw = localStorage.getItem(COUNTRY_RULES_KEY);
-    const customRules = raw ? JSON.parse(raw) as Record<string, { title: string; points: string[] }> : {};
-    return { ...DESTINATION_REQUIREMENTS, ...customRules };
+    const customRules = raw ? JSON.parse(raw) as Record<string, CountryRule> : {};
+    return { ...DEFAULT_COUNTRY_RULES, ...customRules };
   } catch (error) {
     console.warn("Failed to load Africa export country rules", error);
-    return DESTINATION_REQUIREMENTS;
+    return DEFAULT_COUNTRY_RULES;
   }
 };
 
-const saveCountryRules = (rules: Record<string, { title: string; points: string[] }>) => {
+const saveCountryRules = (rules: Record<string, CountryRule>) => {
   try {
     localStorage.setItem(COUNTRY_RULES_KEY, JSON.stringify(rules));
   } catch (error) {
     console.warn("Failed to save Africa export country rules", error);
   }
 };
+
+const countryRulesToList = (rules: Record<string, CountryRule>) => Object.values(rules).map((rule) => ({
+  ...rule,
+  country: rule.country || "",
+  points: rule.points || [],
+  requiredDocumentIds: rule.requiredDocumentIds || [],
+}));
+
+const rulesListToRecord = (rules: CountryRule[]) => rules.reduce<Record<string, CountryRule>>((acc, rule) => {
+  if (!rule.country) return acc;
+  acc[rule.country] = {
+    ...rule,
+    points: rule.points || [],
+    requiredDocumentIds: rule.requiredDocumentIds || [],
+  };
+  return acc;
+}, {});
 
 const getCompletion = (shipment: ExportShipment) => {
   const total = CHECKLIST_GROUPS.reduce((sum, group) => sum + group.items.length, 0);
@@ -358,6 +393,16 @@ const appendHistory = (
   },
   ...(history || []),
 ].slice(0, 80);
+
+const getDaysUntil = (dateValue: string) => {
+  if (!dateValue) return null;
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return Math.ceil((date.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+};
 
 const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
   const isExcel = /\.(xlsx|xls)$/i.test(file.name);
@@ -415,8 +460,8 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const [isImporting, setIsImporting] = useState(false);
   const [remoteReady, setRemoteReady] = useState(false);
   const [remoteSyncError, setRemoteSyncError] = useState("");
-  const [countryRules, setCountryRules] = useState<Record<string, { title: string; points: string[] }>>(() => loadCountryRules());
-  const [countryRuleDraft, setCountryRuleDraft] = useState({ country: "Egypt", title: "", points: "" });
+  const [countryRules, setCountryRules] = useState<Record<string, CountryRule>>(() => loadCountryRules());
+  const [countryRuleDraft, setCountryRuleDraft] = useState({ country: "Egypt", title: "", points: "", requiredDocumentIds: DEFAULT_COUNTRY_RULES.Egypt.requiredDocumentIds });
   const [newTransporter, setNewTransporter] = useState<Omit<ExportTransporter, "id">>({
     name: "",
     route: "",
@@ -435,9 +480,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     let cancelled = false;
     const loadRemoteData = async () => {
       try {
-        const [remoteShipments, remoteTransporters] = await Promise.all([
+        const [remoteShipments, remoteTransporters, remoteCountryRules] = await Promise.all([
           africaExportsAPI.getAll(),
           africaExportTransportersAPI.getAll(),
+          africaExportCountryRulesAPI.getAll(),
         ]);
         if (cancelled) return;
 
@@ -453,12 +499,19 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
             ? await africaExportsAPI.bulkUpsert(loadedShipments)
             : [];
 
+        const seededRules = remoteCountryRules.length > 0
+          ? remoteCountryRules
+          : await africaExportCountryRulesAPI.bulkUpsert(countryRulesToList(DEFAULT_COUNTRY_RULES));
+        const nextCountryRules = { ...DEFAULT_COUNTRY_RULES, ...rulesListToRecord(seededRules) };
+
         if (cancelled) return;
         setTransporters(nextTransporters);
         setShipments(nextShipments);
+        setCountryRules(nextCountryRules);
         setSelectedRef((current) => current || nextShipments[0]?.ref || "");
         saveList(TRANSPORTERS_KEY, nextTransporters);
         saveList(SHIPMENTS_KEY, nextShipments);
+        saveCountryRules(nextCountryRules);
         setRemoteSyncError("");
       } catch (error) {
         console.warn("Africa export database sync unavailable, using local cache", error);
@@ -546,6 +599,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       country: shipment.destinationCountry,
       title: rule?.title || "",
       points: rule?.points.join("\n") || "",
+      requiredDocumentIds: rule?.requiredDocumentIds || [],
     });
   }, [countryRules, shipment.destinationCountry]);
 
@@ -556,15 +610,23 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const activeShipments = useMemo(() => trackedShipments.filter((item) => !item.archived), [trackedShipments]);
   const archivedShipments = useMemo(() => trackedShipments.filter((item) => item.archived), [trackedShipments]);
 
-  const requiredItems = useMemo(
-    () => CHECKLIST_GROUPS.flatMap((group) => group.items).filter((item) => item.required),
+  const allChecklistItems = useMemo(
+    () => CHECKLIST_GROUPS.flatMap((group) => group.items),
     [],
   );
+  const baseRequiredIds = useMemo(() => new Set(allChecklistItems.filter((item) => item.required).map((item) => item.id)), [allChecklistItems]);
 
-  const getMissingRequiredDocs = (item: ExportShipment) => requiredItems.filter((doc) => !item.documents?.[doc.id]);
+  const getRequiredItemsForShipment = (item: ExportShipment) => {
+    const countryRequiredIds = countryRules[item.destinationCountry]?.requiredDocumentIds || [];
+    const ids = new Set([...baseRequiredIds, ...countryRequiredIds]);
+    return allChecklistItems.filter((doc) => ids.has(doc.id));
+  };
+
+  const getMissingRequiredDocs = (item: ExportShipment) => getRequiredItemsForShipment(item).filter((doc) => !item.documents?.[doc.id]);
 
   const getReadiness = (item: ExportShipment) => {
     if (item.archived) return { label: "Archived", detail: "Hidden from live export work", tone: "border-gray-200 bg-gray-100 text-gray-700" };
+    if (item.dispatchApprovedAt) return { label: "Approved", detail: `Dispatch approved ${item.dispatchApprovedAt}`, tone: "border-emerald-300 bg-emerald-100 text-emerald-800" };
     if (item.status === "delivered") return { label: "Delivered", detail: "Shipment has been completed", tone: "border-emerald-200 bg-emerald-50 text-emerald-700" };
     if (!item.ref || !item.customer) return { label: "Draft", detail: "Reference and client are still needed", tone: "border-gray-200 bg-gray-50 text-gray-600" };
 
@@ -589,7 +651,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       if (item.status === "delivered") return false;
       return getMissingRequiredDocs(item).length > 0 || !item.lastCheckedAt;
     });
-  }, [activeShipments, requiredItems]);
+  }, [activeShipments, countryRules, allChecklistItems, baseRequiredIds]);
 
   const filteredShipments = useMemo(() => {
     const baseShipments = queueFilter === "risks" ? riskyShipments : queueFilter === "archived" ? archivedShipments : activeShipments;
@@ -604,7 +666,8 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   }, [activeShipments, archivedShipments, queueFilter, riskyShipments, searchQuery]);
 
   const completion = getCompletion(shipment);
-  const requiredDone = requiredItems.filter((item) => shipment.documents[item.id]).length;
+  const requiredItems = getRequiredItemsForShipment(shipment);
+  const requiredDone = requiredItems.filter((item) => shipment.documents?.[item.id]).length;
   const complianceAlerts = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -660,9 +723,23 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         }
       }
 
+      Object.entries(item.documentDetails || {}).forEach(([documentId, detail]) => {
+        const daysUntil = getDaysUntil(detail.expiry);
+        if (daysUntil === null || daysUntil > 30) return;
+        const document = allChecklistItems.find((doc) => doc.id === documentId);
+        alerts.push({
+          ref: item.ref,
+          title: daysUntil < 0 ? "Document expired" : daysUntil === 0 ? "Document expires today" : `Document expires in ${daysUntil} day${daysUntil === 1 ? "" : "s"}`,
+          detail: document?.label || documentId,
+          tone: daysUntil < 0 ? "border-red-200 bg-red-50 text-red-800" : "border-amber-200 bg-amber-50 text-amber-800",
+          tab: "documents",
+          priority: daysUntil < 0 ? -1 : 1,
+        });
+      });
+
       return alerts;
     }).sort((a, b) => a.priority - b.priority).slice(0, 8);
-  }, [activeShipments, requiredItems]);
+  }, [activeShipments, countryRules, allChecklistItems, baseRequiredIds]);
   const assignedTransporter = transporters.find((item) => item.id === shipment.assignedTransporterId);
   const countryOptions = useMemo(() => {
     const countries = Array.from(new Set([...AFRICA_COUNTRIES, ...Object.keys(countryRules)]));
@@ -672,6 +749,14 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const destinationRequirement = countryRules[shipment.destinationCountry];
   const readiness = getReadiness(shipment);
   const missingRequiredDocs = getMissingRequiredDocs(shipment);
+  const isDispatchApproved = Boolean(shipment.dispatchApprovedAt);
+  const canApproveDispatch = Boolean(
+    shipment.ref &&
+    !shipment.archived &&
+    missingRequiredDocs.length === 0 &&
+    shipment.lastCheckedAt &&
+    shipment.assignedTransporterId,
+  );
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return CHECKLIST_GROUPS;
@@ -837,7 +922,72 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     }
   };
 
-  const saveCountryRule = () => {
+  const approveDispatch = () => {
+    if (!shipment.ref) return;
+    if (!canApproveDispatch) {
+      showWarning("Complete required documents, agent check, and transporter assignment before approving dispatch.");
+      return;
+    }
+
+    const approvedAt = new Date().toISOString().slice(0, 10);
+    updateShipment(
+      { dispatchApprovedAt: approvedAt, dispatchApprovedBy: "Current user" },
+      { action: "Dispatch approved", detail: "Shipment passed Africa export dispatch gate" },
+    );
+    showSuccess(`${shipment.ref} approved for dispatch.`);
+  };
+
+  const clearDispatchApproval = () => {
+    if (!shipment.ref) return;
+    updateShipment(
+      { dispatchApprovedAt: undefined, dispatchApprovedBy: undefined },
+      { action: "Dispatch approval cleared", detail: "Shipment requires approval again before dispatch" },
+    );
+    showSuccess(`${shipment.ref} dispatch approval cleared.`);
+  };
+
+  const downloadExportPack = async () => {
+    if (!shipment.ref) {
+      showWarning("Select an Africa export shipment first.");
+      return;
+    }
+
+    const rows = allChecklistItems.map((item) => {
+      const detail = shipment.documentDetails?.[item.id] || { reference: "", expiry: "", notes: "" };
+      const required = requiredItems.some((doc) => doc.id === item.id);
+      return {
+        Document: item.label,
+        Required: required ? "Yes" : "No",
+        Complete: shipment.documents?.[item.id] ? "Yes" : "No",
+        Reference: detail.reference,
+        Expiry: detail.expiry,
+        Notes: detail.notes,
+        Purpose: item.purpose,
+      };
+    });
+    const summary = [
+      ["Reference", shipment.ref],
+      ["Africa Client", shipment.customer],
+      ["Destination Country", shipment.destinationCountry],
+      ["HS Code", shipment.hsCode],
+      ["Product Type", shipment.productType],
+      ["Incoterm", shipment.incoterm],
+      ["Transport Mode", shipment.transportMode],
+      ["Pallets", shipment.pallets],
+      ["Readiness", readiness.label],
+      ["Dispatch Approved", shipment.dispatchApprovedAt || "No"],
+      ["Agent Check", shipment.lastCheckedAt || "Not done"],
+      ["Destination Agent", shipment.destinationAgent],
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summary), "Shipment Summary");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), "Document Pack");
+    await XLSX.writeFile(workbook, `${shipment.ref}_africa_export_pack.xlsx`);
+    showSuccess("Africa export pack downloaded.");
+  };
+
+  const saveCountryRule = async () => {
     const country = countryRuleDraft.country.trim();
     const title = countryRuleDraft.title.trim() || `${country} Export Requirements`;
     const points = countryRuleDraft.points
@@ -854,11 +1004,20 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       return;
     }
 
+    const nextRule = { country, title, points, requiredDocumentIds: countryRuleDraft.requiredDocumentIds };
     setCountryRules((prev) => ({
       ...prev,
-      [country]: { title, points },
+      [country]: nextRule,
     }));
-    showSuccess(`${country} destination rules saved.`);
+
+    try {
+      const saved = await africaExportCountryRulesAPI.upsert(nextRule);
+      setCountryRules((prev) => ({ ...prev, [saved.country]: saved }));
+      showSuccess(`${country} destination rules saved.`);
+    } catch (error) {
+      console.error("Failed to save Africa export country rule", error);
+      showWarning(`${country} rule saved in this browser. Database sync will retry when available.`);
+    }
   };
 
   const addTransporter = () => {
@@ -967,6 +1126,21 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
             <ClipboardCheck className="h-4 w-4" />
             Mark Agent Check
           </Button>
+          <Button variant="outline" className="gap-2" onClick={downloadExportPack} disabled={!shipment.ref}>
+            <Download className="h-4 w-4" />
+            Export Pack
+          </Button>
+          {isDispatchApproved ? (
+            <Button variant="outline" className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50" onClick={clearDispatchApproval} disabled={!shipment.ref}>
+              <RotateCcw className="h-4 w-4" />
+              Clear Approval
+            </Button>
+          ) : (
+            <Button className="gap-2" onClick={approveDispatch} disabled={!canApproveDispatch}>
+              <ShieldCheck className="h-4 w-4" />
+              Approve Dispatch
+            </Button>
+          )}
           {shipment.archived ? (
             <Button variant="outline" className="gap-2" onClick={restoreShipment} disabled={!shipment.ref}>
               <RotateCcw className="h-4 w-4" />
@@ -1210,6 +1384,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                             country: event.target.value || "Egypt",
                             title: rule?.title || "",
                             points: rule?.points.join("\n") || "",
+                            requiredDocumentIds: rule?.requiredDocumentIds || [],
                           });
                         }}
                         className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -1326,6 +1501,9 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                       <span>{shipment.pallets || "-"} pallets</span>
                       <span>{shipment.status}</span>
                       <span className={`col-span-2 rounded border px-2 py-1 font-bold ${readiness.tone}`}>Readiness: {readiness.label}</span>
+                      <span className="col-span-2">
+                        Dispatch approval: {shipment.dispatchApprovedAt ? shipment.dispatchApprovedAt : "Not approved"}
+                      </span>
                       {missingRequiredDocs.length > 0 && (
                         <span className="col-span-2 text-red-700">{missingRequiredDocs.length} required document{missingRequiredDocs.length === 1 ? "" : "s"} outstanding</span>
                       )}
@@ -1382,8 +1560,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     <div className="divide-y divide-gray-100 rounded-card border border-gray-200">
                       {group.items.map((item) => {
                         const detail = shipment.documentDetails?.[item.id] || { reference: "", expiry: "", notes: "" };
+                        const isRequired = requiredItems.some((doc) => doc.id === item.id);
+                        const countryRequired = Boolean(destinationRequirement?.requiredDocumentIds.includes(item.id));
                         return (
-                          <div key={item.id} className="flex gap-3 p-4 hover:bg-gray-50">
+                          <div key={item.id} className={`flex gap-3 p-4 hover:bg-gray-50 ${countryRequired ? "bg-emerald-50/60" : ""}`}>
                             <input
                               type="checkbox"
                               checked={!!shipment.documents?.[item.id]}
@@ -1394,7 +1574,8 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-semibold text-gray-900">{item.label}</span>
-                                {item.required && <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase text-red-700">Required</span>}
+                                {isRequired && <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase text-red-700">Required</span>}
+                                {countryRequired && <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">Country Rule</span>}
                                 {item.conditional && <span className="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">Conditional</span>}
                               </div>
                               <p className="mt-1 text-sm text-gray-600">{item.purpose}</p>
@@ -1488,6 +1669,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                             country: event.target.value,
                             title: rule?.title || "",
                             points: rule?.points.join("\n") || "",
+                            requiredDocumentIds: rule?.requiredDocumentIds || [],
                           });
                         }}
                         className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -1512,6 +1694,34 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                         placeholder="Add one requirement per line."
                       />
                     </label>
+                    <div className="space-y-2 md:col-span-2">
+                      <span className="text-sm font-semibold text-gray-700">Documents Required by This Country</span>
+                      <div className="max-h-64 overflow-y-auto rounded-card border border-gray-200 bg-gray-50 p-3">
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                          {allChecklistItems.map((item) => {
+                            const checked = countryRuleDraft.requiredDocumentIds.includes(item.id);
+                            return (
+                              <label key={item.id} className="flex cursor-pointer items-start gap-2 rounded bg-white p-2 text-sm text-gray-700">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(event) => {
+                                    setCountryRuleDraft((prev) => ({
+                                      ...prev,
+                                      requiredDocumentIds: event.target.checked
+                                        ? Array.from(new Set([...prev.requiredDocumentIds, item.id]))
+                                        : prev.requiredDocumentIds.filter((id) => id !== item.id),
+                                    }));
+                                  }}
+                                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                />
+                                <span>{item.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
                     <div className="md:col-span-2">
                       <Button className="gap-2" onClick={saveCountryRule}>
                         <Save className="h-4 w-4" />

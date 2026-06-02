@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useDispatch } from "../context/DispatchContext";
-import { africaExportsAPI, messagesAPI } from "../services/api";
+import { africaExportCountryRulesAPI, africaExportsAPI, messagesAPI } from "../services/api";
 import { useTheme } from "../hooks/useTheme";
 import { countExceptionQueueItems } from "../utils/exceptionQueues";
 
@@ -56,11 +56,17 @@ interface NavSection {
 
 interface SidebarAfricaExport {
   ref: string;
+  destinationCountry?: string;
   status: "pending" | "assigned" | "in-transit" | "delivered";
   eta: string;
   lastCheckedAt: string;
   documents: Record<string, boolean>;
   archived?: boolean;
+}
+
+interface SidebarCountryRule {
+  country: string;
+  requiredDocumentIds: string[];
 }
 
 const AFRICA_EXPORTS_KEY = "dispatch_africa_export_shipments_v2";
@@ -95,6 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       return [];
     }
   });
+  const [africaExportCountryRules, setAfricaExportCountryRules] = useState<Record<string, string[]>>({});
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     dispatch: true,
     operations: true,
@@ -115,9 +122,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
 
   useEffect(() => {
     const fetchAfricaExports = () => {
-      africaExportsAPI.getAll()
-        .then((shipments) => {
+      Promise.all([africaExportsAPI.getAll(), africaExportCountryRulesAPI.getAll()])
+        .then(([shipments, rules]) => {
           setAfricaExports(shipments);
+          setAfricaExportCountryRules((rules as SidebarCountryRule[]).reduce<Record<string, string[]>>((acc, rule) => {
+            acc[rule.country] = rule.requiredDocumentIds || [];
+            return acc;
+          }, {}));
           localStorage.setItem(AFRICA_EXPORTS_KEY, JSON.stringify(shipments));
         })
         .catch((err) => {
@@ -140,11 +151,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       ibtPendingCount: ibtJobs.filter((j) => j.status === "pending").length,
       africaExportRiskCount: africaExports.filter((shipment) => {
         if (shipment.archived || shipment.status === "delivered") return false;
-        const missingRequiredDocs = REQUIRED_AFRICA_DOCUMENT_IDS.some((id) => !shipment.documents?.[id]);
+        const requiredIds = new Set([
+          ...REQUIRED_AFRICA_DOCUMENT_IDS,
+          ...(shipment.destinationCountry ? africaExportCountryRules[shipment.destinationCountry] || [] : []),
+        ]);
+        const missingRequiredDocs = Array.from(requiredIds).some((id) => !shipment.documents?.[id]);
         return missingRequiredDocs || !shipment.lastCheckedAt;
       }).length,
     };
-  }, [africaExports, jobs]);
+  }, [africaExportCountryRules, africaExports, jobs]);
 
   const navSections: NavSection[] = [
     {

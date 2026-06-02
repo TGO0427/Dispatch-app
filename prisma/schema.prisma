@@ -108,6 +108,8 @@ model AfricaExportShipment {
   documentDetails       Json     @default("{}")
   history               Json     @default("[]")
   archived              Boolean  @default(false)
+  dispatchApprovedAt    String?  @db.VarChar(255)
+  dispatchApprovedBy    String?  @db.VarChar(255)
   createdById           String?  @db.VarChar(255)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -119,6 +121,19 @@ model AfricaExportShipment {
   @@index([eta])
   @@index([createdAt])
   @@map("africa_export_shipments")
+}
+
+model AfricaExportCountryRule {
+  id                  String   @id @default(uuid())
+  country             String   @unique @db.VarChar(255)
+  title               String   @db.VarChar(255)
+  points              Json     @default("[]")
+  requiredDocumentIds Json     @default("[]")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([country])
+  @@map("africa_export_country_rules")
 }
 
 model AfricaExportTransporter {

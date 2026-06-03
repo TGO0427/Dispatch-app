@@ -560,11 +560,8 @@ export const InvoicingReconciliation: React.FC = () => {
       "Exception Owner": getExceptionOwner(row.status),
       "Review Status": reviewLabel[reviewState[row.aso] || getDefaultReviewStatus(row.status)],
       "Delivered Qty": row.deliveredQty,
-      "Invoiced Qty": row.hasInvoiceQty ? row.invoicedQty : "",
-      "Variance Qty": row.hasInvoiceQty ? row.varianceQty : "",
       Pallets: row.pallets,
       "Delivered Date": row.deliveredAt,
-      "Order Status": row.orderStatusDetail,
       "Invoice Numbers": row.invoiceNumbers,
       "Document Date": row.invoiceDates,
       "Delivery / Due Date": row.deliveryDueDates,
@@ -712,7 +709,7 @@ export const InvoicingReconciliation: React.FC = () => {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1680px] text-sm">
+            <table className="w-full min-w-[1440px] text-sm">
               <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="p-3 text-left">ASO</th>
@@ -721,11 +718,8 @@ export const InvoicingReconciliation: React.FC = () => {
                   <th className="p-3 text-left">Owner</th>
                   <th className="p-3 text-left">Review</th>
                   <th className="p-3 text-right">Delivered Qty</th>
-                  <th className="p-3 text-right">Invoiced Qty</th>
-                  <th className="p-3 text-right">Variance</th>
                   <th className="p-3 text-right">Pallets</th>
                   <th className="p-3 text-left">Delivered</th>
-                  <th className="p-3 text-left">Order Status</th>
                   <th className="p-3 text-left">Invoices</th>
                   <th className="p-3 text-left">Created By</th>
                   <th className="p-3 text-left">Document Date</th>
@@ -737,7 +731,7 @@ export const InvoicingReconciliation: React.FC = () => {
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={17} className="p-8 text-center text-gray-500">No reconciliation rows found.</td>
+                    <td colSpan={14} className="p-8 text-center text-gray-500">No reconciliation rows found.</td>
                   </tr>
                 ) : (
                   filteredRows.map((row) => {
@@ -766,11 +760,8 @@ export const InvoicingReconciliation: React.FC = () => {
                           </select>
                         </td>
                         <td className="p-3 text-right font-medium">{formatNumber(row.deliveredQty)}</td>
-                        <td className="p-3 text-right font-medium">{row.hasInvoiceQty ? formatNumber(row.invoicedQty) : "-"}</td>
-                        <td className={`p-3 text-right font-bold ${row.varianceQty === 0 ? "text-gray-500" : "text-orange-700"}`}>{row.hasInvoiceQty ? formatNumber(row.varianceQty) : "-"}</td>
                         <td className="p-3 text-right">{formatNumber(row.pallets)}</td>
                         <td className="p-3 text-gray-600">{row.deliveredAt || "-"}</td>
-                        <td className="max-w-[160px] truncate p-3 text-gray-600" title={row.orderStatusDetail}>{row.orderStatusDetail || "-"}</td>
                         <td className="p-3 text-gray-600">{row.invoiceNumbers || "-"}</td>
                         <td className="max-w-[180px] truncate p-3 text-gray-600" title={row.createdBy}>{row.createdBy || "-"}</td>
                         <td className="max-w-[170px] truncate p-3 text-gray-600" title={row.invoiceDates}>{row.invoiceDates || "-"}</td>

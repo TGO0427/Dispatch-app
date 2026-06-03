@@ -151,18 +151,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
 
     const getDispatchDate = (job: typeof orderJobs[0]) => {
       if (job.status !== "en-route" && job.status !== "delivered") return undefined;
+      if (job.status === "delivered" && !job.dispatchedAt) {
+        return job.actualDeliveryAt;
+      }
       if (job.status === "delivered" && job.dispatchedAt && job.actualDeliveryAt) {
         const dispatchTime = new Date(job.dispatchedAt).getTime();
         const deliveryTime = new Date(job.actualDeliveryAt).getTime();
         if (!Number.isNaN(dispatchTime) && !Number.isNaN(deliveryTime) && dispatchTime > deliveryTime) {
-          return undefined;
+          return job.actualDeliveryAt;
         }
       }
       return job.dispatchedAt;
     };
 
     const departuresThisWeek = new Set<string>();
-    const dispatchedByRef = new Map<string, { dispatchDate?: string; historicalDeliveryDate?: string; pallets: number; outstandingQty: number }>();
     const deliveredMissingDispatchThisWeek = new Set<string>();
     orderJobs.forEach((j) => {
       const plannedDepartureDate = j.etd || calculateETD(j.eta, j.transportService);
@@ -174,39 +176,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       if (j.status === "delivered" && !j.dispatchedAt && isThisWeek(j.actualDeliveryAt)) {
         deliveredMissingDispatchThisWeek.add(j.ref);
       }
-
-      const existing = dispatchedByRef.get(j.ref) || { pallets: 0, outstandingQty: 0 };
-      existing.pallets = Math.max(existing.pallets, j.pallets || 0);
-      existing.outstandingQty += j.outstandingQty || 0;
-
-      const dispatchDate = getDispatchDate(j);
-      if (dispatchDate && (!existing.dispatchDate || new Date(dispatchDate) > new Date(existing.dispatchDate))) {
-        existing.dispatchDate = dispatchDate;
-      }
-      if (
-        j.status === "delivered" &&
-        !j.dispatchedAt &&
-        j.actualDeliveryAt &&
-        (!existing.historicalDeliveryDate || new Date(j.actualDeliveryAt) > new Date(existing.historicalDeliveryDate))
-      ) {
-        existing.historicalDeliveryDate = j.actualDeliveryAt;
-      }
-      dispatchedByRef.set(j.ref, existing);
     });
-    const dispatchedThisWeek = Array.from(dispatchedByRef.values()).filter((order) => isThisWeek(order.dispatchDate));
-    const qtyDispatchedThisWeekOrders = Array.from(dispatchedByRef.values()).filter((order) => {
-      const qtyDate = order.dispatchDate || order.historicalDeliveryDate;
-      return isThisWeek(qtyDate);
-    });
-    const ordersDispatchedThisWeek = dispatchedThisWeek.length;
-    const palletsDispatchedThisWeek = dispatchedThisWeek.reduce((sum, order) => sum + order.pallets, 0);
-    const qtyDispatchedThisWeek = qtyDispatchedThisWeekOrders.reduce((sum, order) => sum + order.outstandingQty, 0);
-    const palletsDispatchedThisYear = Array.from(dispatchedByRef.values()).reduce((sum, order) => {
-      const palletDate = order.dispatchDate || order.historicalDeliveryDate;
+
+    const movedLineItemsThisWeek = orderJobs.filter((job) => isThisWeek(getDispatchDate(job)));
+    const movedRefsThisWeek = new Set(movedLineItemsThisWeek.map((job) => job.ref));
+    const ordersDispatchedThisWeek = movedRefsThisWeek.size;
+    const palletsDispatchedThisWeek = movedLineItemsThisWeek.reduce((sum, job) => sum + (job.pallets || 0), 0);
+    const qtyDispatchedThisWeek = movedLineItemsThisWeek.reduce((sum, job) => sum + (job.outstandingQty || 0), 0);
+    const palletsDispatchedThisYear = orderJobs.reduce((sum, job) => {
+      const palletDate = getDispatchDate(job);
       if (!palletDate) return sum;
       const dispatchDate = new Date(palletDate);
       if (Number.isNaN(dispatchDate.getTime()) || dispatchDate.getFullYear() !== now.getFullYear()) return sum;
-      return sum + order.pallets;
+      return sum + (job.pallets || 0);
     }, 0);
     const avgPalletsDispatchedPerWeekThisYear = palletsDispatchedThisYear / Math.max(1, getWeekNumber(now));
 
@@ -278,7 +260,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       palletsDispatchedThisWeek,
       avgPalletsDispatchedPerWeekThisYear,
       qtyDispatchedThisWeek,
-      qtyOrdersDispatchedThisWeek: qtyDispatchedThisWeekOrders.length,
+      qtyOrdersDispatchedThisWeek: ordersDispatchedThisWeek,
       deliveredMissingDispatchCount: deliveredMissingDispatchThisWeek.size,
       alertCount,
       highVolumeWins,

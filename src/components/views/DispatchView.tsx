@@ -278,23 +278,18 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
   }, [orderJobs, jobs]);
 
   const dispatchedWeekSummary = useMemo(() => {
-    const byRef = new Map<string, { pallets: number; qty: number }>();
-    orderJobs.forEach((job) => {
-      if ((job.status === "en-route" || job.status === "delivered") && isThisWeek(getDispatchDate(job))) {
-        const existing = byRef.get(job.ref) || { pallets: 0, qty: 0 };
-        existing.pallets = Math.max(existing.pallets, job.pallets || 0);
-        existing.qty += job.outstandingQty || 0;
-        byRef.set(job.ref, existing);
-      }
-    });
-    return Array.from(byRef.values()).reduce(
-      (summary, order) => ({
-        pallets: summary.pallets + order.pallets,
-        qty: summary.qty + order.qty,
-      }),
+    return jobs.reduce(
+      (summary, job) => {
+        if (job.jobType !== "order" && job.jobType !== undefined) return summary;
+        if ((job.status === "en-route" || job.status === "delivered") && isThisWeek(getDispatchDate(job))) {
+          summary.pallets += job.pallets || 0;
+          summary.qty += job.outstandingQty || 0;
+        }
+        return summary;
+      },
       { pallets: 0, qty: 0 },
     );
-  }, [orderJobs]);
+  }, [jobs]);
 
   // Compute assigned pallets per driver by order ref. Pallets are order-level,
   // so five line items on one pallet must not count as five pallets.

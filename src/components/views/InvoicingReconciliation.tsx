@@ -89,6 +89,9 @@ interface CreatorWorkload {
   asos: number;
   invoices: number;
   matchedAsos: number;
+  workloadPercent: number;
+  activeMonths: number;
+  averagePerMonth: number;
 }
 
 const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
@@ -469,7 +472,7 @@ export const InvoicingReconciliation: React.FC = () => {
 
   const creatorWorkload = useMemo<CreatorWorkload[]>(() => {
     const statusByAso = new Map(reconciliationRows.map((row) => [row.aso, row.status]));
-    const byCreator = new Map<string, { invoiceRows: number; asos: Set<string>; invoices: Set<string>; matchedAsos: Set<string> }>();
+    const byCreator = new Map<string, { invoiceRows: number; asos: Set<string>; invoices: Set<string>; matchedAsos: Set<string>; months: Set<string> }>();
     invoiceLines.forEach((line) => {
       const createdBy = line.createdBy || "Unassigned";
       const aso = normalizeAso(line.aso);
@@ -478,6 +481,7 @@ export const InvoicingReconciliation: React.FC = () => {
         asos: new Set<string>(),
         invoices: new Set<string>(),
         matchedAsos: new Set<string>(),
+        months: new Set<string>(),
       };
       existing.invoiceRows += 1;
       if (aso) {
@@ -486,9 +490,12 @@ export const InvoicingReconciliation: React.FC = () => {
         if (status === "matched" || status === "qty-mismatch") existing.matchedAsos.add(aso);
       }
       if (line.invoiceNumber) existing.invoices.add(line.invoiceNumber);
+      const month = (line.invoiceDate || line.deliveryDueDate || "").slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(month)) existing.months.add(month);
       byCreator.set(createdBy, existing);
     });
 
+    const totalRows = invoiceLines.length || 0;
     return Array.from(byCreator.entries())
       .map(([createdBy, workload]) => ({
         createdBy,
@@ -496,6 +503,9 @@ export const InvoicingReconciliation: React.FC = () => {
         asos: workload.asos.size,
         invoices: workload.invoices.size,
         matchedAsos: workload.matchedAsos.size,
+        workloadPercent: totalRows ? (workload.invoiceRows / totalRows) * 100 : 0,
+        activeMonths: workload.months.size,
+        averagePerMonth: workload.months.size ? workload.invoiceRows / workload.months.size : workload.invoiceRows,
       }))
       .sort((a, b) => b.invoiceRows - a.invoiceRows || a.createdBy.localeCompare(b.createdBy));
   }, [invoiceLines, reconciliationRows]);
@@ -648,6 +658,8 @@ export const InvoicingReconciliation: React.FC = () => {
                   <tr>
                     <th className="p-3 text-left">Created By</th>
                     <th className="p-3 text-right">Invoice Rows</th>
+                    <th className="p-3 text-right">Workload %</th>
+                    <th className="p-3 text-right">Avg / Month</th>
                     <th className="p-3 text-right">ASOs</th>
                     <th className="p-3 text-right">Invoices</th>
                     <th className="p-3 text-right">Matched ASOs</th>
@@ -658,6 +670,8 @@ export const InvoicingReconciliation: React.FC = () => {
                     <tr key={workload.createdBy} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="p-3 font-semibold text-gray-800">{workload.createdBy}</td>
                       <td className="p-3 text-right font-medium">{formatNumber(workload.invoiceRows)}</td>
+                      <td className="p-3 text-right font-medium">{formatPercent(workload.workloadPercent, 1)}</td>
+                      <td className="p-3 text-right">{formatNumber(Math.round(workload.averagePerMonth))}</td>
                       <td className="p-3 text-right">{formatNumber(workload.asos)}</td>
                       <td className="p-3 text-right">{formatNumber(workload.invoices)}</td>
                       <td className="p-3 text-right">{formatNumber(workload.matchedAsos)}</td>

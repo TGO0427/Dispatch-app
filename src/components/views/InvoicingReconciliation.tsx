@@ -96,7 +96,7 @@ interface CreatorWorkload {
 
 const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
 const REVIEW_STORAGE_KEY = "dispatch_invoice_reconciliation_review_v1";
-const ORDER_IMPORT_SEARCH_KEY = "dispatch_order_import_search_ref";
+const MANUAL_ORDER_PREFILL_KEY = "dispatch_manual_order_prefill";
 
 const normalizeAso = (value: unknown) => String(value ?? "").trim();
 
@@ -558,11 +558,16 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     }
   };
 
-  const loadMissingOrder = (aso: string) => {
-    localStorage.setItem(ORDER_IMPORT_SEARCH_KEY, aso);
-    updateReviewStatus(aso, "needs-order-load");
-    onNavigate?.("home");
-    showSuccess(`${aso} is ready in Import Customer Orders. Upload the customer order export that contains this ASO.`);
+  const loadMissingOrder = (row: ReconciliationRow) => {
+    localStorage.setItem(MANUAL_ORDER_PREFILL_KEY, JSON.stringify({
+      ref: row.aso,
+      customer: row.customer,
+      eta: row.deliveryDueDates.split(", ")[0] || "",
+      notes: row.products,
+    }));
+    updateReviewStatus(row.aso, "needs-order-load");
+    onNavigate?.("clipboard", "open");
+    showSuccess(`${row.aso} is ready in Order Management. Complete the Add Job Manually form to load it.`);
   };
 
   const scrollTable = (direction: "left" | "right") => {
@@ -820,9 +825,9 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
                             {row.status === "not-loaded" && (
-                              <Button variant="outline" size="sm" className="gap-1" onClick={() => loadMissingOrder(row.aso)}>
+                              <Button variant="outline" size="sm" className="gap-1" onClick={() => loadMissingOrder(row)}>
                                 <UploadCloud className="h-3.5 w-3.5" />
-                                Import Customer Orders
+                                Add Order
                               </Button>
                             )}
                             <Button variant="outline" size="sm" className="gap-1" onClick={() => void copyAso(row.aso)}>

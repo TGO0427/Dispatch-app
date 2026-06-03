@@ -37,6 +37,8 @@ interface DispatchViewProps {
   initialTab?: DispatchTab;
 }
 
+const MANUAL_ORDER_PREFILL_KEY = "dispatch_manual_order_prefill";
+
 export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initialTab }) => {
   const { jobs, drivers, updateJobs, updateDriver, addDriver, refreshData, filters, sortOptions } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
@@ -74,6 +76,27 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     setServiceFilter(null);
     setCurrentPage(1);
   }, [initialTab]);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(MANUAL_ORDER_PREFILL_KEY);
+    if (!raw) return;
+    try {
+      const prefill = JSON.parse(raw) as Partial<typeof newJob>;
+      setNewJob((current) => ({
+        ...current,
+        ref: prefill.ref || current.ref,
+        customer: prefill.customer || current.customer,
+        eta: prefill.eta || current.eta,
+        notes: prefill.notes || current.notes,
+      }));
+      setShowAddJob(true);
+      setActiveTab("open");
+    } catch (error) {
+      console.warn("Failed to read manual order prefill", error);
+    } finally {
+      localStorage.removeItem(MANUAL_ORDER_PREFILL_KEY);
+    }
+  }, []);
 
   const isThisWeek = (dateString: string | undefined) => {
     if (!dateString) return false;

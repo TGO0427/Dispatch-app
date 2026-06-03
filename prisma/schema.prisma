@@ -91,7 +91,7 @@ model AfricaExportShipment {
   ref                   String   @unique @db.VarChar(255)
   customer              String   @db.VarChar(255)
   destinationCountry    String?  @db.VarChar(255)
-  hsCode                String?  @db.VarChar(100)
+  hsCode                String?  @db.VarChar(500)
   productType           String?  @db.Text
   incoterm              String   @default("FCA") @db.VarChar(50)
   transportMode         String   @default("Road") @db.VarChar(50)

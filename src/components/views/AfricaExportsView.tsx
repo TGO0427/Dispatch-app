@@ -349,6 +349,13 @@ const parseNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const splitHsCodes = (value: string) => String(value || "")
+  .split(/[;,\n]+/)
+  .map((code) => code.trim())
+  .filter(Boolean);
+
+const joinHsCodes = (codes: string[]) => codes.map((code) => code.trim()).filter(Boolean).join("; ");
+
 const normalizeDate = (value: unknown) => {
   if (!value) return "";
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
@@ -528,6 +535,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const [isImporting, setIsImporting] = useState(false);
   const [remoteReady, setRemoteReady] = useState(false);
   const [remoteSyncError, setRemoteSyncError] = useState("");
+  const [hsCodeRows, setHsCodeRows] = useState<string[]>([""]);
   const [countryRules, setCountryRules] = useState<Record<string, CountryRule>>(() => loadCountryRules());
   const [countryRuleDraft, setCountryRuleDraft] = useState({ country: "Egypt", title: "", points: "", requiredDocumentIds: DEFAULT_COUNTRY_RULES.Egypt.requiredDocumentIds });
   const [newTransporter, setNewTransporter] = useState<Omit<ExportTransporter, "id">>({
@@ -666,6 +674,11 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     () => shipments.find((item) => item.ref === selectedRef) || DEFAULT_SHIPMENT,
     [shipments, selectedRef],
   );
+
+  useEffect(() => {
+    const codes = splitHsCodes(shipment.hsCode);
+    setHsCodeRows(codes.length > 0 ? codes : [""]);
+  }, [shipment.ref, shipment.hsCode]);
 
   useEffect(() => {
     if (!shipment.destinationCountry) return;
@@ -875,6 +888,22 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       if (!exists) return [nextShipment, ...prev];
       return prev.map((item) => (item.ref === shipment.ref || item.ref === selectedRef ? nextShipment : item));
     });
+  };
+
+  const updateHsCode = (index: number, value: string) => {
+    const nextCodes = [...hsCodeRows];
+    nextCodes[index] = value;
+    setHsCodeRows(nextCodes);
+    updateShipment({ hsCode: joinHsCodes(nextCodes) });
+  };
+  const addHsCode = () => {
+    setHsCodeRows((current) => [...current, ""]);
+  };
+  const removeHsCode = (index: number) => {
+    const nextCodes = hsCodeRows.filter((_, itemIndex) => itemIndex !== index);
+    const normalizedCodes = nextCodes.length > 0 ? nextCodes : [""];
+    setHsCodeRows(normalizedCodes);
+    updateShipment({ hsCode: joinHsCodes(normalizedCodes) });
   };
 
   const openTariffLookup = () => {
@@ -1486,19 +1515,39 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                       </select>
                     </label>
                     <div className="space-y-2">
-                      <span className="text-sm font-semibold text-gray-700">HS Code</span>
-                      <div className="flex gap-2">
-                        <input
-                          value={shipment.hsCode}
-                          onChange={(event) => updateShipment({ hsCode: event.target.value })}
-                          className="min-w-0 flex-1 rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Tariff classification"
-                        />
-                        <Button type="button" variant="outline" className="h-10 flex-shrink-0 gap-2" onClick={openTariffLookup}>
-                          <ExternalLink className="h-4 w-4" />
-                          Lookup
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-gray-700">HS Codes</span>
+                        <Button type="button" size="sm" variant="outline" className="h-8 gap-2" onClick={addHsCode}>
+                          <Plus className="h-3.5 w-3.5" />
+                          Add
                         </Button>
                       </div>
+                      <div className="space-y-2">
+                        {hsCodeRows.map((code, index) => (
+                          <div key={`${index}-${hsCodeRows.length}`} className="flex gap-2">
+                            <input
+                              value={code}
+                              onChange={(event) => updateHsCode(index, event.target.value)}
+                              className="min-w-0 flex-1 rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                              placeholder={index === 0 ? "Tariff classification" : "Additional HS code"}
+                            />
+                            {hsCodeRows.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeHsCode(index)}
+                                className="h-10 w-10 flex-shrink-0 rounded-card border border-red-200 text-red-600 transition-colors hover:bg-red-50"
+                                title="Remove HS code"
+                              >
+                                <X className="mx-auto h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <Button type="button" variant="outline" className="h-10 gap-2" onClick={openTariffLookup}>
+                        <ExternalLink className="h-4 w-4" />
+                        Lookup Tariff
+                      </Button>
                     </div>
                     <Field label="Product Type" value={shipment.productType} onChange={(value) => updateShipment({ productType: value })} placeholder="Food ingredient, flavouring, enzyme" />
                     <label className="space-y-2">

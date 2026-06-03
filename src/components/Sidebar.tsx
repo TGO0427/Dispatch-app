@@ -23,6 +23,7 @@ import {
   Mail,
   AlertTriangle,
   Globe2,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useDispatch } from "../context/DispatchContext";
@@ -188,6 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
         { id: "grid", icon: Grid3x3, label: "Order Reports" },
         { id: "ibt-reports", icon: ArrowRightLeft, label: "IBT Reports" },
         { id: "analytics", icon: BarChart3, label: "Analytics" },
+        { id: "invoicing", icon: FileText, label: "Invoicing Reconciliation" },
         { id: "flowbin-tracking", icon: Package, label: "Flowbin Tracking" },
         { id: "inbox", icon: Mail, label: "Messages", badge: unreadMessages, badgeType: "danger" },
         { id: "clock", icon: Clock, label: "Order History" },

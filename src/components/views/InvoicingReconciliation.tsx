@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Download, FileText, Search, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, Download, FileText, Search, Upload, XCircle } from "lucide-react";
 import * as XLSX from "../../lib/spreadsheet";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
@@ -9,6 +9,7 @@ import { formatNumber, formatPercent } from "../../utils/format";
 import type { Job } from "../../types";
 
 type InvoiceStatus = "matched" | "not-invoiced" | "not-loaded" | "loaded-not-delivered" | "qty-mismatch";
+type ReviewStatus = "open" | "needs-order-load" | "needs-dispatch-review" | "needs-finance-review" | "not-dispatch-related" | "resolved" | "ignored";
 
 interface InvoiceLine {
   aso: string;
@@ -91,6 +92,7 @@ interface CreatorWorkload {
 }
 
 const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
+const REVIEW_STORAGE_KEY = "dispatch_invoice_reconciliation_review_v1";
 
 const normalizeAso = (value: unknown) => String(value ?? "").trim();
 
@@ -170,6 +172,65 @@ const statusTone: Record<InvoiceStatus, string> = {
   "not-loaded": "border-amber-200 bg-amber-50 text-amber-700",
   "loaded-not-delivered": "border-yellow-200 bg-yellow-50 text-yellow-800",
   "qty-mismatch": "border-orange-200 bg-orange-50 text-orange-700",
+};
+
+const reviewLabel: Record<ReviewStatus, string> = {
+  open: "Open",
+  "needs-order-load": "Needs Order Load",
+  "needs-dispatch-review": "Needs Dispatch Review",
+  "needs-finance-review": "Needs Finance Review",
+  "not-dispatch-related": "Not Dispatch Related",
+  resolved: "Resolved",
+  ignored: "Ignored",
+};
+
+const reviewTone: Record<ReviewStatus, string> = {
+  open: "border-gray-200 bg-gray-50 text-gray-700",
+  "needs-order-load": "border-amber-200 bg-amber-50 text-amber-800",
+  "needs-dispatch-review": "border-yellow-200 bg-yellow-50 text-yellow-800",
+  "needs-finance-review": "border-red-200 bg-red-50 text-red-700",
+  "not-dispatch-related": "border-slate-200 bg-slate-50 text-slate-700",
+  resolved: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  ignored: "border-gray-200 bg-gray-100 text-gray-600",
+};
+
+const reviewOptions: ReviewStatus[] = [
+  "open",
+  "needs-order-load",
+  "needs-dispatch-review",
+  "needs-finance-review",
+  "not-dispatch-related",
+  "resolved",
+  "ignored",
+];
+
+const getExceptionOwner = (status: InvoiceStatus) => {
+  if (status === "not-loaded") return "Dispatch/Admin";
+  if (status === "loaded-not-delivered") return "Dispatch";
+  if (status === "not-invoiced") return "Finance";
+  if (status === "qty-mismatch") return "Dispatch/Finance";
+  return "-";
+};
+
+const getDefaultReviewStatus = (status: InvoiceStatus): ReviewStatus => {
+  if (status === "not-loaded") return "needs-order-load";
+  if (status === "loaded-not-delivered") return "needs-dispatch-review";
+  if (status === "not-invoiced") return "needs-finance-review";
+  if (status === "matched") return "resolved";
+  return "open";
+};
+
+const loadReviewState = (): Record<string, ReviewStatus> => {
+  try {
+    const raw = localStorage.getItem(REVIEW_STORAGE_KEY);
+    return raw ? JSON.parse(raw) as Record<string, ReviewStatus> : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveReviewState = (state: Record<string, ReviewStatus>) => {
+  localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(state));
 };
 
 const buildLoadedSummaries = (jobs: Job[]) => {
@@ -307,6 +368,7 @@ export const InvoicingReconciliation: React.FC = () => {
   const { showSuccess, showError, showWarning } = useNotification();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>(() => loadInvoiceLines());
+  const [reviewState, setReviewState] = useState<Record<string, ReviewStatus>>(() => loadReviewState());
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus | "all">("all");
   const [isImporting, setIsImporting] = useState(false);
@@ -359,9 +421,22 @@ export const InvoicingReconciliation: React.FC = () => {
     return reconciliationRows.filter((row) => {
       if (activeStatus !== "all" && row.status !== activeStatus) return false;
       if (!query) return true;
-      return [row.aso, row.customer, row.invoiceNumbers, row.invoiceDates, row.deliveryDueDates, row.createdBy, row.orderStatusDetail, row.products, statusLabel[row.status]].join(" ").toLowerCase().includes(query);
+      const reviewStatus = reviewState[row.aso] || getDefaultReviewStatus(row.status);
+      return [
+        row.aso,
+        row.customer,
+        row.invoiceNumbers,
+        row.invoiceDates,
+        row.deliveryDueDates,
+        row.createdBy,
+        row.orderStatusDetail,
+        row.products,
+        statusLabel[row.status],
+        getExceptionOwner(row.status),
+        reviewLabel[reviewStatus],
+      ].join(" ").toLowerCase().includes(query);
     });
-  }, [activeStatus, reconciliationRows, searchQuery]);
+  }, [activeStatus, reconciliationRows, reviewState, searchQuery]);
 
   const stats = useMemo(() => {
     const bucket = (status: InvoiceStatus) => reconciliationRows.filter((row) => row.status === status);
@@ -384,8 +459,13 @@ export const InvoicingReconciliation: React.FC = () => {
       mismatch: mismatch.length,
       notInvoicedQty: notInvoiced.reduce((sum, row) => sum + row.deliveredQty, 0),
       varianceQty: mismatch.reduce((sum, row) => sum + Math.abs(row.varianceQty), 0),
+      openExceptions: reconciliationRows.filter((row) => {
+        if (row.status === "matched") return false;
+        const reviewStatus = reviewState[row.aso] || getDefaultReviewStatus(row.status);
+        return reviewStatus !== "resolved" && reviewStatus !== "ignored" && reviewStatus !== "not-dispatch-related";
+      }).length,
     };
-  }, [deliveredByAso.size, invoiceLines, reconciliationRows]);
+  }, [deliveredByAso.size, invoiceLines, reconciliationRows, reviewState]);
 
   const creatorWorkload = useMemo<CreatorWorkload[]>(() => {
     const statusByAso = new Map(reconciliationRows.map((row) => [row.aso, row.status]));
@@ -447,6 +527,21 @@ export const InvoicingReconciliation: React.FC = () => {
     showSuccess("Invoice upload cleared.");
   };
 
+  const updateReviewStatus = (aso: string, status: ReviewStatus) => {
+    const next = { ...reviewState, [aso]: status };
+    setReviewState(next);
+    saveReviewState(next);
+  };
+
+  const copyAso = async (aso: string) => {
+    try {
+      await navigator.clipboard.writeText(aso);
+      showSuccess(`Copied ${aso}.`);
+    } catch {
+      showError("Could not copy ASO.");
+    }
+  };
+
   const downloadTemplate = async () => {
     const data = [
       ["Invoice No", "Source Sales Order", "Document Date", "Delivery / Due Date", "Customer", "Created By", "Delivery Status", "Status", "Posted Date", "Invoice Qty"],
@@ -462,6 +557,8 @@ export const InvoicingReconciliation: React.FC = () => {
       ASO: row.aso,
       Customer: row.customer,
       Status: statusLabel[row.status],
+      "Exception Owner": getExceptionOwner(row.status),
+      "Review Status": reviewLabel[reviewState[row.aso] || getDefaultReviewStatus(row.status)],
       "Delivered Qty": row.deliveredQty,
       "Invoiced Qty": row.hasInvoiceQty ? row.invoicedQty : "",
       "Variance Qty": row.hasInvoiceQty ? row.varianceQty : "",
@@ -485,6 +582,7 @@ export const InvoicingReconciliation: React.FC = () => {
     { label: "Delivered ASOs", value: stats.delivered, tone: "border-l-emerald-500", status: "all" as const },
     { label: "Invoice Rows", value: stats.invoiceLines, tone: "border-l-blue-500", status: "all" as const },
     { label: "On-Time Invoice", value: formatPercent(stats.onTimeInvoicePercent, 1), sub: `${formatNumber(stats.onTimeInvoices)} of ${formatNumber(stats.invoiceTimingRows)}`, tone: "border-l-cyan-500", status: "all" as const },
+    { label: "Open Exceptions", value: stats.openExceptions, tone: "border-l-slate-500", status: "all" as const },
     { label: "Delivered Not Invoiced", value: stats.notInvoiced, sub: `${formatNumber(stats.notInvoicedQty)} qty`, tone: "border-l-red-500", status: "not-invoiced" as const },
     { label: "Invoiced Not Loaded", value: stats.notLoaded, tone: "border-l-amber-500", status: "not-loaded" as const },
     { label: "Loaded Not Delivered", value: stats.loadedNotDelivered, tone: "border-l-yellow-500", status: "loaded-not-delivered" as const },
@@ -526,7 +624,7 @@ export const InvoicingReconciliation: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 xl:grid-cols-9">
         {statCards.map((card) => (
           <button
             key={card.label}
@@ -614,12 +712,14 @@ export const InvoicingReconciliation: React.FC = () => {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1320px] text-sm">
+            <table className="w-full min-w-[1680px] text-sm">
               <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="p-3 text-left">ASO</th>
                   <th className="p-3 text-left">Customer</th>
                   <th className="p-3 text-left">Status</th>
+                  <th className="p-3 text-left">Owner</th>
+                  <th className="p-3 text-left">Review</th>
                   <th className="p-3 text-right">Delivered Qty</th>
                   <th className="p-3 text-right">Invoiced Qty</th>
                   <th className="p-3 text-right">Variance</th>
@@ -631,37 +731,60 @@ export const InvoicingReconciliation: React.FC = () => {
                   <th className="p-3 text-left">Document Date</th>
                   <th className="p-3 text-left">Delivery / Due Date</th>
                   <th className="p-3 text-left">Products</th>
+                  <th className="p-3 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={14} className="p-8 text-center text-gray-500">No reconciliation rows found.</td>
+                    <td colSpan={17} className="p-8 text-center text-gray-500">No reconciliation rows found.</td>
                   </tr>
                 ) : (
-                  filteredRows.map((row) => (
-                    <tr key={row.aso} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="p-3 font-semibold text-resilinc-primary">{row.aso}</td>
-                      <td className="p-3 text-gray-700">{row.customer || "-"}</td>
-                      <td className="p-3">
-                        <span className={`inline-flex rounded border px-2 py-1 text-xs font-bold ${statusTone[row.status]}`}>
-                          {row.status === "matched" && <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
-                          {statusLabel[row.status]}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right font-medium">{formatNumber(row.deliveredQty)}</td>
-                      <td className="p-3 text-right font-medium">{row.hasInvoiceQty ? formatNumber(row.invoicedQty) : "-"}</td>
-                      <td className={`p-3 text-right font-bold ${row.varianceQty === 0 ? "text-gray-500" : "text-orange-700"}`}>{row.hasInvoiceQty ? formatNumber(row.varianceQty) : "-"}</td>
-                      <td className="p-3 text-right">{formatNumber(row.pallets)}</td>
-                      <td className="p-3 text-gray-600">{row.deliveredAt || "-"}</td>
-                      <td className="max-w-[160px] truncate p-3 text-gray-600" title={row.orderStatusDetail}>{row.orderStatusDetail || "-"}</td>
-                      <td className="p-3 text-gray-600">{row.invoiceNumbers || "-"}</td>
-                      <td className="max-w-[180px] truncate p-3 text-gray-600" title={row.createdBy}>{row.createdBy || "-"}</td>
-                      <td className="max-w-[170px] truncate p-3 text-gray-600" title={row.invoiceDates}>{row.invoiceDates || "-"}</td>
-                      <td className="max-w-[170px] truncate p-3 text-gray-600" title={row.deliveryDueDates}>{row.deliveryDueDates || "-"}</td>
-                      <td className="max-w-[260px] truncate p-3 text-gray-500" title={row.products}>{row.products || "-"}</td>
-                    </tr>
-                  ))
+                  filteredRows.map((row) => {
+                    const reviewStatus = reviewState[row.aso] || getDefaultReviewStatus(row.status);
+                    const owner = getExceptionOwner(row.status);
+                    return (
+                      <tr key={row.aso} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="p-3 font-semibold text-resilinc-primary">{row.aso}</td>
+                        <td className="p-3 text-gray-700">{row.customer || "-"}</td>
+                        <td className="p-3">
+                          <span className={`inline-flex rounded border px-2 py-1 text-xs font-bold ${statusTone[row.status]}`}>
+                            {row.status === "matched" && <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
+                            {statusLabel[row.status]}
+                          </span>
+                        </td>
+                        <td className="p-3 text-xs font-bold uppercase tracking-wide text-gray-600">{owner}</td>
+                        <td className="p-3">
+                          <select
+                            value={reviewStatus}
+                            onChange={(event) => updateReviewStatus(row.aso, event.target.value as ReviewStatus)}
+                            className={`w-48 rounded border px-2 py-1 text-xs font-bold focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 ${reviewTone[reviewStatus]}`}
+                          >
+                            {reviewOptions.map((option) => (
+                              <option key={option} value={option}>{reviewLabel[option]}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-3 text-right font-medium">{formatNumber(row.deliveredQty)}</td>
+                        <td className="p-3 text-right font-medium">{row.hasInvoiceQty ? formatNumber(row.invoicedQty) : "-"}</td>
+                        <td className={`p-3 text-right font-bold ${row.varianceQty === 0 ? "text-gray-500" : "text-orange-700"}`}>{row.hasInvoiceQty ? formatNumber(row.varianceQty) : "-"}</td>
+                        <td className="p-3 text-right">{formatNumber(row.pallets)}</td>
+                        <td className="p-3 text-gray-600">{row.deliveredAt || "-"}</td>
+                        <td className="max-w-[160px] truncate p-3 text-gray-600" title={row.orderStatusDetail}>{row.orderStatusDetail || "-"}</td>
+                        <td className="p-3 text-gray-600">{row.invoiceNumbers || "-"}</td>
+                        <td className="max-w-[180px] truncate p-3 text-gray-600" title={row.createdBy}>{row.createdBy || "-"}</td>
+                        <td className="max-w-[170px] truncate p-3 text-gray-600" title={row.invoiceDates}>{row.invoiceDates || "-"}</td>
+                        <td className="max-w-[170px] truncate p-3 text-gray-600" title={row.deliveryDueDates}>{row.deliveryDueDates || "-"}</td>
+                        <td className="max-w-[260px] truncate p-3 text-gray-500" title={row.products}>{row.products || "-"}</td>
+                        <td className="p-3">
+                          <Button variant="outline" size="sm" className="gap-1" onClick={() => void copyAso(row.aso)}>
+                            <Copy className="h-3.5 w-3.5" />
+                            Copy ASO
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

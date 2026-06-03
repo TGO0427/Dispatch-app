@@ -354,6 +354,7 @@ export const OrderImport: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isPurgingIgnored, setIsPurgingIgnored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [missingOrderRef, setMissingOrderRef] = useState("");
 
   // Existing orders that match the ignored-warehouse list (legacy rows imported before the filter)
   const ignoredWarehouseJobIds = useMemo(() => {
@@ -405,6 +406,7 @@ export const OrderImport: React.FC = () => {
   React.useEffect(() => {
     const pendingSearch = localStorage.getItem(ORDER_IMPORT_SEARCH_KEY);
     if (!pendingSearch) return;
+    setMissingOrderRef(pendingSearch);
     setSearchQuery(pendingSearch);
     localStorage.removeItem(ORDER_IMPORT_SEARCH_KEY);
   }, []);
@@ -669,6 +671,15 @@ export const OrderImport: React.FC = () => {
           )}
         </div>
       </div>
+
+      {missingOrderRef && (
+        <div className="rounded-card border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-semibold">Missing order from Invoicing Reconciliation: {missingOrderRef}</p>
+          <p className="mt-1">
+            Get the customer sales order export from the source system or the original daily order file, then upload it here. This invoice file only tells us the ASO was invoiced; it does not contain enough dispatch details to create the order by itself.
+          </p>
+        </div>
+      )}
 
       {/* Upload Card */}
       <Card className="p-5">

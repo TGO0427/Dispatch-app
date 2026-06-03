@@ -562,7 +562,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     localStorage.setItem(ORDER_IMPORT_SEARCH_KEY, aso);
     updateReviewStatus(aso, "needs-order-load");
     onNavigate?.("home");
-    showSuccess(`${aso} is ready in Import Customer Orders. Upload the order sheet there to load it.`);
+    showSuccess(`${aso} is ready in Import Customer Orders. Upload the customer order export that contains this ASO.`);
   };
 
   const scrollTable = (direction: "left" | "right") => {

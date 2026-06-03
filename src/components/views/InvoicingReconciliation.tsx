@@ -5,7 +5,7 @@ import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { formatNumber } from "../../utils/format";
+import { formatNumber, formatPercent } from "../../utils/format";
 import type { Job } from "../../types";
 
 type InvoiceStatus = "matched" | "not-invoiced" | "not-loaded" | "loaded-not-delivered" | "qty-mismatch";
@@ -30,6 +30,7 @@ interface InvoiceSummary {
   aso: string;
   invoiceNumbers: string[];
   invoiceDates: string[];
+  deliveryDueDates: string[];
   customer: string;
   invoiceQty: number;
   hasInvoiceQty: boolean;
@@ -73,12 +74,12 @@ interface ReconciliationRow {
   orderStatusDetail: string;
   invoiceNumbers: string;
   invoiceDates: string;
+  deliveryDueDates: string;
   hasInvoiceQty: boolean;
   status: InvoiceStatus;
   lineCount: number;
   products: string;
   createdBy: string;
-  invoiceStatusDetail: string;
 }
 
 interface CreatorWorkload {
@@ -108,6 +109,32 @@ const normalizeDate = (value: unknown) => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString().slice(0, 10);
+};
+
+const dateOnlyTime = (value: string | undefined) => {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()).getTime();
+};
+
+const isOnTimeInvoice = (invoiceDate: string | undefined, dueDate: string | undefined) => {
+  const invoiceTime = dateOnlyTime(invoiceDate);
+  const dueTime = dateOnlyTime(dueDate);
+  if (invoiceTime === undefined || dueTime === undefined) return undefined;
+  return invoiceTime <= dueTime;
+};
+
+const getOnTimeInvoiceLabel = (invoiceDates: string, deliveryDueDates: string) => {
+  const dates = invoiceDates.split(", ").filter(Boolean);
+  const dueDates = deliveryDueDates.split(", ").filter(Boolean);
+  const comparisons = dates
+    .flatMap((date) => dueDates.map((dueDate) => isOnTimeInvoice(date, dueDate)))
+    .filter((value): value is boolean => value !== undefined);
+  if (comparisons.length === 0) return "";
+  const onTimeCount = comparisons.filter(Boolean).length;
+  if (comparisons.length === 1) return onTimeCount === 1 ? "Yes" : "No";
+  return formatPercent((onTimeCount / comparisons.length) * 100, 1);
 };
 
 const findValue = (row: Record<string, unknown>, aliases: string[]) => {
@@ -214,6 +241,7 @@ const buildInvoiceSummaries = (lines: InvoiceLine[]) => {
       aso,
       invoiceNumbers: [],
       invoiceDates: [],
+      deliveryDueDates: [],
       customer: line.customer || "",
       invoiceQty: 0,
       hasInvoiceQty: false,
@@ -226,6 +254,7 @@ const buildInvoiceSummaries = (lines: InvoiceLine[]) => {
     };
     if (line.invoiceNumber && !existing.invoiceNumbers.includes(line.invoiceNumber)) existing.invoiceNumbers.push(line.invoiceNumber);
     if (line.invoiceDate && !existing.invoiceDates.includes(line.invoiceDate)) existing.invoiceDates.push(line.invoiceDate);
+    if (line.deliveryDueDate && !existing.deliveryDueDates.includes(line.deliveryDueDate)) existing.deliveryDueDates.push(line.deliveryDueDate);
     if (line.product && !existing.products.includes(line.product)) existing.products.push(line.product);
     if (line.createdBy && !existing.createdBy.includes(line.createdBy)) existing.createdBy.push(line.createdBy);
     if (line.deliveryStatus && !existing.deliveryStatuses.includes(line.deliveryStatus)) existing.deliveryStatuses.push(line.deliveryStatus);
@@ -312,16 +341,12 @@ export const InvoicingReconciliation: React.FC = () => {
         orderStatusDetail: loaded?.statuses.join(", ") || "",
         invoiceNumbers: invoiced?.invoiceNumbers.join(", ") || "",
         invoiceDates: invoiced?.invoiceDates.join(", ") || "",
+        deliveryDueDates: invoiced?.deliveryDueDates.join(", ") || "",
         hasInvoiceQty,
         status,
         lineCount: delivered?.lineCount || loaded?.lineCount || 0,
         products: invoiced?.products.slice(0, 4).join("; ") || delivered?.lines.map((line) => line.notes).filter(Boolean).slice(0, 4).join("; ") || loaded?.lines.map((line) => line.notes).filter(Boolean).slice(0, 4).join("; ") || "",
         createdBy: invoiced?.createdBy.join(", ") || "",
-        invoiceStatusDetail: [
-          invoiced?.statuses.join(", "),
-          invoiced?.deliveryStatuses.join(", "),
-          invoiced?.postedDates.length ? `Posted ${invoiced.postedDates.join(", ")}` : "",
-        ].filter(Boolean).join(" | "),
       };
     }).sort((a, b) => {
       const severityOrder: Record<InvoiceStatus, number> = { "not-invoiced": 0, "not-loaded": 1, "loaded-not-delivered": 2, "qty-mismatch": 3, matched: 4 };
@@ -334,7 +359,7 @@ export const InvoicingReconciliation: React.FC = () => {
     return reconciliationRows.filter((row) => {
       if (activeStatus !== "all" && row.status !== activeStatus) return false;
       if (!query) return true;
-      return [row.aso, row.customer, row.invoiceNumbers, row.createdBy, row.orderStatusDetail, row.invoiceStatusDetail, row.products, statusLabel[row.status]].join(" ").toLowerCase().includes(query);
+      return [row.aso, row.customer, row.invoiceNumbers, row.invoiceDates, row.deliveryDueDates, row.createdBy, row.orderStatusDetail, row.products, statusLabel[row.status]].join(" ").toLowerCase().includes(query);
     });
   }, [activeStatus, reconciliationRows, searchQuery]);
 
@@ -342,9 +367,16 @@ export const InvoicingReconciliation: React.FC = () => {
     const bucket = (status: InvoiceStatus) => reconciliationRows.filter((row) => row.status === status);
     const notInvoiced = bucket("not-invoiced");
     const mismatch = bucket("qty-mismatch");
+    const invoiceTimingRows = invoiceLines
+      .map((line) => isOnTimeInvoice(line.invoiceDate, line.deliveryDueDate))
+      .filter((value): value is boolean => value !== undefined);
+    const onTimeInvoices = invoiceTimingRows.filter(Boolean).length;
     return {
       delivered: deliveredByAso.size,
       invoiceLines: invoiceLines.length,
+      onTimeInvoices,
+      invoiceTimingRows: invoiceTimingRows.length,
+      onTimeInvoicePercent: invoiceTimingRows.length ? (onTimeInvoices / invoiceTimingRows.length) * 100 : 0,
       matched: bucket("matched").length,
       notInvoiced: notInvoiced.length,
       notLoaded: bucket("not-loaded").length,
@@ -353,7 +385,7 @@ export const InvoicingReconciliation: React.FC = () => {
       notInvoicedQty: notInvoiced.reduce((sum, row) => sum + row.deliveredQty, 0),
       varianceQty: mismatch.reduce((sum, row) => sum + Math.abs(row.varianceQty), 0),
     };
-  }, [deliveredByAso.size, invoiceLines.length, reconciliationRows]);
+  }, [deliveredByAso.size, invoiceLines, reconciliationRows]);
 
   const creatorWorkload = useMemo<CreatorWorkload[]>(() => {
     const statusByAso = new Map(reconciliationRows.map((row) => [row.aso, row.status]));
@@ -437,9 +469,10 @@ export const InvoicingReconciliation: React.FC = () => {
       "Delivered Date": row.deliveredAt,
       "Order Status": row.orderStatusDetail,
       "Invoice Numbers": row.invoiceNumbers,
-      "Invoice Dates": row.invoiceDates,
+      "Document Date": row.invoiceDates,
+      "Delivery / Due Date": row.deliveryDueDates,
+      "On Time Invoice": getOnTimeInvoiceLabel(row.invoiceDates, row.deliveryDueDates),
       "Created By": row.createdBy,
-      "Invoice Status": row.invoiceStatusDetail,
       "Delivered Lines": row.lineCount,
       Products: row.products,
     }));
@@ -451,6 +484,7 @@ export const InvoicingReconciliation: React.FC = () => {
   const statCards = [
     { label: "Delivered ASOs", value: stats.delivered, tone: "border-l-emerald-500", status: "all" as const },
     { label: "Invoice Rows", value: stats.invoiceLines, tone: "border-l-blue-500", status: "all" as const },
+    { label: "On-Time Invoice", value: formatPercent(stats.onTimeInvoicePercent, 1), sub: `${formatNumber(stats.onTimeInvoices)} of ${formatNumber(stats.invoiceTimingRows)}`, tone: "border-l-cyan-500", status: "all" as const },
     { label: "Delivered Not Invoiced", value: stats.notInvoiced, sub: `${formatNumber(stats.notInvoicedQty)} qty`, tone: "border-l-red-500", status: "not-invoiced" as const },
     { label: "Invoiced Not Loaded", value: stats.notLoaded, tone: "border-l-amber-500", status: "not-loaded" as const },
     { label: "Loaded Not Delivered", value: stats.loadedNotDelivered, tone: "border-l-yellow-500", status: "loaded-not-delivered" as const },
@@ -492,7 +526,7 @@ export const InvoicingReconciliation: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8">
         {statCards.map((card) => (
           <button
             key={card.label}
@@ -501,7 +535,7 @@ export const InvoicingReconciliation: React.FC = () => {
             className={`rounded-lg border border-gray-200 border-l-[3px] ${card.tone} bg-white p-4 text-left transition hover:shadow-sm ${activeStatus === card.status ? "ring-2 ring-emerald-200" : ""}`}
           >
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{card.label}</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{formatNumber(card.value)}</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{typeof card.value === "number" ? formatNumber(card.value) : card.value}</p>
             {card.sub && <p className="mt-1 text-xs font-semibold text-gray-500">{card.sub}</p>}
           </button>
         ))}
@@ -580,7 +614,7 @@ export const InvoicingReconciliation: React.FC = () => {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1220px] text-sm">
+            <table className="w-full min-w-[1320px] text-sm">
               <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="p-3 text-left">ASO</th>
@@ -594,14 +628,15 @@ export const InvoicingReconciliation: React.FC = () => {
                   <th className="p-3 text-left">Order Status</th>
                   <th className="p-3 text-left">Invoices</th>
                   <th className="p-3 text-left">Created By</th>
-                  <th className="p-3 text-left">Invoice Status</th>
+                  <th className="p-3 text-left">Document Date</th>
+                  <th className="p-3 text-left">Delivery / Due Date</th>
                   <th className="p-3 text-left">Products</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="p-8 text-center text-gray-500">No reconciliation rows found.</td>
+                    <td colSpan={14} className="p-8 text-center text-gray-500">No reconciliation rows found.</td>
                   </tr>
                 ) : (
                   filteredRows.map((row) => (
@@ -622,7 +657,8 @@ export const InvoicingReconciliation: React.FC = () => {
                       <td className="max-w-[160px] truncate p-3 text-gray-600" title={row.orderStatusDetail}>{row.orderStatusDetail || "-"}</td>
                       <td className="p-3 text-gray-600">{row.invoiceNumbers || "-"}</td>
                       <td className="max-w-[180px] truncate p-3 text-gray-600" title={row.createdBy}>{row.createdBy || "-"}</td>
-                      <td className="max-w-[220px] truncate p-3 text-gray-500" title={row.invoiceStatusDetail}>{row.invoiceStatusDetail || "-"}</td>
+                      <td className="max-w-[170px] truncate p-3 text-gray-600" title={row.invoiceDates}>{row.invoiceDates || "-"}</td>
+                      <td className="max-w-[170px] truncate p-3 text-gray-600" title={row.deliveryDueDates}>{row.deliveryDueDates || "-"}</td>
                       <td className="max-w-[260px] truncate p-3 text-gray-500" title={row.products}>{row.products || "-"}</td>
                     </tr>
                   ))

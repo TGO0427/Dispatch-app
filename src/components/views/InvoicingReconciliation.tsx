@@ -618,11 +618,11 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Invoicing Reconciliation</h1>
-          <p className="text-sm text-gray-500">Compare delivered ASOs against uploaded invoice ASOs. Quantity checks run when the invoice file includes invoice quantity.</p>
+          <p className="text-sm text-gray-500">Compare delivered ASOs against uploaded invoice ASOs and route exceptions to the right owner.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input
@@ -651,50 +651,56 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 xl:grid-cols-9">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-9">
         {statCards.map((card) => (
           <button
             key={card.label}
             type="button"
             onClick={() => setActiveStatus(card.status)}
-            className={`rounded-lg border border-gray-200 border-l-[3px] ${card.tone} bg-white p-4 text-left transition hover:shadow-sm ${activeStatus === card.status ? "ring-2 ring-emerald-200" : ""}`}
+            className={`min-h-[96px] rounded-lg border border-gray-200 border-l-[3px] ${card.tone} bg-white p-3 text-left transition hover:border-gray-300 hover:shadow-sm ${activeStatus === card.status ? "bg-emerald-50/40 ring-1 ring-emerald-300" : ""}`}
           >
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{card.label}</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{typeof card.value === "number" ? formatNumber(card.value) : card.value}</p>
+            <p className="min-h-[28px] text-[11px] font-semibold uppercase tracking-wide text-gray-500">{card.label}</p>
+            <p className="mt-1 text-xl font-bold text-gray-900">{typeof card.value === "number" ? formatNumber(card.value) : card.value}</p>
             {card.sub && <p className="mt-1 text-xs font-semibold text-gray-500">{card.sub}</p>}
           </button>
         ))}
       </div>
 
       {creatorWorkload.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Creator Workload</CardTitle>
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-gray-100 p-5">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <CardTitle className="text-lg">Creator Workload</CardTitle>
+                <p className="text-sm text-gray-500">Invoice rows grouped by creator and active invoice months.</p>
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(invoiceLines.length)} invoice rows</p>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px] text-sm">
-                <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                <thead className="border-b border-gray-200 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">
                   <tr>
-                    <th className="p-3 text-left">Created By</th>
-                    <th className="p-3 text-right">Invoice Rows</th>
-                    <th className="p-3 text-right">Workload %</th>
-                    <th className="p-3 text-right">Avg / Month</th>
-                    <th className="p-3 text-right">ASOs</th>
-                    <th className="p-3 text-right">Invoices</th>
-                    <th className="p-3 text-right">Matched ASOs</th>
+                    <th className="px-4 py-3 text-left">Created By</th>
+                    <th className="px-4 py-3 text-right">Invoice Rows</th>
+                    <th className="px-4 py-3 text-right">Workload %</th>
+                    <th className="px-4 py-3 text-right">Avg / Month</th>
+                    <th className="px-4 py-3 text-right">ASOs</th>
+                    <th className="px-4 py-3 text-right">Invoices</th>
+                    <th className="px-4 py-3 text-right">Matched ASOs</th>
                   </tr>
                 </thead>
                 <tbody>
                   {creatorWorkload.map((workload) => (
                     <tr key={workload.createdBy} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="p-3 font-semibold text-gray-800">{workload.createdBy}</td>
-                      <td className="p-3 text-right font-medium">{formatNumber(workload.invoiceRows)}</td>
-                      <td className="p-3 text-right font-medium">{formatPercent(workload.workloadPercent, 1)}</td>
-                      <td className="p-3 text-right">{formatNumber(Math.round(workload.averagePerMonth))}</td>
-                      <td className="p-3 text-right">{formatNumber(workload.asos)}</td>
-                      <td className="p-3 text-right">{formatNumber(workload.invoices)}</td>
-                      <td className="p-3 text-right">{formatNumber(workload.matchedAsos)}</td>
+                      <td className="px-4 py-3 font-semibold text-gray-800">{workload.createdBy}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatNumber(workload.invoiceRows)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatPercent(workload.workloadPercent, 1)}</td>
+                      <td className="px-4 py-3 text-right">{formatNumber(Math.round(workload.averagePerMonth))}</td>
+                      <td className="px-4 py-3 text-right">{formatNumber(workload.asos)}</td>
+                      <td className="px-4 py-3 text-right">{formatNumber(workload.invoices)}</td>
+                      <td className="px-4 py-3 text-right">{formatNumber(workload.matchedAsos)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -704,11 +710,11 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b border-gray-100 p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <CardTitle>ASO Reconciliation</CardTitle>
+              <CardTitle className="text-lg">ASO Reconciliation</CardTitle>
               <p className="mt-1 text-sm text-gray-600">Delivered data comes from Order Management. Invoiced data comes from the latest uploaded spreadsheet.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -717,7 +723,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                 <input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  className="w-72 rounded-card border border-gray-300 py-2 pl-10 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-80 rounded-card border border-gray-300 py-2 pl-10 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   placeholder="Search ASO, customer, invoice..."
                 />
               </div>
@@ -731,46 +737,45 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
+              <div className="flex gap-1 rounded-card border border-gray-200 bg-gray-50 p-1">
+                <button type="button" className="flex h-8 items-center gap-1 rounded bg-white px-2 text-xs font-semibold text-gray-600 shadow-sm hover:text-emerald-700" onClick={() => scrollTable("left")}>
+                  <ChevronLeft className="h-4 w-4" />
+                  Left
+                </button>
+                <button type="button" className="flex h-8 items-center gap-1 rounded bg-white px-2 text-xs font-semibold text-gray-600 shadow-sm hover:text-emerald-700" onClick={() => scrollTable("right")}>
+                  Right
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {invoiceLines.length === 0 && (
-            <div className="mb-4 flex items-start gap-3 rounded-card border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <div className="m-5 flex items-start gap-3 rounded-card border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
               <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <p>Upload an invoice spreadsheet to compare against delivered ASOs. Your current file can use Source Sales Order as the ASO, with Invoice No, Document Date, Customer, Created By, Delivery Status, Status, and Posted Date. Invoice Qty is optional.</p>
             </div>
           )}
 
-          <div className="mb-3 flex justify-end gap-2">
-            <Button variant="outline" size="sm" className="gap-1" onClick={() => scrollTable("left")}>
-              <ChevronLeft className="h-4 w-4" />
-              Left
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1" onClick={() => scrollTable("right")}>
-              Right
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div ref={tableScrollRef} className="max-w-full overflow-x-scroll rounded-card border border-gray-100">
+          <div ref={tableScrollRef} className="max-h-[620px] max-w-full overflow-auto">
             <table className="w-full min-w-[1440px] text-sm">
-              <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+              <thead className="sticky top-0 z-20 border-b border-gray-200 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500 shadow-sm">
                 <tr>
-                  <th className="p-3 text-left">ASO</th>
-                  <th className="p-3 text-left">Customer</th>
-                  <th className="p-3 text-left">Status</th>
-                  <th className="p-3 text-left">Owner</th>
-                  <th className="p-3 text-left">Review</th>
-                  <th className="p-3 text-right">Delivered Qty</th>
-                  <th className="p-3 text-right">Pallets</th>
-                  <th className="p-3 text-left">Delivered</th>
-                  <th className="p-3 text-left">Invoices</th>
-                  <th className="p-3 text-left">Created By</th>
-                  <th className="p-3 text-left">Document Date</th>
-                  <th className="p-3 text-left">Delivery / Due Date</th>
-                  <th className="p-3 text-left">Products</th>
-                  <th className="p-3 text-left">Actions</th>
+                  <th className="sticky left-0 z-30 w-[128px] bg-gray-50 px-4 py-3 text-left shadow-[8px_0_12px_-12px_rgba(15,23,42,0.35)]">ASO</th>
+                  <th className="w-[190px] px-4 py-3 text-left">Customer</th>
+                  <th className="w-[170px] px-4 py-3 text-left">Status</th>
+                  <th className="w-[120px] px-4 py-3 text-left">Owner</th>
+                  <th className="w-[210px] px-4 py-3 text-left">Review</th>
+                  <th className="w-[110px] px-4 py-3 text-right">Delivered Qty</th>
+                  <th className="w-[88px] px-4 py-3 text-right">Pallets</th>
+                  <th className="w-[115px] px-4 py-3 text-left">Delivered</th>
+                  <th className="w-[120px] px-4 py-3 text-left">Invoices</th>
+                  <th className="w-[170px] px-4 py-3 text-left">Created By</th>
+                  <th className="w-[130px] px-4 py-3 text-left">Document Date</th>
+                  <th className="w-[150px] px-4 py-3 text-left">Delivery / Due Date</th>
+                  <th className="w-[260px] px-4 py-3 text-left">Products</th>
+                  <th className="w-[190px] px-4 py-3 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -784,35 +789,35 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                     const owner = getExceptionOwner(row.status);
                     return (
                       <tr key={row.aso} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-3 font-semibold text-resilinc-primary">{row.aso}</td>
-                        <td className="p-3 text-gray-700">{row.customer || "-"}</td>
-                        <td className="p-3">
+                        <td className="sticky left-0 z-10 bg-white px-4 py-3 font-semibold text-resilinc-primary shadow-[8px_0_12px_-12px_rgba(15,23,42,0.35)]">{row.aso}</td>
+                        <td className="max-w-[190px] truncate px-4 py-3 text-gray-700" title={row.customer}>{row.customer || "-"}</td>
+                        <td className="px-4 py-3">
                           <span className={`inline-flex rounded border px-2 py-1 text-xs font-bold ${statusTone[row.status]}`}>
                             {row.status === "matched" && <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
                             {statusLabel[row.status]}
                           </span>
                         </td>
-                        <td className="p-3 text-xs font-bold uppercase tracking-wide text-gray-600">{owner}</td>
-                        <td className="p-3">
+                        <td className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-gray-600">{owner}</td>
+                        <td className="px-4 py-3">
                           <select
                             value={reviewStatus}
                             onChange={(event) => updateReviewStatus(row.aso, event.target.value as ReviewStatus)}
-                            className={`w-48 rounded border px-2 py-1 text-xs font-bold focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 ${reviewTone[reviewStatus]}`}
+                            className={`w-44 rounded border px-2 py-1 text-xs font-bold focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 ${reviewTone[reviewStatus]}`}
                           >
                             {reviewOptions.map((option) => (
                               <option key={option} value={option}>{reviewLabel[option]}</option>
                             ))}
                           </select>
                         </td>
-                        <td className="p-3 text-right font-medium">{formatNumber(row.deliveredQty)}</td>
-                        <td className="p-3 text-right">{formatNumber(row.pallets)}</td>
-                        <td className="p-3 text-gray-600">{row.deliveredAt || "-"}</td>
-                        <td className="p-3 text-gray-600">{row.invoiceNumbers || "-"}</td>
-                        <td className="max-w-[180px] truncate p-3 text-gray-600" title={row.createdBy}>{row.createdBy || "-"}</td>
-                        <td className="max-w-[170px] truncate p-3 text-gray-600" title={row.invoiceDates}>{row.invoiceDates || "-"}</td>
-                        <td className="max-w-[170px] truncate p-3 text-gray-600" title={row.deliveryDueDates}>{row.deliveryDueDates || "-"}</td>
-                        <td className="max-w-[260px] truncate p-3 text-gray-500" title={row.products}>{row.products || "-"}</td>
-                        <td className="p-3">
+                        <td className="px-4 py-3 text-right font-medium">{formatNumber(row.deliveredQty)}</td>
+                        <td className="px-4 py-3 text-right">{formatNumber(row.pallets)}</td>
+                        <td className="px-4 py-3 text-gray-600">{row.deliveredAt || "-"}</td>
+                        <td className="px-4 py-3 text-gray-600">{row.invoiceNumbers || "-"}</td>
+                        <td className="max-w-[170px] truncate px-4 py-3 text-gray-600" title={row.createdBy}>{row.createdBy || "-"}</td>
+                        <td className="max-w-[130px] truncate px-4 py-3 text-gray-600" title={row.invoiceDates}>{row.invoiceDates || "-"}</td>
+                        <td className="max-w-[150px] truncate px-4 py-3 text-gray-600" title={row.deliveryDueDates}>{row.deliveryDueDates || "-"}</td>
+                        <td className="max-w-[260px] truncate px-4 py-3 text-gray-500" title={row.products}>{row.products || "-"}</td>
+                        <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
                             {row.status === "not-loaded" && (
                               <Button variant="outline" size="sm" className="gap-1" onClick={() => loadMissingOrder(row.aso)}>

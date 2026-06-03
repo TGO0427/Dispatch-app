@@ -8,7 +8,7 @@ import { Button } from "../ui/Button";
 import { formatNumber } from "../../utils/format";
 import type { Job } from "../../types";
 
-type InvoiceStatus = "matched" | "not-invoiced" | "not-delivered" | "qty-mismatch";
+type InvoiceStatus = "matched" | "not-invoiced" | "not-loaded" | "loaded-not-delivered" | "qty-mismatch";
 
 interface InvoiceLine {
   aso: string;
@@ -51,6 +51,17 @@ interface DeliveredSummary {
   lines: Job[];
 }
 
+interface LoadedSummary {
+  aso: string;
+  customer: string;
+  loadedQty: number;
+  pallets: number;
+  statuses: string[];
+  latestUpdatedAt: string;
+  lineCount: number;
+  lines: Job[];
+}
+
 interface ReconciliationRow {
   aso: string;
   customer: string;
@@ -59,6 +70,7 @@ interface ReconciliationRow {
   varianceQty: number;
   pallets: number;
   deliveredAt: string;
+  orderStatusDetail: string;
   invoiceNumbers: string;
   invoiceDates: string;
   hasInvoiceQty: boolean;
@@ -120,15 +132,48 @@ const saveInvoiceLines = (lines: InvoiceLine[]) => {
 const statusLabel: Record<InvoiceStatus, string> = {
   matched: "Delivered & Invoiced",
   "not-invoiced": "Delivered Not Invoiced",
-  "not-delivered": "Invoiced Not Delivered",
+  "not-loaded": "Invoiced Not Loaded",
+  "loaded-not-delivered": "Loaded Not Delivered",
   "qty-mismatch": "Qty Mismatch",
 };
 
 const statusTone: Record<InvoiceStatus, string> = {
   matched: "border-emerald-200 bg-emerald-50 text-emerald-700",
   "not-invoiced": "border-red-200 bg-red-50 text-red-700",
-  "not-delivered": "border-amber-200 bg-amber-50 text-amber-700",
+  "not-loaded": "border-amber-200 bg-amber-50 text-amber-700",
+  "loaded-not-delivered": "border-yellow-200 bg-yellow-50 text-yellow-800",
   "qty-mismatch": "border-orange-200 bg-orange-50 text-orange-700",
+};
+
+const buildLoadedSummaries = (jobs: Job[]) => {
+  const byRef = new Map<string, LoadedSummary>();
+  jobs
+    .filter((job) => job.jobType === "order" || job.jobType === undefined)
+    .forEach((job) => {
+      const aso = normalizeAso(job.ref);
+      if (!aso) return;
+      const existing = byRef.get(aso) || {
+        aso,
+        customer: job.customer || "",
+        loadedQty: 0,
+        pallets: 0,
+        statuses: [],
+        latestUpdatedAt: "",
+        lineCount: 0,
+        lines: [],
+      };
+      existing.customer = existing.customer || job.customer || "";
+      existing.loadedQty += job.outstandingQty || 0;
+      existing.pallets += job.pallets || 0;
+      existing.lineCount += 1;
+      existing.lines.push(job);
+      if (job.status && !existing.statuses.includes(job.status)) existing.statuses.push(job.status);
+      if (job.updatedAt && (!existing.latestUpdatedAt || new Date(job.updatedAt) > new Date(existing.latestUpdatedAt))) {
+        existing.latestUpdatedAt = job.updatedAt;
+      }
+      byRef.set(aso, existing);
+    });
+  return byRef;
 };
 
 const buildDeliveredSummaries = (jobs: Job[]) => {
@@ -237,12 +282,14 @@ export const InvoicingReconciliation: React.FC = () => {
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus | "all">("all");
   const [isImporting, setIsImporting] = useState(false);
 
+  const loadedByAso = useMemo(() => buildLoadedSummaries(jobs), [jobs]);
   const deliveredByAso = useMemo(() => buildDeliveredSummaries(jobs), [jobs]);
   const invoicedByAso = useMemo(() => buildInvoiceSummaries(invoiceLines), [invoiceLines]);
 
   const reconciliationRows = useMemo<ReconciliationRow[]>(() => {
     const allAsos = new Set([...deliveredByAso.keys(), ...invoicedByAso.keys()]);
     return Array.from(allAsos).map((aso) => {
+      const loaded = loadedByAso.get(aso);
       const delivered = deliveredByAso.get(aso);
       const invoiced = invoicedByAso.get(aso);
       const deliveredQty = delivered?.deliveredQty || 0;
@@ -250,23 +297,25 @@ export const InvoicingReconciliation: React.FC = () => {
       const hasInvoiceQty = Boolean(invoiced?.hasInvoiceQty);
       let status: InvoiceStatus = "matched";
       if (delivered && !invoiced) status = "not-invoiced";
-      else if (!delivered && invoiced) status = "not-delivered";
+      else if (!loaded && invoiced) status = "not-loaded";
+      else if (loaded && !delivered && invoiced) status = "loaded-not-delivered";
       else if (hasInvoiceQty && deliveredQty !== invoicedQty) status = "qty-mismatch";
 
       return {
         aso,
-        customer: delivered?.customer || invoiced?.customer || "",
+        customer: delivered?.customer || loaded?.customer || invoiced?.customer || "",
         deliveredQty,
         invoicedQty,
         varianceQty: deliveredQty - invoicedQty,
-        pallets: delivered?.pallets || 0,
+        pallets: delivered?.pallets || loaded?.pallets || 0,
         deliveredAt: delivered?.deliveredAt ? delivered.deliveredAt.slice(0, 10) : "",
+        orderStatusDetail: loaded?.statuses.join(", ") || "",
         invoiceNumbers: invoiced?.invoiceNumbers.join(", ") || "",
         invoiceDates: invoiced?.invoiceDates.join(", ") || "",
         hasInvoiceQty,
         status,
-        lineCount: delivered?.lineCount || 0,
-        products: invoiced?.products.slice(0, 4).join("; ") || delivered?.lines.map((line) => line.notes).filter(Boolean).slice(0, 4).join("; ") || "",
+        lineCount: delivered?.lineCount || loaded?.lineCount || 0,
+        products: invoiced?.products.slice(0, 4).join("; ") || delivered?.lines.map((line) => line.notes).filter(Boolean).slice(0, 4).join("; ") || loaded?.lines.map((line) => line.notes).filter(Boolean).slice(0, 4).join("; ") || "",
         createdBy: invoiced?.createdBy.join(", ") || "",
         invoiceStatusDetail: [
           invoiced?.statuses.join(", "),
@@ -275,17 +324,17 @@ export const InvoicingReconciliation: React.FC = () => {
         ].filter(Boolean).join(" | "),
       };
     }).sort((a, b) => {
-      const severityOrder: Record<InvoiceStatus, number> = { "not-invoiced": 0, "qty-mismatch": 1, "not-delivered": 2, matched: 3 };
+      const severityOrder: Record<InvoiceStatus, number> = { "not-invoiced": 0, "not-loaded": 1, "loaded-not-delivered": 2, "qty-mismatch": 3, matched: 4 };
       return severityOrder[a.status] - severityOrder[b.status] || a.aso.localeCompare(b.aso);
     });
-  }, [deliveredByAso, invoicedByAso]);
+  }, [deliveredByAso, invoicedByAso, loadedByAso]);
 
   const filteredRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return reconciliationRows.filter((row) => {
       if (activeStatus !== "all" && row.status !== activeStatus) return false;
       if (!query) return true;
-      return [row.aso, row.customer, row.invoiceNumbers, row.createdBy, row.invoiceStatusDetail, row.products, statusLabel[row.status]].join(" ").toLowerCase().includes(query);
+      return [row.aso, row.customer, row.invoiceNumbers, row.createdBy, row.orderStatusDetail, row.invoiceStatusDetail, row.products, statusLabel[row.status]].join(" ").toLowerCase().includes(query);
     });
   }, [activeStatus, reconciliationRows, searchQuery]);
 
@@ -298,7 +347,8 @@ export const InvoicingReconciliation: React.FC = () => {
       invoiceLines: invoiceLines.length,
       matched: bucket("matched").length,
       notInvoiced: notInvoiced.length,
-      notDelivered: bucket("not-delivered").length,
+      notLoaded: bucket("not-loaded").length,
+      loadedNotDelivered: bucket("loaded-not-delivered").length,
       mismatch: mismatch.length,
       notInvoicedQty: notInvoiced.reduce((sum, row) => sum + row.deliveredQty, 0),
       varianceQty: mismatch.reduce((sum, row) => sum + Math.abs(row.varianceQty), 0),
@@ -385,6 +435,7 @@ export const InvoicingReconciliation: React.FC = () => {
       "Variance Qty": row.hasInvoiceQty ? row.varianceQty : "",
       Pallets: row.pallets,
       "Delivered Date": row.deliveredAt,
+      "Order Status": row.orderStatusDetail,
       "Invoice Numbers": row.invoiceNumbers,
       "Invoice Dates": row.invoiceDates,
       "Created By": row.createdBy,
@@ -401,8 +452,9 @@ export const InvoicingReconciliation: React.FC = () => {
     { label: "Delivered ASOs", value: stats.delivered, tone: "border-l-emerald-500", status: "all" as const },
     { label: "Invoice Rows", value: stats.invoiceLines, tone: "border-l-blue-500", status: "all" as const },
     { label: "Delivered Not Invoiced", value: stats.notInvoiced, sub: `${formatNumber(stats.notInvoicedQty)} qty`, tone: "border-l-red-500", status: "not-invoiced" as const },
+    { label: "Invoiced Not Loaded", value: stats.notLoaded, tone: "border-l-amber-500", status: "not-loaded" as const },
+    { label: "Loaded Not Delivered", value: stats.loadedNotDelivered, tone: "border-l-yellow-500", status: "loaded-not-delivered" as const },
     { label: "Qty Mismatch", value: stats.mismatch, sub: `${formatNumber(stats.varianceQty)} variance`, tone: "border-l-orange-500", status: "qty-mismatch" as const },
-    { label: "Invoiced Not Delivered", value: stats.notDelivered, tone: "border-l-amber-500", status: "not-delivered" as const },
     { label: "Matched", value: stats.matched, tone: "border-l-green-500", status: "matched" as const },
   ];
 
@@ -440,7 +492,7 @@ export const InvoicingReconciliation: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">
         {statCards.map((card) => (
           <button
             key={card.label}
@@ -528,7 +580,7 @@ export const InvoicingReconciliation: React.FC = () => {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[1220px] text-sm">
               <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="p-3 text-left">ASO</th>
@@ -539,6 +591,7 @@ export const InvoicingReconciliation: React.FC = () => {
                   <th className="p-3 text-right">Variance</th>
                   <th className="p-3 text-right">Pallets</th>
                   <th className="p-3 text-left">Delivered</th>
+                  <th className="p-3 text-left">Order Status</th>
                   <th className="p-3 text-left">Invoices</th>
                   <th className="p-3 text-left">Created By</th>
                   <th className="p-3 text-left">Invoice Status</th>
@@ -548,7 +601,7 @@ export const InvoicingReconciliation: React.FC = () => {
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="p-8 text-center text-gray-500">No reconciliation rows found.</td>
+                    <td colSpan={13} className="p-8 text-center text-gray-500">No reconciliation rows found.</td>
                   </tr>
                 ) : (
                   filteredRows.map((row) => (
@@ -566,6 +619,7 @@ export const InvoicingReconciliation: React.FC = () => {
                       <td className={`p-3 text-right font-bold ${row.varianceQty === 0 ? "text-gray-500" : "text-orange-700"}`}>{row.hasInvoiceQty ? formatNumber(row.varianceQty) : "-"}</td>
                       <td className="p-3 text-right">{formatNumber(row.pallets)}</td>
                       <td className="p-3 text-gray-600">{row.deliveredAt || "-"}</td>
+                      <td className="max-w-[160px] truncate p-3 text-gray-600" title={row.orderStatusDetail}>{row.orderStatusDetail || "-"}</td>
                       <td className="p-3 text-gray-600">{row.invoiceNumbers || "-"}</td>
                       <td className="max-w-[180px] truncate p-3 text-gray-600" title={row.createdBy}>{row.createdBy || "-"}</td>
                       <td className="max-w-[220px] truncate p-3 text-gray-500" title={row.invoiceStatusDetail}>{row.invoiceStatusDetail || "-"}</td>

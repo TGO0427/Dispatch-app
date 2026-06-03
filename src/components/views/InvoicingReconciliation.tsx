@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Copy, Download, FileText, Search, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, Download, FileText, Search, Upload, UploadCloud, XCircle } from "lucide-react";
 import * as XLSX from "../../lib/spreadsheet";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
@@ -96,6 +96,7 @@ interface CreatorWorkload {
 
 const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
 const REVIEW_STORAGE_KEY = "dispatch_invoice_reconciliation_review_v1";
+const ORDER_IMPORT_SEARCH_KEY = "dispatch_order_import_search_ref";
 
 const normalizeAso = (value: unknown) => String(value ?? "").trim();
 
@@ -366,7 +367,11 @@ const parseInvoiceWorkbook = async (file: File): Promise<InvoiceLine[]> => {
   return parsedLines;
 };
 
-export const InvoicingReconciliation: React.FC = () => {
+interface InvoicingReconciliationProps {
+  onNavigate?: (page: string, tab?: string, ref?: string) => void;
+}
+
+export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = ({ onNavigate }) => {
   const { jobs } = useDispatch();
   const { showSuccess, showError, showWarning } = useNotification();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -550,6 +555,13 @@ export const InvoicingReconciliation: React.FC = () => {
     } catch {
       showError("Could not copy ASO.");
     }
+  };
+
+  const loadMissingOrder = (aso: string) => {
+    localStorage.setItem(ORDER_IMPORT_SEARCH_KEY, aso);
+    updateReviewStatus(aso, "needs-order-load");
+    onNavigate?.("home");
+    showSuccess(`${aso} is ready in Order Import. Upload the order sheet there to load it.`);
   };
 
   const downloadTemplate = async () => {
@@ -782,10 +794,18 @@ export const InvoicingReconciliation: React.FC = () => {
                         <td className="max-w-[170px] truncate p-3 text-gray-600" title={row.deliveryDueDates}>{row.deliveryDueDates || "-"}</td>
                         <td className="max-w-[260px] truncate p-3 text-gray-500" title={row.products}>{row.products || "-"}</td>
                         <td className="p-3">
-                          <Button variant="outline" size="sm" className="gap-1" onClick={() => void copyAso(row.aso)}>
-                            <Copy className="h-3.5 w-3.5" />
-                            Copy ASO
-                          </Button>
+                          <div className="flex flex-wrap gap-2">
+                            {row.status === "not-loaded" && (
+                              <Button variant="outline" size="sm" className="gap-1" onClick={() => loadMissingOrder(row.aso)}>
+                                <UploadCloud className="h-3.5 w-3.5" />
+                                Load Order
+                              </Button>
+                            )}
+                            <Button variant="outline" size="sm" className="gap-1" onClick={() => void copyAso(row.aso)}>
+                              <Copy className="h-3.5 w-3.5" />
+                              Copy ASO
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );

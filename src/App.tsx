@@ -134,7 +134,7 @@ function AppContent() {
       case "africa-exports":
         view = <AfricaExportsView initialRef={selectedAfricaExportRef} initialFilter={selectedAfricaExportFilter} />; break;
       case "invoicing":
-        view = <InvoicingReconciliation />; break;
+        view = <InvoicingReconciliation onNavigate={navigateToPage} />; break;
       case "calendar":
         view = <CalendarView />; break;
       case "grid":

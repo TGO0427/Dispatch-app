@@ -223,6 +223,7 @@ const IGNORED_WAREHOUSES = new Set(
     "Raws - Allmark Pretoria",
   ].map(normalizeWarehouseForCompare)
 );
+const ORDER_IMPORT_SEARCH_KEY = "dispatch_order_import_search_ref";
 
 // ----- Row mapping with ETA normalization -----
 const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | null => {
@@ -400,6 +401,13 @@ export const OrderImport: React.FC = () => {
 
 
   const [searchQuery, setSearchQuery] = useState("");
+
+  React.useEffect(() => {
+    const pendingSearch = localStorage.getItem(ORDER_IMPORT_SEARCH_KEY);
+    if (!pendingSearch) return;
+    setSearchQuery(pendingSearch);
+    localStorage.removeItem(ORDER_IMPORT_SEARCH_KEY);
+  }, []);
 
   // Get unique warehouses from imported orders
   const filteredOrders = useMemo(() => {

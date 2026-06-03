@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, Search, Upload, UploadCloud, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, Plus, Search, Upload, XCircle } from "lucide-react";
 import * as XLSX from "../../lib/spreadsheet";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
@@ -780,7 +780,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   <th className="w-[130px] px-4 py-3 text-left">Document Date</th>
                   <th className="w-[150px] px-4 py-3 text-left">Delivery / Due Date</th>
                   <th className="w-[260px] px-4 py-3 text-left">Products</th>
-                  <th className="w-[190px] px-4 py-3 text-left">Actions</th>
+                  <th className="w-[92px] px-4 py-3 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -823,16 +823,28 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                         <td className="max-w-[150px] truncate px-4 py-3 text-gray-600" title={row.deliveryDueDates}>{row.deliveryDueDates || "-"}</td>
                         <td className="max-w-[260px] truncate px-4 py-3 text-gray-500" title={row.products}>{row.products || "-"}</td>
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex items-center gap-1">
                             {row.status === "not-loaded" && (
-                              <Button variant="outline" size="sm" className="gap-1" onClick={() => loadMissingOrder(row)}>
-                                <UploadCloud className="h-3.5 w-3.5" />
-                                Add Order
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => loadMissingOrder(row)}
+                                title="Add order manually"
+                                aria-label={`Add order ${row.aso} manually`}
+                              >
+                                <Plus className="h-3.5 w-3.5" />
                               </Button>
                             )}
-                            <Button variant="outline" size="sm" className="gap-1" onClick={() => void copyAso(row.aso)}>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => void copyAso(row.aso)}
+                              title="Copy ASO"
+                              aria-label={`Copy ASO ${row.aso}`}
+                            >
                               <Copy className="h-3.5 w-3.5" />
-                              Copy ASO
                             </Button>
                           </div>
                         </td>

@@ -14,10 +14,15 @@ interface InvoiceLine {
   aso: string;
   invoiceNumber: string;
   invoiceDate: string;
+  deliveryDueDate?: string;
   customer: string;
   invoiceQty: number;
+  hasInvoiceQty: boolean;
   invoiceValue?: number;
   product?: string;
+  deliveryStatus?: string;
+  status?: string;
+  postedDate?: string;
 }
 
 interface InvoiceSummary {
@@ -26,8 +31,12 @@ interface InvoiceSummary {
   invoiceDates: string[];
   customer: string;
   invoiceQty: number;
+  hasInvoiceQty: boolean;
   invoiceValue: number;
   products: string[];
+  deliveryStatuses: string[];
+  statuses: string[];
+  postedDates: string[];
 }
 
 interface DeliveredSummary {
@@ -50,9 +59,11 @@ interface ReconciliationRow {
   deliveredAt: string;
   invoiceNumbers: string;
   invoiceDates: string;
+  hasInvoiceQty: boolean;
   status: InvoiceStatus;
   lineCount: number;
   products: string;
+  invoiceStatusDetail: string;
 }
 
 const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
@@ -149,14 +160,24 @@ const buildInvoiceSummaries = (lines: InvoiceLine[]) => {
       invoiceDates: [],
       customer: line.customer || "",
       invoiceQty: 0,
+      hasInvoiceQty: false,
       invoiceValue: 0,
       products: [],
+      deliveryStatuses: [],
+      statuses: [],
+      postedDates: [],
     };
     if (line.invoiceNumber && !existing.invoiceNumbers.includes(line.invoiceNumber)) existing.invoiceNumbers.push(line.invoiceNumber);
     if (line.invoiceDate && !existing.invoiceDates.includes(line.invoiceDate)) existing.invoiceDates.push(line.invoiceDate);
     if (line.product && !existing.products.includes(line.product)) existing.products.push(line.product);
+    if (line.deliveryStatus && !existing.deliveryStatuses.includes(line.deliveryStatus)) existing.deliveryStatuses.push(line.deliveryStatus);
+    if (line.status && !existing.statuses.includes(line.status)) existing.statuses.push(line.status);
+    if (line.postedDate && !existing.postedDates.includes(line.postedDate)) existing.postedDates.push(line.postedDate);
     existing.customer = existing.customer || line.customer || "";
-    existing.invoiceQty += line.invoiceQty || 0;
+    if (line.hasInvoiceQty) {
+      existing.invoiceQty += line.invoiceQty || 0;
+      existing.hasInvoiceQty = true;
+    }
     existing.invoiceValue += line.invoiceValue || 0;
     byAso.set(aso, existing);
   });
@@ -171,16 +192,22 @@ const parseInvoiceWorkbook = async (file: File): Promise<InvoiceLine[]> => {
   const parsedLines: InvoiceLine[] = [];
 
   rows.forEach((row) => {
-    const aso = normalizeAso(findValue(row, ["aso", "ref", "reference", "order no", "order number", "document no", "sales order"]));
+    const aso = normalizeAso(findValue(row, ["aso", "ref", "reference", "order no", "order number", "document no", "sales order", "source sales order"]));
     if (!aso) return null;
+    const invoiceQtyValue = findValue(row, ["invoice qty", "invoiced qty", "qty", "quantity", "invoice quantity"]);
     parsedLines.push({
       aso,
       invoiceNumber: String(findValue(row, ["invoice number", "invoice no", "invoice", "tax invoice"]) ?? "").trim(),
-      invoiceDate: normalizeDate(findValue(row, ["invoice date", "date", "tax invoice date"])),
+      invoiceDate: normalizeDate(findValue(row, ["invoice date", "document date", "date", "tax invoice date"])),
+      deliveryDueDate: normalizeDate(findValue(row, ["delivery / due date", "delivery due date", "due date", "delivery date"])),
       customer: String(findValue(row, ["customer", "customer name", "client", "account name"]) ?? "").trim(),
-      invoiceQty: parseNumber(findValue(row, ["invoice qty", "invoiced qty", "qty", "quantity", "invoice quantity"])),
+      invoiceQty: parseNumber(invoiceQtyValue),
+      hasInvoiceQty: invoiceQtyValue !== undefined && invoiceQtyValue !== null && String(invoiceQtyValue).trim() !== "",
       invoiceValue: parseNumber(findValue(row, ["invoice value", "value", "amount", "total", "net amount"])),
       product: String(findValue(row, ["product", "description", "inventory description", "item", "product description"]) ?? "").trim(),
+      deliveryStatus: String(findValue(row, ["delivery status"]) ?? "").trim(),
+      status: String(findValue(row, ["status", "invoice status"]) ?? "").trim(),
+      postedDate: normalizeDate(findValue(row, ["posted date", "posting date"])),
     });
   });
 
@@ -206,10 +233,11 @@ export const InvoicingReconciliation: React.FC = () => {
       const invoiced = invoicedByAso.get(aso);
       const deliveredQty = delivered?.deliveredQty || 0;
       const invoicedQty = invoiced?.invoiceQty || 0;
+      const hasInvoiceQty = Boolean(invoiced?.hasInvoiceQty);
       let status: InvoiceStatus = "matched";
       if (delivered && !invoiced) status = "not-invoiced";
       else if (!delivered && invoiced) status = "not-delivered";
-      else if (deliveredQty !== invoicedQty) status = "qty-mismatch";
+      else if (hasInvoiceQty && deliveredQty !== invoicedQty) status = "qty-mismatch";
 
       return {
         aso,
@@ -221,9 +249,15 @@ export const InvoicingReconciliation: React.FC = () => {
         deliveredAt: delivered?.deliveredAt ? delivered.deliveredAt.slice(0, 10) : "",
         invoiceNumbers: invoiced?.invoiceNumbers.join(", ") || "",
         invoiceDates: invoiced?.invoiceDates.join(", ") || "",
+        hasInvoiceQty,
         status,
         lineCount: delivered?.lineCount || 0,
         products: invoiced?.products.slice(0, 4).join("; ") || delivered?.lines.map((line) => line.notes).filter(Boolean).slice(0, 4).join("; ") || "",
+        invoiceStatusDetail: [
+          invoiced?.statuses.join(", "),
+          invoiced?.deliveryStatuses.join(", "),
+          invoiced?.postedDates.length ? `Posted ${invoiced.postedDates.join(", ")}` : "",
+        ].filter(Boolean).join(" | "),
       };
     }).sort((a, b) => {
       const severityOrder: Record<InvoiceStatus, number> = { "not-invoiced": 0, "qty-mismatch": 1, "not-delivered": 2, matched: 3 };
@@ -236,7 +270,7 @@ export const InvoicingReconciliation: React.FC = () => {
     return reconciliationRows.filter((row) => {
       if (activeStatus !== "all" && row.status !== activeStatus) return false;
       if (!query) return true;
-      return [row.aso, row.customer, row.invoiceNumbers, row.products, statusLabel[row.status]].join(" ").toLowerCase().includes(query);
+      return [row.aso, row.customer, row.invoiceNumbers, row.invoiceStatusDetail, row.products, statusLabel[row.status]].join(" ").toLowerCase().includes(query);
     });
   }, [activeStatus, reconciliationRows, searchQuery]);
 
@@ -285,8 +319,8 @@ export const InvoicingReconciliation: React.FC = () => {
 
   const downloadTemplate = async () => {
     const data = [
-      ["ASO", "Invoice Number", "Invoice Date", "Customer", "Invoice Qty", "Invoice Value", "Product"],
-      ["SO-0001", "INV-0001", "2026-06-03", "Customer Name", "100", "1250.00", "Product description"],
+      ["Invoice No", "Source Sales Order", "Document Date", "Delivery / Due Date", "Customer", "Delivery Status", "Status", "Posted Date", "Invoice Qty"],
+      ["INV-0001", "SO-0001", "2026-06-03", "2026-06-05", "Customer Name", "Delivered", "Posted", "2026-06-03", "100"],
     ];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(data), "InvoiceUpload");
@@ -299,12 +333,13 @@ export const InvoicingReconciliation: React.FC = () => {
       Customer: row.customer,
       Status: statusLabel[row.status],
       "Delivered Qty": row.deliveredQty,
-      "Invoiced Qty": row.invoicedQty,
-      "Variance Qty": row.varianceQty,
+      "Invoiced Qty": row.hasInvoiceQty ? row.invoicedQty : "",
+      "Variance Qty": row.hasInvoiceQty ? row.varianceQty : "",
       Pallets: row.pallets,
       "Delivered Date": row.deliveredAt,
       "Invoice Numbers": row.invoiceNumbers,
       "Invoice Dates": row.invoiceDates,
+      "Invoice Status": row.invoiceStatusDetail,
       "Delivered Lines": row.lineCount,
       Products: row.products,
     }));
@@ -327,7 +362,7 @@ export const InvoicingReconciliation: React.FC = () => {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Invoicing Reconciliation</h1>
-          <p className="text-sm text-gray-500">Compare delivered ASOs against uploaded invoice ASOs and quantities.</p>
+          <p className="text-sm text-gray-500">Compare delivered ASOs against uploaded invoice ASOs. Quantity checks run when the invoice file includes invoice quantity.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input
@@ -405,7 +440,7 @@ export const InvoicingReconciliation: React.FC = () => {
           {invoiceLines.length === 0 && (
             <div className="mb-4 flex items-start gap-3 rounded-card border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
               <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              <p>Upload an invoice spreadsheet to compare against delivered ASOs. The file should include an ASO column and an invoice quantity column.</p>
+              <p>Upload an invoice spreadsheet to compare against delivered ASOs. Your current file can use Source Sales Order as the ASO, with Invoice No, Document Date, Customer, Delivery Status, Status, and Posted Date. Invoice Qty is optional.</p>
             </div>
           )}
 
@@ -422,13 +457,14 @@ export const InvoicingReconciliation: React.FC = () => {
                   <th className="p-3 text-right">Pallets</th>
                   <th className="p-3 text-left">Delivered</th>
                   <th className="p-3 text-left">Invoices</th>
+                  <th className="p-3 text-left">Invoice Status</th>
                   <th className="p-3 text-left">Products</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="p-8 text-center text-gray-500">No reconciliation rows found.</td>
+                    <td colSpan={11} className="p-8 text-center text-gray-500">No reconciliation rows found.</td>
                   </tr>
                 ) : (
                   filteredRows.map((row) => (
@@ -442,11 +478,12 @@ export const InvoicingReconciliation: React.FC = () => {
                         </span>
                       </td>
                       <td className="p-3 text-right font-medium">{formatNumber(row.deliveredQty)}</td>
-                      <td className="p-3 text-right font-medium">{formatNumber(row.invoicedQty)}</td>
-                      <td className={`p-3 text-right font-bold ${row.varianceQty === 0 ? "text-gray-500" : "text-orange-700"}`}>{formatNumber(row.varianceQty)}</td>
+                      <td className="p-3 text-right font-medium">{row.hasInvoiceQty ? formatNumber(row.invoicedQty) : "-"}</td>
+                      <td className={`p-3 text-right font-bold ${row.varianceQty === 0 ? "text-gray-500" : "text-orange-700"}`}>{row.hasInvoiceQty ? formatNumber(row.varianceQty) : "-"}</td>
                       <td className="p-3 text-right">{formatNumber(row.pallets)}</td>
                       <td className="p-3 text-gray-600">{row.deliveredAt || "-"}</td>
                       <td className="p-3 text-gray-600">{row.invoiceNumbers || "-"}</td>
+                      <td className="max-w-[220px] truncate p-3 text-gray-500" title={row.invoiceStatusDetail}>{row.invoiceStatusDetail || "-"}</td>
                       <td className="max-w-[260px] truncate p-3 text-gray-500" title={row.products}>{row.products || "-"}</td>
                     </tr>
                   ))

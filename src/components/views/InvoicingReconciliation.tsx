@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Copy, Download, FileText, Search, Upload, UploadCloud, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, Search, Upload, UploadCloud, XCircle } from "lucide-react";
 import * as XLSX from "../../lib/spreadsheet";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
@@ -375,6 +375,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const { jobs } = useDispatch();
   const { showSuccess, showError, showWarning } = useNotification();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>(() => loadInvoiceLines());
   const [reviewState, setReviewState] = useState<Record<string, ReviewStatus>>(() => loadReviewState());
   const [searchQuery, setSearchQuery] = useState("");
@@ -561,7 +562,14 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     localStorage.setItem(ORDER_IMPORT_SEARCH_KEY, aso);
     updateReviewStatus(aso, "needs-order-load");
     onNavigate?.("home");
-    showSuccess(`${aso} is ready in Order Import. Upload the order sheet there to load it.`);
+    showSuccess(`${aso} is ready in Import Customer Orders. Upload the order sheet there to load it.`);
+  };
+
+  const scrollTable = (direction: "left" | "right") => {
+    tableScrollRef.current?.scrollBy({
+      left: direction === "left" ? -560 : 560,
+      behavior: "smooth",
+    });
   };
 
   const downloadTemplate = async () => {
@@ -734,7 +742,18 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
             </div>
           )}
 
-          <div className="overflow-x-auto">
+          <div className="mb-3 flex justify-end gap-2">
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => scrollTable("left")}>
+              <ChevronLeft className="h-4 w-4" />
+              Left
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => scrollTable("right")}>
+              Right
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div ref={tableScrollRef} className="max-w-full overflow-x-scroll rounded-card border border-gray-100">
             <table className="w-full min-w-[1440px] text-sm">
               <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
@@ -798,7 +817,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                             {row.status === "not-loaded" && (
                               <Button variant="outline" size="sm" className="gap-1" onClick={() => loadMissingOrder(row.aso)}>
                                 <UploadCloud className="h-3.5 w-3.5" />
-                                Load Order
+                                Import Customer Orders
                               </Button>
                             )}
                             <Button variant="outline" size="sm" className="gap-1" onClick={() => void copyAso(row.aso)}>

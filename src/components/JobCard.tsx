@@ -1,7 +1,7 @@
 import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronRight, GripVertical, Truck, CheckCircle, Trash2 } from "lucide-react";
+import { ChevronRight, GripVertical, Truck, CheckCircle, Trash2, Globe2 } from "lucide-react";
 import { Job } from "../types";
 import { priorityTone } from "../utils/helpers";
 import { Badge } from "./ui/Badge";
@@ -17,6 +17,7 @@ interface JobCardProps {
   job: Job;
   onSelect: () => void;
   showDispatchDate?: boolean;
+  onMoveToAfricaExports?: (job: Job) => void;
 }
 
 // Helper function to get week number
@@ -29,7 +30,7 @@ const getWeekNumber = (dateString: string | undefined) => {
   return weekNumber;
 };
 
-export const JobCard: React.FC<JobCardProps> = ({ job, onSelect, showDispatchDate = false }) => {
+export const JobCard: React.FC<JobCardProps> = ({ job, onSelect, showDispatchDate = false, onMoveToAfricaExports }) => {
   const { jobs, drivers, updateJob, updateJobs, removeJob } = useDispatch();
   const { confirm, showWarning } = useNotification();
   const { isViewer } = useAuth();
@@ -187,6 +188,18 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onSelect, showDispatchDat
         {!isViewer && job.status !== "delivered" && job.status !== "returned" && job.status !== "cancelled" && job.status !== "en-route" && (
           <button onClick={handleDispatch} className="h-7 w-7 rounded-md bg-green-600 hover:bg-green-700 text-white flex items-center justify-center" title="Mark as dispatched">
             <CheckCircle className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {!isViewer && onMoveToAfricaExports && job.jobType !== "africa-export" && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onMoveToAfricaExports(job);
+            }}
+            className="h-7 w-7 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center"
+            title="Move to Africa Exports"
+          >
+            <Globe2 className="h-3.5 w-3.5" />
           </button>
         )}
         {!isViewer && (

@@ -16,7 +16,7 @@ export type JobPriority = "urgent" | "high" | "normal" | "low";
 
 export type DriverStatus = "available" | "busy" | "offline" | "break";
 
-export type JobType = "order" | "ibt";
+export type JobType = "order" | "ibt" | "africa-export";
 
 export type ServiceType = "delivery" | "collection";
 export type TransportService = "local" | "express" | "economy" | "outline" | "airfreight" | "seafreight";
@@ -77,7 +77,7 @@ export interface Job {
 
   priority: JobPriority;
   status: JobStatus;
-  jobType?: JobType;       // "order" or "ibt" - distinguishes between customer orders and IBT jobs
+  jobType?: JobType;       // Distinguishes customer orders, IBT jobs, and orders moved to Africa exports
   serviceType?: ServiceType; // "delivery" (we arrange transport) or "collection" (customer collects / ex works)
   transportService?: TransportService; // "express" (24h), "economy" (48h), "outline" (96h)
   truckSize?: TruckSize; // "1ton", "4ton", "8ton", "6m", "12m", "superlink"

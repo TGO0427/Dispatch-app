@@ -25,8 +25,10 @@ import { AddDriverModal } from "../AddDriverModal";
 import { WarehouseSelector } from "../WarehouseSelector";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
+import { africaExportsAPI } from "../../services/api";
 
 import type { Job, Driver, JobPriority, JobStatus } from "../../types";
+import type { AfricaExportShipment } from "../../services/api";
 
 type DispatchTab = "open" | "assigned" | "in-transit" | "delivered" | "dispatched-week";
 
@@ -460,6 +462,85 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     return drivers.find((d) => d.id === driverId)?.name;
   };
 
+  const getAfricaExportStatus = (status: JobStatus): AfricaExportShipment["status"] => {
+    if (status === "en-route") return "in-transit";
+    if (status === "delivered") return "delivered";
+    if (status === "assigned") return "assigned";
+    return "pending";
+  };
+
+  const getAfricaTransportMode = (job: Job) => {
+    if (job.transportService === "airfreight" || job.truckSize === "airline") return "Air";
+    if (job.transportService === "seafreight" || job.truckSize === "vessel") return "Sea";
+    return "Road";
+  };
+
+  const moveOrderToAfricaExports = async (job: Job) => {
+    const lineItems = jobs.filter((item) => item.ref === job.ref);
+    const itemsToMove = lineItems.length > 0 ? lineItems : [job];
+    const proceed = await confirm({
+      title: "Move to Africa Exports",
+      message: `Move ${job.ref} from Order Management to Africa Export Shipments? It will be removed from the local order queue and created in Africa Exports.`,
+      type: "warning",
+      confirmText: "Move Shipment",
+    });
+    if (!proceed) return;
+
+    try {
+      const itemNotes = itemsToMove
+        .map((item) => item.notes)
+        .filter(Boolean)
+        .slice(0, 8)
+        .join("; ");
+      const totalQty = itemsToMove.reduce((sum, item) => sum + (item.outstandingQty || 0), 0);
+      const orderPallets = Math.max(...itemsToMove.map((item) => item.pallets || 0), 0);
+      const now = new Date().toISOString();
+      const shipment: AfricaExportShipment = {
+        ref: job.ref,
+        customer: job.customer,
+        destinationCountry: "",
+        hsCode: "",
+        productType: itemNotes || job.notes || "",
+        incoterm: "FCA",
+        transportMode: getAfricaTransportMode(job),
+        preferenceScheme: "To confirm",
+        destinationAgent: "",
+        eta: job.eta || "",
+        pallets: orderPallets,
+        status: getAfricaExportStatus(job.status),
+        lastCheckedAt: "",
+        notes: [
+          "Moved from Order Management.",
+          `Pickup: ${job.pickup || "TBD"}`,
+          `Dropoff: ${job.dropoff || "TBD"}`,
+          totalQty > 0 ? `Outstanding qty: ${totalQty}` : "",
+          itemNotes ? `Items: ${itemNotes}` : "",
+        ].filter(Boolean).join("\n"),
+        documents: {
+          coa: itemsToMove.every((item) => item.coaAvailable),
+        },
+        documentDetails: {},
+        history: [{
+          id: `history-${Date.now()}`,
+          at: now,
+          action: "Moved from Order Management",
+          detail: `${itemsToMove.length} line item${itemsToMove.length === 1 ? "" : "s"} moved into Africa Exports`,
+        }],
+        archived: false,
+      };
+
+      await africaExportsAPI.bulkUpsert([shipment]);
+      await updateJobs(itemsToMove.map((item) => item.id), {
+        jobType: "africa-export",
+        internalNotes: `${job.internalNotes ? `${job.internalNotes}\n` : ""}Moved to Africa Export Shipments on ${now.slice(0, 10)}.`,
+      });
+      showSuccess(`${job.ref} moved to Africa Export Shipments`);
+    } catch (error) {
+      console.error("Error moving order to Africa exports:", error);
+      showError("Failed to move order to Africa Exports");
+    }
+  };
+
   const handleAddJob = async () => {
     if (!newJob.ref || !newJob.customer) {
       showWarning("Reference and Customer are required");
@@ -716,6 +797,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
                             job={job}
                             onSelect={() => handleJobSelect(job)}
                             showDispatchDate={activeTab === "dispatched-week"}
+                            onMoveToAfricaExports={moveOrderToAfricaExports}
                           />
                       ))
                     )}

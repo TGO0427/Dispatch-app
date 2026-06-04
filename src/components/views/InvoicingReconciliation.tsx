@@ -460,6 +460,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [viewMode, setViewMode] = useState<LedgerViewMode>("all");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
+  const [dirtyReviewCount, setDirtyReviewCount] = useState(0);
 
   const ledgerPeriods = useMemo(() => {
     const months = new Set<string>();
@@ -696,6 +697,13 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     const next = { ...reviewState, [aso]: status };
     setReviewState(next);
     saveReviewState(next);
+    setDirtyReviewCount((count) => count + 1);
+  };
+
+  const saveAllReviews = () => {
+    saveReviewState(reviewState);
+    setDirtyReviewCount(0);
+    showSuccess("Review statuses saved.");
   };
 
   const copyAso = async (aso: string) => {
@@ -961,6 +969,15 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
+              <Button variant="outline" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={saveAllReviews}>
+                <CheckCircle2 className="h-4 w-4" />
+                Save All Reviews
+                {dirtyReviewCount > 0 && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                    {dirtyReviewCount}
+                  </span>
+                )}
+              </Button>
               <div className="flex gap-1 rounded-card border border-gray-200 bg-gray-50 p-1">
                 <button type="button" className="flex h-8 items-center gap-1 rounded bg-white px-2 text-xs font-semibold text-gray-600 shadow-sm hover:text-emerald-700" onClick={() => scrollTable("left")}>
                   <ChevronLeft className="h-4 w-4" />

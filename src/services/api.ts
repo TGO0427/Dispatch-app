@@ -311,8 +311,8 @@ export interface InvoiceReconciliationLine {
 }
 
 export const invoiceReconciliationAPI = {
-  getAll: async (): Promise<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string> }> => {
-    return fetchAPI<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string> }>("/api/invoice-reconciliation");
+  getAll: async (): Promise<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string> }> => {
+    return fetchAPI<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string> }>("/api/invoice-reconciliation");
   },
 
   bulkUpsertLines: async (lines: InvoiceReconciliationLine[]): Promise<InvoiceReconciliationLine[]> => {
@@ -326,6 +326,13 @@ export const invoiceReconciliationAPI = {
     return fetchAPI<Record<string, string>>("/api/invoice-reconciliation?action=bulk-upsert-reviews", {
       method: "POST",
       body: JSON.stringify({ reviews }),
+    });
+  },
+
+  bulkUpsertTimingNotes: async (notes: Record<string, string>): Promise<Record<string, string>> => {
+    return fetchAPI<Record<string, string>>("/api/invoice-reconciliation?action=bulk-upsert-timing-notes", {
+      method: "POST",
+      body: JSON.stringify({ notes }),
     });
   },
 

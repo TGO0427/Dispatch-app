@@ -260,3 +260,17 @@ model InvoiceReconciliationReview {
   @@index([updatedAt])
   @@map("invoice_reconciliation_reviews")
 }
+
+model InvoiceReconciliationTimingNote {
+  id            String   @id @default(uuid())
+  invoiceKey    String   @unique @db.VarChar(500)
+  invoiceNumber String?  @db.VarChar(255)
+  note          String   @db.Text
+  updatedById   String?  @db.VarChar(255)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([invoiceNumber])
+  @@index([updatedAt])
+  @@map("invoice_reconciliation_timing_notes")
+}

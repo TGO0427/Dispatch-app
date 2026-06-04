@@ -119,8 +119,20 @@ interface NotLoadedDeliveryRow {
   notes: string;
 }
 
+interface LateInvoiceReview {
+  invoiceKey: string;
+  invoiceNumber: string;
+  aso: string;
+  customer: string;
+  createdBy: string;
+  invoiceDate: string;
+  deliveryDueDate: string;
+  daysLate: number;
+}
+
 const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
 const REVIEW_STORAGE_KEY = "dispatch_invoice_reconciliation_review_v1";
+const TIMING_NOTES_STORAGE_KEY = "dispatch_invoice_reconciliation_timing_notes_v1";
 
 const normalizeAso = (value: unknown) => String(value ?? "").trim();
 
@@ -157,6 +169,8 @@ const getInvoiceKey = (line: InvoiceLine) => {
     line.createdBy,
   ].map((value) => String(value ?? "").trim().toLowerCase()).join("|");
 };
+
+const getInvoiceDisplayKey = (line: InvoiceLine) => line.invoiceNumber.trim() || getInvoiceKey(line);
 
 const mergeInvoiceLedger = (existingLines: InvoiceLine[], importedLines: InvoiceLine[]) => {
   const existingInvoiceNumbers = new Set(
@@ -258,6 +272,42 @@ const buildOnTimeInvoiceStats = (lines: InvoiceLine[]) => {
     total,
     percent: total ? (onTime / total) * 100 : 0,
   };
+};
+
+const buildLateInvoiceReviews = (lines: InvoiceLine[]): LateInvoiceReview[] => {
+  const byInvoice = new Map<string, { invoiceNumbers: string[]; asos: string[]; customers: string[]; creators: string[]; invoiceDates: string[]; dueDates: string[] }>();
+
+  lines.forEach((line) => {
+    const invoiceKey = line.invoiceNumber.trim().toLowerCase() ? `invoice:${line.invoiceNumber.trim().toLowerCase()}` : getInvoiceKey(line);
+    const existing = byInvoice.get(invoiceKey) || { invoiceNumbers: [], asos: [], customers: [], creators: [], invoiceDates: [], dueDates: [] };
+    const displayInvoice = getInvoiceDisplayKey(line);
+    if (displayInvoice && !existing.invoiceNumbers.includes(displayInvoice)) existing.invoiceNumbers.push(displayInvoice);
+    if (line.aso && !existing.asos.includes(line.aso)) existing.asos.push(line.aso);
+    if (line.customer && !existing.customers.includes(line.customer)) existing.customers.push(line.customer);
+    if (line.createdBy && !existing.creators.includes(line.createdBy)) existing.creators.push(line.createdBy);
+    if (line.invoiceDate && !existing.invoiceDates.includes(line.invoiceDate)) existing.invoiceDates.push(line.invoiceDate);
+    if (line.deliveryDueDate && !existing.dueDates.includes(line.deliveryDueDate)) existing.dueDates.push(line.deliveryDueDate);
+    byInvoice.set(invoiceKey, existing);
+  });
+
+  return Array.from(byInvoice.entries()).flatMap(([invoiceKey, invoice]) => {
+    const invoiceTimes = invoice.invoiceDates.map(dateOnlyTime).filter((value): value is number => value !== undefined);
+    const dueTimes = invoice.dueDates.map(dateOnlyTime).filter((value): value is number => value !== undefined);
+    if (invoiceTimes.length === 0 || dueTimes.length === 0) return [];
+    const invoiceTime = Math.min(...invoiceTimes);
+    const dueTime = Math.min(...dueTimes);
+    if (invoiceTime <= dueTime) return [];
+    return [{
+      invoiceKey,
+      invoiceNumber: invoice.invoiceNumbers.join(", ") || invoiceKey,
+      aso: invoice.asos.join(", "),
+      customer: invoice.customers[0] || "",
+      createdBy: invoice.creators.join(", "),
+      invoiceDate: formatLocalDateKey(new Date(invoiceTime)),
+      deliveryDueDate: formatLocalDateKey(new Date(dueTime)),
+      daysLate: Math.max(1, Math.round((invoiceTime - dueTime) / 86400000)),
+    }];
+  }).sort((a, b) => b.daysLate - a.daysLate || a.invoiceNumber.localeCompare(b.invoiceNumber));
 };
 
 const getOnTimeInvoiceLabel = (invoiceDates: string, deliveryDueDates: string) => {
@@ -378,8 +428,25 @@ const saveReviewState = (state: Record<string, ReviewStatus>) => {
   localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(state));
 };
 
+const loadTimingNotes = (): Record<string, string> => {
+  try {
+    const raw = localStorage.getItem(TIMING_NOTES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) as Record<string, string> : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveTimingNotes = (state: Record<string, string>) => {
+  localStorage.setItem(TIMING_NOTES_STORAGE_KEY, JSON.stringify(state));
+};
+
 const saveReviewStateRemote = async (state: Record<string, ReviewStatus>) => {
   await invoiceReconciliationAPI.bulkUpsertReviews(state);
+};
+
+const saveTimingNotesRemote = async (state: Record<string, string>) => {
+  await invoiceReconciliationAPI.bulkUpsertTimingNotes(state);
 };
 
 const buildLoadedSummaries = (jobs: Job[]) => {
@@ -552,6 +619,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>(() => loadInvoiceLines());
   const [reviewState, setReviewState] = useState<Record<string, ReviewStatus>>(() => loadReviewState());
+  const [timingNotes, setTimingNotes] = useState<Record<string, string>>(() => loadTimingNotes());
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus | "all">("all");
   const [isImporting, setIsImporting] = useState(false);
@@ -593,6 +661,14 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           saveReviewState(remoteReviews);
         } else if (Object.keys(reviewState).length > 0) {
           await saveReviewStateRemote(reviewState);
+        }
+
+        const remoteTimingNotes = remote.timingNotes || {};
+        if (Object.keys(remoteTimingNotes).length > 0) {
+          setTimingNotes(remoteTimingNotes);
+          saveTimingNotes(remoteTimingNotes);
+        } else if (Object.keys(timingNotes).length > 0) {
+          await saveTimingNotesRemote(timingNotes);
         }
 
         setRemoteSyncError("");
@@ -793,6 +869,18 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       }))
       .sort((a, b) => b.invoiceRows - a.invoiceRows || a.createdBy.localeCompare(b.createdBy));
   }, [invoiceLinesInView, reconciliationRows]);
+
+  const lateInvoiceReviews = useMemo(() => buildLateInvoiceReviews(invoiceLinesInView), [invoiceLinesInView]);
+
+  const updateTimingNote = (invoiceKey: string, note: string) => {
+    const next = { ...timingNotes, [invoiceKey]: note };
+    setTimingNotes(next);
+    saveTimingNotes(next);
+    void saveTimingNotesRemote({ [invoiceKey]: note }).catch((error) => {
+      console.warn("Failed to sync invoice timing note", error);
+      setRemoteSyncError("Database sync failed. Late invoice notes are saved in this browser and will retry when edited again.");
+    });
+  };
 
   const importInvoices = async (file: File | undefined) => {
     if (!file) return;
@@ -1262,18 +1350,28 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       </Card>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-10">
-        {statCards.map((card) => (
-          <button
-            key={card.label}
-            type="button"
-            onClick={() => setActiveStatus(card.status)}
-            className={`min-h-[96px] rounded-lg border border-gray-200 border-l-[3px] ${card.tone} bg-white p-3 text-left transition hover:border-gray-300 hover:shadow-sm ${activeStatus === card.status ? "bg-emerald-50/40 ring-1 ring-emerald-300" : ""}`}
-          >
-            <p className="min-h-[28px] text-[11px] font-semibold uppercase tracking-wide text-gray-500">{card.label}</p>
-            <p className="mt-1 text-xl font-bold text-gray-900">{typeof card.value === "number" ? formatNumber(card.value) : card.value}</p>
-            {card.sub && <p className="mt-1 text-xs font-semibold text-gray-500">{card.sub}</p>}
-          </button>
-        ))}
+        {statCards.map((card) => {
+          const isFilterCard = card.status !== "all";
+          const className = `min-h-[96px] rounded-lg border border-gray-200 border-l-[3px] ${card.tone} bg-white p-3 text-left transition ${
+            isFilterCard ? "cursor-pointer hover:border-gray-300 hover:shadow-sm" : "cursor-default"
+          } ${isFilterCard && activeStatus === card.status ? "bg-emerald-50/40 ring-1 ring-emerald-300" : ""}`;
+          const content = (
+            <>
+              <p className="min-h-[28px] text-[11px] font-semibold uppercase tracking-wide text-gray-500">{card.label}</p>
+              <p className="mt-1 text-xl font-bold text-gray-900">{typeof card.value === "number" ? formatNumber(card.value) : card.value}</p>
+              {card.sub && <p className="mt-1 text-xs font-semibold text-gray-500">{card.sub}</p>}
+            </>
+          );
+          return isFilterCard ? (
+            <button key={card.label} type="button" onClick={() => setActiveStatus(card.status)} className={className}>
+              {content}
+            </button>
+          ) : (
+            <div key={card.label} className={className}>
+              {content}
+            </div>
+          );
+        })}
       </div>
 
       {creatorWorkload.length > 0 && (
@@ -1311,6 +1409,59 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                       <td className="px-4 py-3 text-right">{formatNumber(workload.asos)}</td>
                       <td className="px-4 py-3 text-right">{formatNumber(workload.invoices)}</td>
                       <td className="px-4 py-3 text-right">{formatNumber(workload.matchedAsos)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {lateInvoiceReviews.length > 0 && (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-gray-100 p-5">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <CardTitle className="text-lg">Late Invoice Review</CardTitle>
+                <p className="text-sm text-gray-500">Add notes for invoices where the document date is after the delivery / due date.</p>
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-red-500">{formatNumber(lateInvoiceReviews.length)} late invoices</p>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] text-sm">
+                <thead className="border-b border-gray-200 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Invoice</th>
+                    <th className="px-4 py-3 text-left">ASO</th>
+                    <th className="px-4 py-3 text-left">Customer</th>
+                    <th className="px-4 py-3 text-left">Created By</th>
+                    <th className="px-4 py-3 text-left">Document Date</th>
+                    <th className="px-4 py-3 text-left">Due Date</th>
+                    <th className="px-4 py-3 text-right">Days Late</th>
+                    <th className="px-4 py-3 text-left">Late Reason / Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lateInvoiceReviews.map((invoice) => (
+                    <tr key={invoice.invoiceKey} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3 font-semibold text-gray-800">{invoice.invoiceNumber}</td>
+                      <td className="px-4 py-3 text-gray-700">{invoice.aso || "-"}</td>
+                      <td className="max-w-[220px] truncate px-4 py-3 text-gray-700" title={invoice.customer}>{invoice.customer || "-"}</td>
+                      <td className="max-w-[180px] truncate px-4 py-3 text-gray-600" title={invoice.createdBy}>{invoice.createdBy || "-"}</td>
+                      <td className="px-4 py-3 text-gray-600">{invoice.invoiceDate}</td>
+                      <td className="px-4 py-3 text-gray-600">{invoice.deliveryDueDate}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-red-600">{formatNumber(invoice.daysLate)}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          value={timingNotes[invoice.invoiceKey] || ""}
+                          onChange={(event) => updateTimingNote(invoice.invoiceKey, event.target.value)}
+                          className="w-full min-w-[240px] rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Reason for late invoice"
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

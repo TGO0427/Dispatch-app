@@ -70,6 +70,13 @@ const formatReviewMap = (reviews: { aso: string; status: string }[]) => (
   }, {})
 );
 
+const formatNoteMap = (notes: { invoiceKey: string; note: string }[]) => (
+  notes.reduce<Record<string, string>>((acc, note) => {
+    acc[note.invoiceKey] = note.note;
+    return acc;
+  }, {})
+);
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -82,15 +89,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "GET") {
     try {
-      const [lines, reviews] = await Promise.all([
+      const [lines, reviews, notes] = await Promise.all([
         prisma.invoiceReconciliationLine.findMany({ orderBy: { createdAt: "asc" } }),
         prisma.invoiceReconciliationReview.findMany(),
+        prisma.invoiceReconciliationTimingNote.findMany(),
       ]);
       return res.json({
         success: true,
         data: {
           lines: lines.map(formatLine),
           reviews: formatReviewMap(reviews),
+          timingNotes: formatNoteMap(notes),
         },
       });
     } catch (error) {
@@ -149,6 +158,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } catch (error) {
         console.error("Error saving invoice reconciliation reviews:", error);
         return res.status(500).json({ success: false, error: "Failed to save invoice reconciliation reviews" });
+      }
+    }
+
+    if (action === "bulk-upsert-timing-notes") {
+      try {
+        const notes = req.body?.notes;
+        if (!notes || typeof notes !== "object" || Array.isArray(notes)) {
+          return res.status(400).json({ success: false, error: "Request body must include a notes object" });
+        }
+        const entries = Object.entries(notes as Record<string, unknown>).filter(([invoiceKey]) => normalize(invoiceKey));
+        if (entries.length > MAX_BATCH_SIZE) return res.status(400).json({ success: false, error: `Batch size cannot exceed ${MAX_BATCH_SIZE}` });
+
+        const result = await prisma.$transaction(
+          entries.map(([invoiceKey, note]) => prisma.invoiceReconciliationTimingNote.upsert({
+            where: { invoiceKey: normalize(invoiceKey) },
+            create: {
+              invoiceKey: normalize(invoiceKey),
+              invoiceNumber: normalize(invoiceKey).startsWith("invoice:") ? normalize(invoiceKey).slice(8) : null,
+              note: normalize(note),
+              updatedById: user.id,
+            },
+            update: {
+              note: normalize(note),
+              updatedById: user.id,
+            },
+          })),
+        );
+        return res.status(201).json({ success: true, data: formatNoteMap(result) });
+      } catch (error) {
+        console.error("Error saving invoice timing notes:", error);
+        return res.status(500).json({ success: false, error: "Failed to save invoice timing notes" });
       }
     }
 

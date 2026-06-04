@@ -72,6 +72,7 @@ function AppContent() {
   const [alertHubOpen, setAlertHubOpen] = useState(false);
   const [helpGuideOpen, setHelpGuideOpen] = useState(false);
   const [dispatchTab, setDispatchTab] = useState<string | undefined>(undefined);
+  const [selectedDispatchRef, setSelectedDispatchRef] = useState<string | undefined>(undefined);
   const [selectedAfricaExportRef, setSelectedAfricaExportRef] = useState<string | undefined>(undefined);
   const [selectedAfricaExportFilter, setSelectedAfricaExportFilter] = useState<string | undefined>(undefined);
   const [selectedJobFromAlert, setSelectedJobFromAlert] = useState<string | null>(null);
@@ -89,6 +90,7 @@ function AppContent() {
     openPageTab(page);
     setActiveNavItem(page);
     setDispatchTab(tab);
+    setSelectedDispatchRef(page === "clipboard" ? ref : undefined);
     if (page === "africa-exports") {
       setSelectedAfricaExportRef(ref);
       setSelectedAfricaExportFilter(tab);
@@ -130,7 +132,7 @@ function AppContent() {
       case "ibt-dispatch":
         view = <IBTDispatchView onOpenAlerts={() => setAlertHubOpen(true)} />; break;
       case "clipboard":
-        view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} initialTab={dispatchTab as any} />; break;
+        view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} initialTab={dispatchTab as any} initialRef={selectedDispatchRef} />; break;
       case "africa-exports":
         view = <AfricaExportsView initialRef={selectedAfricaExportRef} initialFilter={selectedAfricaExportFilter} />; break;
       case "invoicing":

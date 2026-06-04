@@ -727,6 +727,11 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     showSuccess(`${row.aso} is ready in Order Management. Complete the Add Job Manually form to load it.`);
   };
 
+  const openExistingOrder = (row: ReconciliationRow) => {
+    const targetTab = row.status === "not-invoiced" ? "delivered" : "open";
+    onNavigate?.("clipboard", targetTab, row.aso);
+  };
+
   const scrollTable = (direction: "left" | "right") => {
     tableScrollRef.current?.scrollBy({
       left: direction === "left" ? -560 : 560,
@@ -1036,7 +1041,20 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                     const owner = getExceptionOwner(row.status);
                     return (
                       <tr key={row.aso} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="sticky left-0 z-10 bg-white px-4 py-3 font-semibold text-resilinc-primary shadow-[8px_0_12px_-12px_rgba(15,23,42,0.35)]">{row.aso}</td>
+                        <td className="sticky left-0 z-10 bg-white px-4 py-3 font-semibold text-resilinc-primary shadow-[8px_0_12px_-12px_rgba(15,23,42,0.35)]">
+                          {row.status === "not-invoiced" && onNavigate ? (
+                            <button
+                              type="button"
+                              onClick={() => openExistingOrder(row)}
+                              className="font-semibold text-resilinc-primary underline-offset-2 hover:underline"
+                              title={`Open ${row.aso} in Order Management`}
+                            >
+                              {row.aso}
+                            </button>
+                          ) : (
+                            row.aso
+                          )}
+                        </td>
                         <td className="max-w-[190px] truncate px-4 py-3 text-gray-700" title={row.customer}>{row.customer || "-"}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex rounded border px-2 py-1 text-xs font-bold ${statusTone[row.status]}`}>

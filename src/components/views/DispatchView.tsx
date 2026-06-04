@@ -35,11 +35,12 @@ type DispatchTab = "open" | "assigned" | "in-transit" | "delivered" | "dispatche
 interface DispatchViewProps {
   onOpenAlerts?: () => void;
   initialTab?: DispatchTab;
+  initialRef?: string;
 }
 
 const MANUAL_ORDER_PREFILL_KEY = "dispatch_manual_order_prefill";
 
-export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initialTab }) => {
+export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initialTab, initialRef }) => {
   const { jobs, drivers, updateJobs, updateDriver, addDriver, refreshData, filters, sortOptions } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
   const { isViewer } = useAuth();
@@ -97,6 +98,22 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
       localStorage.removeItem(MANUAL_ORDER_PREFILL_KEY);
     }
   }, []);
+
+  useEffect(() => {
+    if (!initialRef) return;
+    const matchingJobs = jobs.filter((job) => job.ref === initialRef && (job.jobType === "order" || job.jobType === undefined));
+    if (matchingJobs.length === 0) return;
+    const primary = matchingJobs.find((job) => job.status === "delivered") || matchingJobs[0];
+    setSelectedJob(primary);
+    if (primary.status === "delivered") setActiveTab("delivered");
+    else if (primary.status === "en-route") setActiveTab("in-transit");
+    else if (primary.status === "assigned") setActiveTab("assigned");
+    else setActiveTab("open");
+    setShowPickedOnly(false);
+    setShowOutstandingCoaOnly(false);
+    setServiceFilter(null);
+    setCurrentPage(1);
+  }, [initialRef, jobs]);
 
   const isThisWeek = (dateString: string | undefined) => {
     if (!dateString) return false;

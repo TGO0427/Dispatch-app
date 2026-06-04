@@ -103,6 +103,20 @@ interface ConfirmDeliveryDraft {
   notes: string;
 }
 
+interface NotLoadedDeliveryRow {
+  invoiceNumber: string;
+  aso: string;
+  customer: string;
+  product: string;
+  warehouse: string;
+  qty: number;
+  pallets: number;
+  serviceType: ServiceType;
+  confirmedDate: string;
+  documentDate: string;
+  notes: string;
+}
+
 const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
 const REVIEW_STORAGE_KEY = "dispatch_invoice_reconciliation_review_v1";
 
@@ -452,6 +466,31 @@ const parseInvoiceWorkbook = async (file: File): Promise<InvoiceLine[]> => {
   return parsedLines;
 };
 
+const parseNotLoadedDeliveryWorkbook = async (file: File): Promise<NotLoadedDeliveryRow[]> => {
+  const buffer = await file.arrayBuffer();
+  const workbook = await XLSX.read(buffer, { type: "array", cellDates: true });
+  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(worksheet, { defval: "" }) as Record<string, unknown>[];
+
+  return rows.map((row) => {
+    const deliveryType = String(findValue(row, ["delivery type", "type", "delivered / collected", "delivery / collection"]) ?? "").trim().toLowerCase();
+    const serviceType: ServiceType = deliveryType.startsWith("col") ? "collection" : "delivery";
+    return {
+      invoiceNumber: String(findValue(row, ["document no", "invoice number", "invoice no", "invoice", "tax invoice"]) ?? "").trim(),
+      aso: normalizeAso(findValue(row, ["aso", "source sales order", "sales order", "order no", "order number"])),
+      customer: String(findValue(row, ["customer name", "customer", "client", "account name"]) ?? "").trim(),
+      product: String(findValue(row, ["inventory name", "product", "description", "inventory description", "item", "product description"]) ?? "").trim(),
+      warehouse: String(findValue(row, ["warehouse"]) ?? "").trim(),
+      qty: parseNumber(findValue(row, ["qty", "quantity", "invoice qty", "invoiced qty"])),
+      pallets: parseNumber(findValue(row, ["pallets", "pallet"])),
+      serviceType,
+      confirmedDate: normalizeDate(findValue(row, ["confirmed delivery date", "delivery / collection date", "delivery date", "confirmed date", "delivered date"])),
+      documentDate: normalizeDate(findValue(row, ["document date", "invoice date", "date", "tax invoice date"])),
+      notes: String(findValue(row, ["confirm notes", "notes", "details kept on shipment card", "comments"]) ?? "").trim(),
+    };
+  }).filter((row) => row.invoiceNumber);
+};
+
 interface InvoicingReconciliationProps {
   onNavigate?: (page: string, tab?: string, ref?: string) => void;
 }
@@ -460,12 +499,14 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const { jobs, addJob } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const notLoadedFileInputRef = useRef<HTMLInputElement | null>(null);
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>(() => loadInvoiceLines());
   const [reviewState, setReviewState] = useState<Record<string, ReviewStatus>>(() => loadReviewState());
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus | "all">("all");
   const [isImporting, setIsImporting] = useState(false);
+  const [isConfirmingNotLoaded, setIsConfirmingNotLoaded] = useState(false);
   const [viewMode, setViewMode] = useState<LedgerViewMode>("all");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
@@ -783,6 +824,104 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     }
   };
 
+  const importNotLoadedDeliveries = async (file: File | undefined) => {
+    if (!file) return;
+    setIsConfirmingNotLoaded(true);
+    try {
+      const uploadRows = await parseNotLoadedDeliveryWorkbook(file);
+      if (uploadRows.length === 0) {
+        showWarning("No completed not loaded delivery rows found. Make sure the file has a Document No column.");
+        return;
+      }
+
+      const invoiceByNumber = new Map(
+        invoiceLines
+          .filter((line) => line.invoiceNumber)
+          .map((line) => [line.invoiceNumber.trim().toLowerCase(), line]),
+      );
+      const rowByAso = new Map(reconciliationRows.map((row) => [row.aso, row]));
+      const existingOrderAsos = new Set(
+        jobs
+          .filter((job) => job.jobType === "order" || job.jobType === undefined)
+          .map((job) => normalizeAso(job.ref))
+          .filter(Boolean),
+      );
+      const nextReviewState = { ...reviewState };
+      let confirmed = 0;
+      let skipped = 0;
+      const reasons: string[] = [];
+
+      for (const uploadRow of uploadRows) {
+        const invoiceLine = invoiceByNumber.get(uploadRow.invoiceNumber.trim().toLowerCase());
+        const aso = uploadRow.aso || invoiceLine?.aso || "";
+        const reconciliationRow = aso ? rowByAso.get(aso) : undefined;
+
+        if (!invoiceLine) {
+          skipped += 1;
+          reasons.push(`${uploadRow.invoiceNumber}: invoice not found`);
+          continue;
+        }
+        if (!aso || !reconciliationRow) {
+          skipped += 1;
+          reasons.push(`${uploadRow.invoiceNumber}: ASO not found`);
+          continue;
+        }
+        if (reconciliationRow.status !== "not-loaded") {
+          skipped += 1;
+          reasons.push(`${uploadRow.invoiceNumber}: ASO is not Invoiced Not Loaded`);
+          continue;
+        }
+        if (existingOrderAsos.has(aso)) {
+          skipped += 1;
+          reasons.push(`${uploadRow.invoiceNumber}: ASO already loaded`);
+          continue;
+        }
+
+        const deliveredAt = uploadRow.confirmedDate || uploadRow.documentDate || firstListValue(reconciliationRow.deliveryDueDates) || firstListValue(reconciliationRow.invoiceDates) || new Date().toISOString().slice(0, 10);
+        const notes = uploadRow.notes || uploadRow.product || reconciliationRow.products || `Confirmed from invoice ${uploadRow.invoiceNumber}`;
+        await addJob(makeNewJob({
+          ref: aso,
+          customer: uploadRow.customer || reconciliationRow.customer || invoiceLine.customer || "Customer to confirm",
+          pickup: uploadRow.warehouse || "Confirmed from invoice reconciliation",
+          dropoff: uploadRow.customer || reconciliationRow.customer || invoiceLine.customer || "Delivered / collected",
+          priority: "normal",
+          status: "delivered",
+          jobType: "order",
+          serviceType: uploadRow.serviceType,
+          pallets: uploadRow.pallets || reconciliationRow.pallets || 0,
+          outstandingQty: uploadRow.qty || reconciliationRow.invoicedQty || invoiceLine.invoiceQty || 0,
+          eta: deliveredAt,
+          actualDeliveryAt: deliveredAt,
+          notes,
+          internalNotes: `Bulk confirmed from Invoiced Not Loaded template. Invoice: ${uploadRow.invoiceNumber}. Document date: ${uploadRow.documentDate || invoiceLine.invoiceDate || "not captured"}.`,
+        }));
+        existingOrderAsos.add(aso);
+        nextReviewState[aso] = "resolved";
+        confirmed += 1;
+      }
+
+      if (confirmed > 0) {
+        setReviewState(nextReviewState);
+        saveReviewState(nextReviewState);
+        setDirtyReviewCount(0);
+      }
+
+      if (confirmed > 0 && skipped === 0) {
+        showSuccess(`Confirmed ${confirmed} invoiced not loaded shipment${confirmed === 1 ? "" : "s"}.`);
+      } else if (confirmed > 0) {
+        showWarning(`Confirmed ${confirmed}. Skipped ${skipped}. ${reasons.slice(0, 3).join("; ")}`);
+      } else {
+        showWarning(`No shipments confirmed. ${reasons.slice(0, 3).join("; ") || "Rows did not match open Invoiced Not Loaded invoices."}`);
+      }
+    } catch (error) {
+      console.error("Failed to import not loaded delivery confirmations", error);
+      showError("Could not import the completed not loaded template.");
+    } finally {
+      setIsConfirmingNotLoaded(false);
+      if (notLoadedFileInputRef.current) notLoadedFileInputRef.current.value = "";
+    }
+  };
+
   const scrollTable = (direction: "left" | "right") => {
     tableScrollRef.current?.scrollBy({
       left: direction === "left" ? -560 : 560,
@@ -886,6 +1025,13 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
             className="hidden"
             onChange={(event) => void importInvoices(event.target.files?.[0])}
           />
+          <input
+            ref={notLoadedFileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(event) => void importNotLoadedDeliveries(event.target.files?.[0])}
+          />
           <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
             <Upload className="h-4 w-4" />
             {isImporting ? "Importing..." : "Upload Invoice Sheet"}
@@ -897,6 +1043,15 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           <Button variant="outline" className="gap-2" onClick={downloadInvoicedNotLoadedTemplate} disabled={stats.notLoaded === 0}>
             <Download className="h-4 w-4" />
             Not Loaded Template
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => notLoadedFileInputRef.current?.click()}
+            disabled={isConfirmingNotLoaded || stats.notLoaded === 0}
+          >
+            <Upload className="h-4 w-4" />
+            {isConfirmingNotLoaded ? "Confirming..." : "Upload Not Loaded"}
           </Button>
           <Button variant="outline" className="gap-2" onClick={exportReport} disabled={reconciliationRows.length === 0}>
             <FileText className="h-4 w-4" />

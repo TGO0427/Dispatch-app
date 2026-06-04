@@ -517,6 +517,31 @@ const getDaysUntil = (dateValue: string) => {
   return Math.ceil((date.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
 };
 
+const isEtaThisWeek = (dateValue: string) => {
+  if (!dateValue) return false;
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  const day = start.getDay() || 7;
+  start.setDate(start.getDate() - day + 1);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return date >= start && date <= end;
+};
+
+const matchesEtaFilter = (shipment: ExportShipment, filter: ExportEtaFilter) => {
+  if (filter === "all") return true;
+  if (filter === "no-date") return !shipment.eta;
+  const daysUntil = getDaysUntil(shipment.eta);
+  if (filter === "this-week") return isEtaThisWeek(shipment.eta);
+  if (filter === "next-30") return daysUntil !== null && daysUntil >= 0 && daysUntil <= 30;
+  if (filter === "overdue") return daysUntil !== null && daysUntil < 0 && shipment.status !== "delivered";
+  return true;
+};
+
 const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
   const isExcel = /\.(xlsx|xls)$/i.test(file.name);
   const workbook = isExcel
@@ -554,7 +579,8 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
     .map((shipment, index) => ({ ...shipment, ref: shipment.ref || `AFX-${Date.now()}-${index}` }));
 };
 
-type ExportQueueFilter = "all" | "risks" | "approved" | "pending-approval" | "archived";
+type ExportQueueFilter = "all" | "open" | "assigned" | "in-transit" | "delivered" | "this-week" | "risks" | "approved" | "pending-approval" | "archived";
+type ExportEtaFilter = "all" | "this-week" | "next-30" | "overdue" | "no-date";
 
 interface AfricaExportsViewProps {
   initialRef?: string;
@@ -571,6 +597,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const [activeTab, setActiveTab] = useState<ExportTab>("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [queueFilter, setQueueFilter] = useState<ExportQueueFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<ExportStatus | "all">("all");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [transporterFilter, setTransporterFilter] = useState("all");
+  const [etaFilter, setEtaFilter] = useState<ExportEtaFilter>("all");
   const [showImport, setShowImport] = useState(false);
   const [showAddTransporter, setShowAddTransporter] = useState(false);
   const [importPreview, setImportPreview] = useState<ExportShipment[]>([]);
@@ -797,23 +827,41 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   }, [activeShipments, countryRules, allChecklistItems, baseRequiredIds]);
   const approvedShipments = useMemo(() => activeShipments.filter((item) => Boolean(item.dispatchApprovedAt)), [activeShipments]);
   const pendingApprovalShipments = useMemo(() => activeShipments.filter((item) => item.status !== "delivered" && !item.dispatchApprovedAt), [activeShipments]);
+  const exportCountries = useMemo(() => Array.from(new Set(trackedShipments.map((item) => item.destinationCountry).filter(Boolean))).sort(), [trackedShipments]);
+
+  const tabCounts = useMemo(() => ({
+    all: activeShipments.length,
+    open: activeShipments.filter((item) => item.status === "pending").length,
+    assigned: activeShipments.filter((item) => item.status === "assigned").length,
+    inTransit: activeShipments.filter((item) => item.status === "in-transit").length,
+    delivered: activeShipments.filter((item) => item.status === "delivered").length,
+    thisWeek: activeShipments.filter((item) => isEtaThisWeek(item.eta)).length,
+  }), [activeShipments]);
 
   const filteredShipments = useMemo(() => {
     const baseShipments =
+      queueFilter === "open" ? activeShipments.filter((item) => item.status === "pending") :
+      queueFilter === "assigned" ? activeShipments.filter((item) => item.status === "assigned") :
+      queueFilter === "in-transit" ? activeShipments.filter((item) => item.status === "in-transit") :
+      queueFilter === "delivered" ? activeShipments.filter((item) => item.status === "delivered") :
+      queueFilter === "this-week" ? activeShipments.filter((item) => isEtaThisWeek(item.eta)) :
       queueFilter === "risks" ? riskyShipments :
       queueFilter === "approved" ? approvedShipments :
       queueFilter === "pending-approval" ? pendingApprovalShipments :
       queueFilter === "archived" ? archivedShipments :
       activeShipments;
-    if (!searchQuery.trim()) return baseShipments;
     const query = searchQuery.toLowerCase();
     return baseShipments.filter((item) =>
-      [item.ref, item.customer, item.destinationCountry, item.hsCode, item.productType, item.status]
+      (statusFilter === "all" || item.status === statusFilter) &&
+      (countryFilter === "all" || item.destinationCountry === countryFilter) &&
+      (transporterFilter === "all" || item.assignedTransporterId === transporterFilter) &&
+      matchesEtaFilter(item, etaFilter) &&
+      (!query.trim() || [item.ref, item.customer, item.destinationCountry, item.hsCode, item.productType, item.status]
         .join(" ")
         .toLowerCase()
-        .includes(query),
+        .includes(query)),
     );
-  }, [activeShipments, approvedShipments, archivedShipments, pendingApprovalShipments, queueFilter, riskyShipments, searchQuery]);
+  }, [activeShipments, approvedShipments, archivedShipments, countryFilter, etaFilter, pendingApprovalShipments, queueFilter, riskyShipments, searchQuery, statusFilter, transporterFilter]);
 
   const completion = getCompletion(shipment);
   const requiredItems = getRequiredItemsForShipment(shipment);
@@ -924,6 +972,38 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     : completion.percent >= 45
       ? "bg-amber-50 text-amber-700 border-amber-200"
       : "bg-red-50 text-red-700 border-red-200";
+
+  const resetQueueControls = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setCountryFilter("all");
+    setTransporterFilter("all");
+    setEtaFilter("all");
+  };
+
+  const queueEmptyTitle =
+    queueFilter === "open" ? "No open exports" :
+    queueFilter === "assigned" ? "No assigned exports" :
+    queueFilter === "in-transit" ? "No exports in transit" :
+    queueFilter === "delivered" ? "No delivered exports" :
+    queueFilter === "this-week" ? "No exports this week" :
+    queueFilter === "risks" ? "No export risks found" :
+    queueFilter === "approved" ? "No approved exports" :
+    queueFilter === "pending-approval" ? "No exports pending approval" :
+    queueFilter === "archived" ? "No archived exports" :
+    "No Africa exports yet";
+
+  const queueEmptyDetail =
+    queueFilter === "open" ? "Pending Africa export shipments will appear here." :
+    queueFilter === "assigned" ? "Assigned Africa export shipments will appear here." :
+    queueFilter === "in-transit" ? "In-transit Africa export shipments will appear here." :
+    queueFilter === "delivered" ? "Delivered Africa export shipments will appear here." :
+    queueFilter === "this-week" ? "Shipments with an ETA in the current week will appear here." :
+    queueFilter === "risks" ? "Required documents and agent checks are clear for this filter." :
+    queueFilter === "approved" ? "Approved dispatches will appear here." :
+    queueFilter === "pending-approval" ? "Shipments still needing approval will appear here." :
+    queueFilter === "archived" ? "Archived shipments will appear here." :
+    "Import or create an export shipment to start.";
 
   const updateShipment = (updates: Partial<ExportShipment>, historyEntry?: { action: string; detail: string }) => {
     const ref = updates.ref || shipment.ref || selectedRef || `AFX-${Date.now()}`;
@@ -1360,6 +1440,97 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         </Card>
       </div>
 
+      <Card className="overflow-hidden">
+        <CardContent className="p-3">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+            {[
+              { id: "all" as ExportQueueFilter, label: "All Exports", count: tabCounts.all, dot: "bg-gray-400" },
+              { id: "open" as ExportQueueFilter, label: "Open", count: tabCounts.open, dot: "bg-yellow-500" },
+              { id: "assigned" as ExportQueueFilter, label: "Assigned", count: tabCounts.assigned, dot: "bg-blue-500" },
+              { id: "in-transit" as ExportQueueFilter, label: "In Transit", count: tabCounts.inTransit, dot: "bg-indigo-500" },
+              { id: "delivered" as ExportQueueFilter, label: "Delivered", count: tabCounts.delivered, dot: "bg-emerald-500" },
+              { id: "this-week" as ExportQueueFilter, label: "This Week", count: tabCounts.thisWeek, dot: "bg-purple-500" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setQueueFilter(tab.id)}
+                className={`flex h-10 items-center justify-center gap-2 rounded-card border px-3 text-sm font-semibold transition ${
+                  queueFilter === tab.id ? "border-resilinc-primary bg-resilinc-primary text-white" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full ${queueFilter === tab.id ? "bg-white" : tab.dot}`} />
+                <span className="truncate">{tab.label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${queueFilter === tab.id ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"}`}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="h-10 w-full rounded-card border border-gray-300 py-2 pl-10 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                placeholder="Search export ASO, customer, HS code..."
+              />
+            </div>
+            <select
+              value={countryFilter}
+              onChange={(event) => setCountryFilter(event.target.value)}
+              className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            >
+              <option value="all">All Countries</option>
+              {exportCountries.map((country) => (
+                <option key={country} value={country}>{country}</option>
+              ))}
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as ExportStatus | "all")}
+              className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            >
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="assigned">Assigned</option>
+              <option value="in-transit">In Transit</option>
+              <option value="delivered">Delivered</option>
+            </select>
+            <select
+              value={transporterFilter}
+              onChange={(event) => setTransporterFilter(event.target.value)}
+              className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            >
+              <option value="all">All Transporters</option>
+              {transporters.map((transporter) => (
+                <option key={transporter.id} value={transporter.id}>{transporter.name}</option>
+              ))}
+            </select>
+            <select
+              value={etaFilter}
+              onChange={(event) => setEtaFilter(event.target.value as ExportEtaFilter)}
+              className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            >
+              <option value="all">All Dates</option>
+              <option value="this-week">ETA This Week</option>
+              <option value="next-30">Next 30 Days</option>
+              <option value="overdue">Overdue</option>
+              <option value="no-date">No ETA</option>
+            </select>
+            <Button variant="outline" size="icon" className="h-10 w-10 border-emerald-200 text-emerald-700" onClick={resetQueueControls} title="Clear filters" aria-label="Clear Africa export filters">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {shipment.ref && (
         <Card className="overflow-hidden">
           <CardContent className="p-4">
@@ -1498,10 +1669,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                   <div className="rounded-card border border-dashed border-gray-300 p-6 text-center">
                     <Package className="mx-auto mb-2 h-8 w-8 text-gray-300" />
                     <p className="text-sm font-semibold text-gray-600">
-                      {queueFilter === "risks" ? "No export risks found" : queueFilter === "approved" ? "No approved exports" : queueFilter === "pending-approval" ? "No exports pending approval" : queueFilter === "archived" ? "No archived exports" : "No Africa exports yet"}
+                      {queueEmptyTitle}
                     </p>
                     <p className="mt-1 text-xs text-gray-400">
-                      {queueFilter === "risks" ? "Required documents and agent checks are clear for this filter." : queueFilter === "approved" ? "Approved dispatches will appear here." : queueFilter === "pending-approval" ? "Shipments still needing approval will appear here." : queueFilter === "archived" ? "Archived shipments will appear here." : "Import or create an export shipment to start."}
+                      {queueEmptyDetail}
                     </p>
                   </div>
                 ) : (

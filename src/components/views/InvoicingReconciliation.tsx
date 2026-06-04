@@ -889,6 +889,22 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   }, [invoiceLinesInView, reconciliationRows]);
 
   const lateInvoiceReviews = useMemo(() => buildLateInvoiceReviews(invoiceLinesInView), [invoiceLinesInView]);
+  const lateInvoiceReasonTrend = useMemo(() => {
+    const total = lateInvoiceReviews.length || 0;
+    const counts = new Map<string, number>();
+    lateInvoiceReviews.forEach((invoice) => {
+      const reason = timingNotes[invoice.invoiceKey] || "No reason selected";
+      counts.set(reason, (counts.get(reason) || 0) + 1);
+    });
+
+    return Array.from(counts.entries())
+      .map(([reason, count]) => ({
+        reason,
+        count,
+        percent: total ? (count / total) * 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
+  }, [lateInvoiceReviews, timingNotes]);
 
   const updateTimingNote = (invoiceKey: string, note: string) => {
     const next = { ...timingNotes, [invoiceKey]: note };
@@ -1448,6 +1464,29 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
             </div>
           </CardHeader>
           <CardContent className="p-0">
+            <div className="border-b border-gray-100 bg-gray-50 p-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-gray-900">Reason Trend</p>
+                  <p className="text-xs text-gray-500">Grouped by the selected late invoice reason.</p>
+                </div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(lateInvoiceReasonTrend.length)} reasons</p>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                {lateInvoiceReasonTrend.map((item) => (
+                  <div key={item.reason} className="rounded-card border border-gray-200 bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-semibold text-gray-800">{item.reason}</p>
+                      <p className="text-sm font-bold text-gray-900">{formatNumber(item.count)}</p>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(4, item.percent)}%` }} />
+                    </div>
+                    <p className="mt-1 text-xs font-semibold text-gray-500">{formatPercent(item.percent, 1)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[980px] text-sm">
                 <thead className="border-b border-gray-200 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">

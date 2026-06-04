@@ -227,6 +227,39 @@ const isOnTimeInvoice = (invoiceDate: string | undefined, dueDate: string | unde
   return invoiceTime <= dueTime;
 };
 
+const buildOnTimeInvoiceStats = (lines: InvoiceLine[]) => {
+  const byInvoice = new Map<string, { invoiceDates: string[]; dueDates: string[] }>();
+
+  lines.forEach((line) => {
+    const invoiceKey = line.invoiceNumber.trim().toLowerCase() || getInvoiceKey(line);
+    const existing = byInvoice.get(invoiceKey) || { invoiceDates: [], dueDates: [] };
+    if (line.invoiceDate && !existing.invoiceDates.includes(line.invoiceDate)) existing.invoiceDates.push(line.invoiceDate);
+    if (line.deliveryDueDate && !existing.dueDates.includes(line.deliveryDueDate)) existing.dueDates.push(line.deliveryDueDate);
+    byInvoice.set(invoiceKey, existing);
+  });
+
+  let total = 0;
+  let onTime = 0;
+  byInvoice.forEach((invoice) => {
+    const invoiceTimes = invoice.invoiceDates
+      .map(dateOnlyTime)
+      .filter((value): value is number => value !== undefined);
+    const dueTimes = invoice.dueDates
+      .map(dateOnlyTime)
+      .filter((value): value is number => value !== undefined);
+    if (invoiceTimes.length === 0 || dueTimes.length === 0) return;
+
+    total += 1;
+    if (Math.min(...invoiceTimes) <= Math.min(...dueTimes)) onTime += 1;
+  });
+
+  return {
+    onTime,
+    total,
+    percent: total ? (onTime / total) * 100 : 0,
+  };
+};
+
 const getOnTimeInvoiceLabel = (invoiceDates: string, deliveryDueDates: string) => {
   const dates = invoiceDates.split(", ").filter(Boolean);
   const dueDates = deliveryDueDates.split(", ").filter(Boolean);
@@ -698,16 +731,13 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     const historicalInvoices = reconciliationRows.filter((row) => reviewState[row.aso] === "historical-invoice");
     const notInvoiced = bucket("not-invoiced").filter((row) => reviewState[row.aso] !== "historical-invoice");
     const mismatch = bucket("qty-mismatch");
-    const invoiceTimingRows = invoiceLinesInView
-      .map((line) => isOnTimeInvoice(line.invoiceDate, line.deliveryDueDate))
-      .filter((value): value is boolean => value !== undefined);
-    const onTimeInvoices = invoiceTimingRows.filter(Boolean).length;
+    const invoiceTiming = buildOnTimeInvoiceStats(invoiceLinesInView);
     return {
       delivered: deliveredByAso.size,
       invoiceLines: invoiceLinesInView.length,
-      onTimeInvoices,
-      invoiceTimingRows: invoiceTimingRows.length,
-      onTimeInvoicePercent: invoiceTimingRows.length ? (onTimeInvoices / invoiceTimingRows.length) * 100 : 0,
+      onTimeInvoices: invoiceTiming.onTime,
+      invoiceTimingRows: invoiceTiming.total,
+      onTimeInvoicePercent: invoiceTiming.percent,
       matched: bucket("matched").length,
       notInvoiced: notInvoiced.length,
       notLoaded: bucket("not-loaded").length,
@@ -1101,7 +1131,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const statCards = [
     { label: "Delivered ASOs", value: stats.delivered, tone: "border-l-emerald-500", status: "all" as const },
     { label: "Invoice Rows", value: stats.invoiceLines, tone: "border-l-blue-500", status: "all" as const },
-    { label: "On-Time Invoice", value: formatPercent(stats.onTimeInvoicePercent, 1), sub: `${formatNumber(stats.onTimeInvoices)} of ${formatNumber(stats.invoiceTimingRows)}`, tone: "border-l-cyan-500", status: "all" as const },
+    { label: "On-Time Invoice", value: formatPercent(stats.onTimeInvoicePercent, 1), sub: `${formatNumber(stats.onTimeInvoices)} of ${formatNumber(stats.invoiceTimingRows)} invoices`, tone: "border-l-cyan-500", status: "all" as const },
     { label: "Open Exceptions", value: stats.openExceptions, tone: "border-l-slate-500", status: "all" as const },
     { label: "Delivered Not Invoiced", value: stats.notInvoiced, sub: `${formatNumber(stats.notInvoicedQty)} qty`, tone: "border-l-red-500", status: "not-invoiced" as const },
     { label: "Historical Invoices", value: stats.historicalInvoices, tone: "border-l-blue-500", status: "not-invoiced" as const },

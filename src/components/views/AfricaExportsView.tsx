@@ -542,6 +542,58 @@ const matchesEtaFilter = (shipment: ExportShipment, filter: ExportEtaFilter) => 
   return true;
 };
 
+const mergeUniqueTextList = (...values: string[]) => {
+  const seen = new Set<string>();
+  return values
+    .flatMap((value) => String(value || "").split(/\s*[;\n]\s*/))
+    .map((value) => value.trim())
+    .filter((value) => {
+      if (!value) return false;
+      const key = value.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join("; ");
+};
+
+const mergeShipmentLines = (shipments: ExportShipment[]) => {
+  const byRef = new Map<string, ExportShipment>();
+  const lineCounts = new Map<string, number>();
+
+  shipments.forEach((shipment) => {
+    const refKey = shipment.ref.trim().toLowerCase();
+    const existing = byRef.get(refKey);
+    if (!existing) {
+      byRef.set(refKey, shipment);
+      lineCounts.set(refKey, 1);
+      return;
+    }
+
+    lineCounts.set(refKey, (lineCounts.get(refKey) || 1) + 1);
+    byRef.set(refKey, {
+      ...existing,
+      customer: existing.customer || shipment.customer,
+      destinationCountry: existing.destinationCountry || shipment.destinationCountry,
+      hsCode: joinHsCodes([...splitHsCodes(existing.hsCode), ...splitHsCodes(shipment.hsCode)]),
+      productType: mergeUniqueTextList(existing.productType, shipment.productType),
+      incoterm: existing.incoterm || shipment.incoterm,
+      transportMode: existing.transportMode || shipment.transportMode,
+      eta: existing.eta || shipment.eta,
+      pallets: Math.max(existing.pallets || 0, shipment.pallets || 0),
+      notes: mergeUniqueTextList(existing.notes, shipment.notes),
+    });
+  });
+
+  return Array.from(byRef.entries()).map(([refKey, shipment]) => {
+    const count = lineCounts.get(refKey) || 1;
+    return count > 1 ? {
+      ...shipment,
+      history: appendHistory(shipment.history, "Product lines merged", `${count} spreadsheet rows imported under ${shipment.ref}`),
+    } : shipment;
+  });
+};
+
 const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
   const isExcel = /\.(xlsx|xls)$/i.test(file.name);
   const workbook = isExcel
@@ -552,7 +604,7 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
   if (rows.length < 2) return [];
 
   const headers = rows[0].map(normalizeHeader);
-  return rows.slice(1).map((row): ExportShipment | null => {
+  const parsedRows = rows.slice(1).map((row): ExportShipment | null => {
     const ref = String(findValue(headers, row, ["ref", "reference", "document no", "export ref", "shipment ref", "order no"]) ?? "").trim();
     const customer = String(findValue(headers, row, ["customer", "customer name", "client", "consignee", "buyer"]) ?? "").trim();
     if (!ref || !customer) return null;
@@ -577,6 +629,8 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
     };
   }).filter((shipment): shipment is ExportShipment => Boolean(shipment && shipment.ref && shipment.customer))
     .map((shipment, index) => ({ ...shipment, ref: shipment.ref || `AFX-${Date.now()}-${index}` }));
+
+  return mergeShipmentLines(parsedRows);
 };
 
 type ExportQueueFilter = "all" | "open" | "assigned" | "in-transit" | "delivered" | "this-week" | "ready" | "missing-docs" | "risks" | "approved" | "pending-approval" | "archived";
@@ -1344,29 +1398,37 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
   const commitImport = () => {
     if (importPreview.length === 0) return;
-    const existingRefs = new Set(shipments.map((item) => item.ref));
-    const importRefs = new Set<string>();
-    const shipmentsToAdd = importPreview.filter((item) => {
-      if (existingRefs.has(item.ref) || importRefs.has(item.ref)) return false;
-      importRefs.add(item.ref);
-      return true;
-    });
-    const skippedCount = importPreview.length - shipmentsToAdd.length;
-
-    setShipments((prev) => {
-      const byRef = new Map(prev.map((item) => [item.ref, item]));
-      shipmentsToAdd.forEach((item) => {
-        byRef.set(item.ref, {
-          ...item,
-          history: appendHistory(item.history, "Imported", "Africa export order imported from file"),
+    let addedCount = 0;
+    let mergedCount = 0;
+    const byRef = new Map(shipments.map((item) => [item.ref.trim().toLowerCase(), item]));
+    importPreview.forEach((item) => {
+      const refKey = item.ref.trim().toLowerCase();
+      const existing = byRef.get(refKey);
+      if (existing) {
+        const merged = mergeShipmentLines([existing, item])[0];
+        byRef.set(refKey, {
+          ...merged,
+          id: existing.id,
+          ref: existing.ref,
+          documents: existing.documents,
+          documentDetails: existing.documentDetails,
+          history: appendHistory(merged.history, "Import merged", "Additional product/HS lines merged from Africa export import"),
         });
+        mergedCount += 1;
+        return;
+      }
+      byRef.set(refKey, {
+        ...item,
+        history: appendHistory(item.history, "Imported", "Africa export order imported from file"),
       });
-      return Array.from(byRef.values());
+      addedCount += 1;
     });
-    if (shipmentsToAdd[0]?.ref) setSelectedRef(shipmentsToAdd[0].ref);
+
+    setShipments(Array.from(byRef.values()));
+    if (importPreview[0]?.ref) setSelectedRef(importPreview[0].ref);
     setImportPreview([]);
     setShowImport(false);
-    showSuccess(`Added ${shipmentsToAdd.length} Africa export shipment${shipmentsToAdd.length === 1 ? "" : "s"}. ${skippedCount} duplicate ASO/ref${skippedCount === 1 ? "" : "s"} skipped.`);
+    showSuccess(`Added ${addedCount} Africa export shipment${addedCount === 1 ? "" : "s"} and merged ${mergedCount} existing ASO${mergedCount === 1 ? "" : "s"}.`);
   };
 
   const downloadTemplate = async () => {

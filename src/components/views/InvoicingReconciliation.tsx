@@ -476,7 +476,7 @@ const parseNotLoadedDeliveryWorkbook = async (file: File): Promise<NotLoadedDeli
   return rows.map((row) => {
     const deliveryType = String(findValue(row, ["delivery type", "type", "delivered / collected", "delivery / collection"]) ?? "").trim().toLowerCase();
     const serviceType: ServiceType = deliveryType.startsWith("col") ? "collection" : "delivery";
-    const systemDocumentNumber = String(findValue(row, ["document no", "invoice number", "invoice no", "invoice", "tax invoice"]) ?? "").trim();
+    const systemDocumentNumber = String(findValue(row, ["system document no", "app document no", "document no", "invoice number", "invoice no", "invoice", "tax invoice"]) ?? "").trim();
     const pastedDocumentNumber = String(findValue(row, ["your document no", "matched document no", "uploaded document no", "document no from sheet"]) ?? "").trim();
     return {
       invoiceNumber: pastedDocumentNumber || systemDocumentNumber,
@@ -955,8 +955,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       const deliveryDueDate = firstListValue(row.deliveryDueDates);
       return {
         "Document Date": documentDate,
-        "Document No": firstListValue(row.invoiceNumbers),
         "Your Document No": "",
+        "System Document No": firstListValue(row.invoiceNumbers),
         "ASO": row.aso,
         "Customer Name": row.customer,
         "Inventory Name": row.products,
@@ -1043,11 +1043,11 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           </Button>
           <Button variant="outline" className="gap-2" onClick={downloadTemplate}>
             <Download className="h-4 w-4" />
-            Template
+            Invoice Template
           </Button>
           <Button variant="outline" className="gap-2" onClick={downloadInvoicedNotLoadedTemplate} disabled={stats.notLoaded === 0}>
             <Download className="h-4 w-4" />
-            Not Loaded Template
+            Not Loaded Match Template
           </Button>
           <Button
             variant="outline"

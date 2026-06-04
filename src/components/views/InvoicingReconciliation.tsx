@@ -446,7 +446,7 @@ interface InvoicingReconciliationProps {
 
 export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = ({ onNavigate }) => {
   const { jobs } = useDispatch();
-  const { showSuccess, showError, showWarning } = useNotification();
+  const { showSuccess, showError, showWarning, confirm } = useNotification();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>(() => loadInvoiceLines());
@@ -669,6 +669,24 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     showSuccess("Reconciliation view cleared. Saved invoice history was kept.");
   };
 
+  const resetInvoiceLedger = async () => {
+    const proceed = await confirm({
+      title: "Reset Invoice Ledger",
+      message: "This will permanently clear all uploaded invoice reconciliation rows from this browser so you can upload a fresh invoice sheet. Review statuses will be kept.",
+      type: "danger",
+      confirmText: "Reset Ledger",
+    });
+    if (!proceed) return;
+    setInvoiceLines([]);
+    saveInvoiceLines([]);
+    setSearchQuery("");
+    setActiveStatus("all");
+    setViewMode("all");
+    setSelectedMonth("");
+    setSelectedWeek("");
+    showSuccess("Invoice ledger cleared. You can upload a new invoice sheet from scratch.");
+  };
+
   const updateReviewStatus = (aso: string, status: ReviewStatus) => {
     const next = { ...reviewState, [aso]: status };
     setReviewState(next);
@@ -783,6 +801,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           <Button variant="outline" className="gap-2" onClick={clearInvoices} disabled={invoiceLines.length === 0}>
             <XCircle className="h-4 w-4" />
             Clear View
+          </Button>
+          <Button variant="outline" className="gap-2 border-red-200 text-red-700 hover:bg-red-50" onClick={() => void resetInvoiceLedger()} disabled={invoiceLines.length === 0}>
+            <XCircle className="h-4 w-4" />
+            Reset Ledger
           </Button>
         </div>
       </div>

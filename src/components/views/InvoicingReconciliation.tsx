@@ -105,6 +105,7 @@ interface ConfirmDeliveryDraft {
 
 interface NotLoadedDeliveryRow {
   invoiceNumber: string;
+  systemDocumentNumber: string;
   aso: string;
   customer: string;
   product: string;
@@ -475,8 +476,11 @@ const parseNotLoadedDeliveryWorkbook = async (file: File): Promise<NotLoadedDeli
   return rows.map((row) => {
     const deliveryType = String(findValue(row, ["delivery type", "type", "delivered / collected", "delivery / collection"]) ?? "").trim().toLowerCase();
     const serviceType: ServiceType = deliveryType.startsWith("col") ? "collection" : "delivery";
+    const systemDocumentNumber = String(findValue(row, ["document no", "invoice number", "invoice no", "invoice", "tax invoice"]) ?? "").trim();
+    const pastedDocumentNumber = String(findValue(row, ["your document no", "matched document no", "uploaded document no", "document no from sheet"]) ?? "").trim();
     return {
-      invoiceNumber: String(findValue(row, ["document no", "invoice number", "invoice no", "invoice", "tax invoice"]) ?? "").trim(),
+      invoiceNumber: pastedDocumentNumber || systemDocumentNumber,
+      systemDocumentNumber,
       aso: normalizeAso(findValue(row, ["aso", "source sales order", "sales order", "order no", "order number"])),
       customer: String(findValue(row, ["customer name", "customer", "client", "account name"]) ?? "").trim(),
       product: String(findValue(row, ["inventory name", "product", "description", "inventory description", "item", "product description"]) ?? "").trim(),
@@ -952,6 +956,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       return {
         "Document Date": documentDate,
         "Document No": firstListValue(row.invoiceNumbers),
+        "Your Document No": "",
         "ASO": row.aso,
         "Customer Name": row.customer,
         "Inventory Name": row.products,

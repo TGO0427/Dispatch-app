@@ -292,6 +292,50 @@ export const africaExportTransportersAPI = {
   },
 };
 
+// ============ Invoice Reconciliation ============
+
+export interface InvoiceReconciliationLine {
+  aso: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  deliveryDueDate?: string;
+  customer: string;
+  invoiceQty: number;
+  hasInvoiceQty: boolean;
+  invoiceValue?: number;
+  product?: string;
+  createdBy?: string;
+  deliveryStatus?: string;
+  status?: string;
+  postedDate?: string;
+}
+
+export const invoiceReconciliationAPI = {
+  getAll: async (): Promise<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string> }> => {
+    return fetchAPI<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string> }>("/api/invoice-reconciliation");
+  },
+
+  bulkUpsertLines: async (lines: InvoiceReconciliationLine[]): Promise<InvoiceReconciliationLine[]> => {
+    return fetchAPI<InvoiceReconciliationLine[]>("/api/invoice-reconciliation?action=bulk-upsert-lines", {
+      method: "POST",
+      body: JSON.stringify({ lines }),
+    });
+  },
+
+  bulkUpsertReviews: async (reviews: Record<string, string>): Promise<Record<string, string>> => {
+    return fetchAPI<Record<string, string>>("/api/invoice-reconciliation?action=bulk-upsert-reviews", {
+      method: "POST",
+      body: JSON.stringify({ reviews }),
+    });
+  },
+
+  resetLines: async (): Promise<{ deleted: number }> => {
+    return fetchAPI<{ deleted: number }>("/api/invoice-reconciliation?action=lines", {
+      method: "DELETE",
+    });
+  },
+};
+
 // ============ Flowbin Batches ============
 export const flowbinsAPI = {
   getAll: () => fetchAPI<any[]>("/api/flowbins"),

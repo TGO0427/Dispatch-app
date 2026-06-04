@@ -219,3 +219,44 @@ model FlowbinBatch {
   @@index([jobId])
   @@map("flowbin_batches")
 }
+
+model InvoiceReconciliationLine {
+  id              String   @id @default(uuid())
+  rowKey          String   @unique @db.VarChar(500)
+  aso             String   @db.VarChar(255)
+  invoiceNumber   String?  @db.VarChar(255)
+  invoiceDate     String?  @db.VarChar(50)
+  deliveryDueDate String?  @db.VarChar(50)
+  customer        String?  @db.VarChar(1000)
+  invoiceQty      Float    @default(0)
+  hasInvoiceQty   Boolean  @default(false)
+  invoiceValue    Float?
+  product         String?  @db.Text
+  createdBy       String?  @db.VarChar(255)
+  deliveryStatus  String?  @db.VarChar(255)
+  status          String?  @db.VarChar(255)
+  postedDate      String?  @db.VarChar(50)
+  createdById     String?  @db.VarChar(255)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([aso])
+  @@index([invoiceNumber])
+  @@index([invoiceDate])
+  @@index([deliveryDueDate])
+  @@index([createdAt])
+  @@map("invoice_reconciliation_lines")
+}
+
+model InvoiceReconciliationReview {
+  id          String   @id @default(uuid())
+  aso         String   @unique @db.VarChar(255)
+  status      String   @db.VarChar(100)
+  updatedById String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([updatedAt])
+  @@map("invoice_reconciliation_reviews")
+}

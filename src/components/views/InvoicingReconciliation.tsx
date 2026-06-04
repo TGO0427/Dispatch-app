@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, PackageCheck, Search, Upload, XCircle } from "lucide-react";
 import * as XLSX from "../../lib/spreadsheet";
 import { useDispatch } from "../../context/DispatchContext";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { formatNumber, formatPercent } from "../../utils/format";
 import { makeNewJob, type Job, type ServiceType } from "../../types";
+import { invoiceReconciliationAPI } from "../../services/api";
 
 type InvoiceStatus = "matched" | "not-invoiced" | "not-loaded" | "loaded-not-delivered" | "qty-mismatch";
 type ReviewStatus = "open" | "needs-order-load" | "needs-dispatch-review" | "needs-finance-review" | "historical-invoice" | "not-dispatch-related" | "resolved" | "ignored";
@@ -259,6 +260,13 @@ const saveInvoiceLines = (lines: InvoiceLine[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
 };
 
+const saveInvoiceLinesRemote = async (lines: InvoiceLine[]) => {
+  const chunkSize = 500;
+  for (let i = 0; i < lines.length; i += chunkSize) {
+    await invoiceReconciliationAPI.bulkUpsertLines(lines.slice(i, i + chunkSize));
+  }
+};
+
 const statusLabel: Record<InvoiceStatus, string> = {
   matched: "Delivered & Invoiced",
   "not-invoiced": "Delivered Not Invoiced",
@@ -335,6 +343,10 @@ const loadReviewState = (): Record<string, ReviewStatus> => {
 
 const saveReviewState = (state: Record<string, ReviewStatus>) => {
   localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(state));
+};
+
+const saveReviewStateRemote = async (state: Record<string, ReviewStatus>) => {
+  await invoiceReconciliationAPI.bulkUpsertReviews(state);
 };
 
 const buildLoadedSummaries = (jobs: Job[]) => {
@@ -511,6 +523,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus | "all">("all");
   const [isImporting, setIsImporting] = useState(false);
   const [isConfirmingNotLoaded, setIsConfirmingNotLoaded] = useState(false);
+  const [isLoadingLedger, setIsLoadingLedger] = useState(true);
+  const [remoteSyncError, setRemoteSyncError] = useState("");
   const [viewMode, setViewMode] = useState<LedgerViewMode>("all");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
@@ -523,6 +537,48 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     qty: "0",
     notes: "",
   });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRemoteLedger = async () => {
+      setIsLoadingLedger(true);
+      try {
+        const remote = await invoiceReconciliationAPI.getAll();
+        if (cancelled) return;
+
+        if (remote.lines.length > 0) {
+          setInvoiceLines(remote.lines);
+          saveInvoiceLines(remote.lines);
+        } else if (invoiceLines.length > 0) {
+          await saveInvoiceLinesRemote(invoiceLines);
+        }
+
+        const remoteReviews = remote.reviews as Record<string, ReviewStatus>;
+        if (Object.keys(remoteReviews).length > 0) {
+          setReviewState(remoteReviews);
+          saveReviewState(remoteReviews);
+        } else if (Object.keys(reviewState).length > 0) {
+          await saveReviewStateRemote(reviewState);
+        }
+
+        setRemoteSyncError("");
+      } catch (error) {
+        console.warn("Invoice reconciliation database sync unavailable, using local cache", error);
+        if (!cancelled) setRemoteSyncError("Database sync unavailable. Using this browser's saved invoice reconciliation data.");
+      } finally {
+        if (!cancelled) setIsLoadingLedger(false);
+      }
+    };
+
+    void loadRemoteLedger();
+
+    return () => {
+      cancelled = true;
+    };
+    // Run once on mount to hydrate from database or seed old local cache.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const ledgerPeriods = useMemo(() => {
     const months = new Set<string>();
@@ -720,7 +776,19 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       const merged = mergeInvoiceLedger(invoiceLines, lines);
       setInvoiceLines(merged.lines);
       saveInvoiceLines(merged.lines);
-      showSuccess(`Added ${merged.added} new invoice row${merged.added === 1 ? "" : "s"}. ${merged.skipped} already existed.`);
+      if (merged.added > 0) {
+        try {
+          await saveInvoiceLinesRemote(merged.lines);
+          setRemoteSyncError("");
+          showSuccess(`Added ${merged.added} new invoice row${merged.added === 1 ? "" : "s"} to the database. ${merged.skipped} already existed.`);
+        } catch (syncError) {
+          console.warn("Failed to sync invoice ledger", syncError);
+          setRemoteSyncError("Database sync failed. Changes are saved in this browser and will retry on the next upload.");
+          showWarning(`Added ${merged.added} locally. Database sync failed and will need retry.`);
+        }
+      } else {
+        showSuccess(`No new invoice rows added. ${merged.skipped} already existed.`);
+      }
     } catch (error) {
       console.error("Failed to import invoice spreadsheet", error);
       showError("Could not import the invoice spreadsheet.");
@@ -745,6 +813,15 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       confirmText: "Reset Ledger",
     });
     if (!proceed) return;
+    try {
+      await invoiceReconciliationAPI.resetLines();
+      setRemoteSyncError("");
+    } catch (error) {
+      console.warn("Failed to reset invoice ledger in database", error);
+      setRemoteSyncError("Database reset failed. Invoice ledger was not cleared.");
+      showWarning("Invoice ledger could not be reset in the database.");
+      return;
+    }
     setInvoiceLines([]);
     saveInvoiceLines([]);
     setSearchQuery("");
@@ -760,12 +837,24 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     setReviewState(next);
     saveReviewState(next);
     setDirtyReviewCount((count) => count + 1);
+    void saveReviewStateRemote({ [aso]: status }).catch((error) => {
+      console.warn("Failed to sync invoice review status", error);
+      setRemoteSyncError("Database sync failed. Review changes are saved in this browser and can be retried with Save All Reviews.");
+    });
   };
 
-  const saveAllReviews = () => {
+  const saveAllReviews = async () => {
     saveReviewState(reviewState);
-    setDirtyReviewCount(0);
-    showSuccess("Review statuses saved.");
+    try {
+      await saveReviewStateRemote(reviewState);
+      setDirtyReviewCount(0);
+      setRemoteSyncError("");
+      showSuccess("Review statuses saved.");
+    } catch (error) {
+      console.warn("Failed to sync invoice review statuses", error);
+      setRemoteSyncError("Database sync failed. Review statuses are saved in this browser and can be retried.");
+      showWarning("Review statuses saved in this browser, but database sync failed.");
+    }
   };
 
   const copyAso = async (aso: string) => {
@@ -907,7 +996,14 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       if (confirmed > 0) {
         setReviewState(nextReviewState);
         saveReviewState(nextReviewState);
-        setDirtyReviewCount(0);
+        try {
+          await saveReviewStateRemote(nextReviewState);
+          setDirtyReviewCount(0);
+          setRemoteSyncError("");
+        } catch (syncError) {
+          console.warn("Failed to sync invoice review statuses", syncError);
+          setRemoteSyncError("Database sync failed. Review changes are saved in this browser and can be retried with Save All Reviews.");
+        }
       }
 
       if (confirmed > 0 && skipped === 0) {
@@ -1021,6 +1117,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Invoicing Reconciliation</h1>
           <p className="text-sm text-gray-500">Invoice uploads are saved as a ledger, then viewed by all history, month, or week.</p>
+          {remoteSyncError && <p className="mt-1 text-xs font-semibold text-amber-700">{remoteSyncError}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
           <input
@@ -1081,6 +1178,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
               <p className="text-sm font-semibold text-gray-900">{activeViewLabel}</p>
               <p className="text-xs text-gray-500">
                 {formatNumber(invoiceLinesInView.length)} rows in view from {formatNumber(invoiceLines.length)} saved rows.
+                {isLoadingLedger ? " Loading database ledger..." : ""}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -1219,7 +1317,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
-              <Button variant="outline" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={saveAllReviews}>
+              <Button variant="outline" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => void saveAllReviews()}>
                 <CheckCircle2 className="h-4 w-4" />
                 Save All Reviews
                 {dirtyReviewCount > 0 && (

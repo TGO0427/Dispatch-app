@@ -9,7 +9,7 @@ import { formatNumber, formatPercent } from "../../utils/format";
 import type { Job } from "../../types";
 
 type InvoiceStatus = "matched" | "not-invoiced" | "not-loaded" | "loaded-not-delivered" | "qty-mismatch";
-type ReviewStatus = "open" | "needs-order-load" | "needs-dispatch-review" | "needs-finance-review" | "not-dispatch-related" | "resolved" | "ignored";
+type ReviewStatus = "open" | "needs-order-load" | "needs-dispatch-review" | "needs-finance-review" | "historical-invoice" | "not-dispatch-related" | "resolved" | "ignored";
 type LedgerViewMode = "all" | "month" | "week";
 
 interface InvoiceLine {
@@ -256,6 +256,7 @@ const reviewLabel: Record<ReviewStatus, string> = {
   "needs-order-load": "Needs Order Load",
   "needs-dispatch-review": "Needs Dispatch Review",
   "needs-finance-review": "Needs Finance Review",
+  "historical-invoice": "Invoiced Before System Start",
   "not-dispatch-related": "Not Dispatch Related",
   resolved: "Resolved",
   ignored: "Ignored",
@@ -266,6 +267,7 @@ const reviewTone: Record<ReviewStatus, string> = {
   "needs-order-load": "border-amber-200 bg-amber-50 text-amber-800",
   "needs-dispatch-review": "border-yellow-200 bg-yellow-50 text-yellow-800",
   "needs-finance-review": "border-red-200 bg-red-50 text-red-700",
+  "historical-invoice": "border-blue-200 bg-blue-50 text-blue-700",
   "not-dispatch-related": "border-slate-200 bg-slate-50 text-slate-700",
   resolved: "border-emerald-200 bg-emerald-50 text-emerald-700",
   ignored: "border-gray-200 bg-gray-100 text-gray-600",
@@ -276,6 +278,7 @@ const reviewOptions: ReviewStatus[] = [
   "needs-order-load",
   "needs-dispatch-review",
   "needs-finance-review",
+  "historical-invoice",
   "not-dispatch-related",
   "resolved",
   "ignored",
@@ -573,7 +576,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
 
   const stats = useMemo(() => {
     const bucket = (status: InvoiceStatus) => reconciliationRows.filter((row) => row.status === status);
-    const notInvoiced = bucket("not-invoiced");
+    const historicalInvoices = reconciliationRows.filter((row) => reviewState[row.aso] === "historical-invoice");
+    const notInvoiced = bucket("not-invoiced").filter((row) => reviewState[row.aso] !== "historical-invoice");
     const mismatch = bucket("qty-mismatch");
     const invoiceTimingRows = invoiceLinesInView
       .map((line) => isOnTimeInvoice(line.invoiceDate, line.deliveryDueDate))
@@ -590,12 +594,13 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       notLoaded: bucket("not-loaded").length,
       loadedNotDelivered: bucket("loaded-not-delivered").length,
       mismatch: mismatch.length,
+      historicalInvoices: historicalInvoices.length,
       notInvoicedQty: notInvoiced.reduce((sum, row) => sum + row.deliveredQty, 0),
       varianceQty: mismatch.reduce((sum, row) => sum + Math.abs(row.varianceQty), 0),
       openExceptions: reconciliationRows.filter((row) => {
         if (row.status === "matched") return false;
         const reviewStatus = reviewState[row.aso] || getDefaultReviewStatus(row.status);
-        return reviewStatus !== "resolved" && reviewStatus !== "ignored" && reviewStatus !== "not-dispatch-related";
+        return reviewStatus !== "resolved" && reviewStatus !== "ignored" && reviewStatus !== "not-dispatch-related" && reviewStatus !== "historical-invoice";
       }).length,
     };
   }, [deliveredByAso.size, invoiceLinesInView, reconciliationRows, reviewState]);
@@ -765,6 +770,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     { label: "On-Time Invoice", value: formatPercent(stats.onTimeInvoicePercent, 1), sub: `${formatNumber(stats.onTimeInvoices)} of ${formatNumber(stats.invoiceTimingRows)}`, tone: "border-l-cyan-500", status: "all" as const },
     { label: "Open Exceptions", value: stats.openExceptions, tone: "border-l-slate-500", status: "all" as const },
     { label: "Delivered Not Invoiced", value: stats.notInvoiced, sub: `${formatNumber(stats.notInvoicedQty)} qty`, tone: "border-l-red-500", status: "not-invoiced" as const },
+    { label: "Historical Invoices", value: stats.historicalInvoices, tone: "border-l-blue-500", status: "not-invoiced" as const },
     { label: "Invoiced Not Loaded", value: stats.notLoaded, tone: "border-l-amber-500", status: "not-loaded" as const },
     { label: "Loaded Not Delivered", value: stats.loadedNotDelivered, tone: "border-l-yellow-500", status: "loaded-not-delivered" as const },
     { label: "Qty Mismatch", value: stats.mismatch, sub: `${formatNumber(stats.varianceQty)} variance`, tone: "border-l-orange-500", status: "qty-mismatch" as const },
@@ -869,7 +875,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-9">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-10">
         {statCards.map((card) => (
           <button
             key={card.label}

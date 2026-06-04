@@ -274,3 +274,31 @@ model InvoiceReconciliationTimingNote {
   @@index([updatedAt])
   @@map("invoice_reconciliation_timing_notes")
 }
+
+model InvoiceReconciliationUpload {
+  id          String   @id @default(uuid())
+  filename    String   @db.VarChar(1000)
+  uploadedAt  DateTime @default(now())
+  rowsAdded   Int      @default(0)
+  rowsSkipped Int      @default(0)
+  updatedById String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+
+  @@index([uploadedAt])
+  @@map("invoice_reconciliation_uploads")
+}
+
+model InvoiceReconciliationAudit {
+  id         String   @id @default(uuid())
+  entityType String   @db.VarChar(100)
+  entityKey  String   @db.VarChar(500)
+  action     String   @db.VarChar(255)
+  fromValue  String?  @db.Text
+  toValue    String?  @db.Text
+  userId     String?  @db.VarChar(255)
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityKey])
+  @@index([createdAt])
+  @@map("invoice_reconciliation_audits")
+}

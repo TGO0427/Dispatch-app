@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, PackageCheck, Search, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, PackageCheck, Search, ShieldCheck, Upload, XCircle } from "lucide-react";
 import * as XLSX from "../../lib/spreadsheet";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
@@ -153,6 +153,17 @@ interface InvoiceUploadMeta {
   uploadedAt: string;
   rowsAdded: number;
   rowsSkipped: number;
+}
+
+interface ReconciliationAudit {
+  id: string;
+  entityType: string;
+  entityKey: string;
+  action: string;
+  fromValue?: string;
+  toValue?: string;
+  userId?: string;
+  createdAt: string;
 }
 
 const normalizeAso = (value: unknown) => String(value ?? "").trim();
@@ -656,6 +667,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [reviewState, setReviewState] = useState<Record<string, ReviewStatus>>(() => loadReviewState());
   const [timingNotes, setTimingNotes] = useState<Record<string, string>>(() => loadTimingNotes());
   const [uploadMeta, setUploadMeta] = useState<InvoiceUploadMeta | null>(() => loadUploadMeta());
+  const [auditHistory, setAuditHistory] = useState<ReconciliationAudit[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus | "all">("all");
   const [lateInvoiceFilter, setLateInvoiceFilter] = useState<LateInvoiceFilter>("all");
@@ -707,6 +719,12 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         } else if (Object.keys(timingNotes).length > 0) {
           await saveTimingNotesRemote(timingNotes);
         }
+
+        if (remote.uploadMeta) {
+          setUploadMeta(remote.uploadMeta);
+          saveUploadMeta(remote.uploadMeta);
+        }
+        setAuditHistory(remote.audits || []);
 
         setRemoteSyncError("");
       } catch (error) {
@@ -845,6 +863,31 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     });
   }, [activeStatus, reconciliationRows, reviewState, searchQuery]);
 
+  const dataHealth = useMemo(() => {
+    const invoiceNumbers = new Set<string>();
+    let duplicateInvoices = 0;
+    let missingAso = 0;
+    let missingDocumentDate = 0;
+    let missingDeliveryDueDate = 0;
+
+    invoiceLinesInView.forEach((line) => {
+      const invoiceNumber = normalizeAso(line.invoiceNumber).toLowerCase();
+      if (!normalizeAso(line.aso)) missingAso += 1;
+      if (!normalizeDate(line.invoiceDate)) missingDocumentDate += 1;
+      if (!normalizeDate(line.deliveryDueDate)) missingDeliveryDueDate += 1;
+      if (!invoiceNumber) return;
+      if (invoiceNumbers.has(invoiceNumber)) duplicateInvoices += 1;
+      invoiceNumbers.add(invoiceNumber);
+    });
+
+    return [
+      { label: "Duplicate invoices", value: duplicateInvoices, tone: duplicateInvoices ? "text-amber-700" : "text-emerald-700" },
+      { label: "Missing ASO", value: missingAso, tone: missingAso ? "text-red-700" : "text-emerald-700" },
+      { label: "Missing document date", value: missingDocumentDate, tone: missingDocumentDate ? "text-amber-700" : "text-emerald-700" },
+      { label: "Missing delivery / due date", value: missingDeliveryDueDate, tone: missingDeliveryDueDate ? "text-amber-700" : "text-emerald-700" },
+    ];
+  }, [invoiceLinesInView]);
+
   const stats = useMemo(() => {
     const bucket = (status: InvoiceStatus) => reconciliationRows.filter((row) => row.status === status);
     const historicalInvoices = reconciliationRows.filter((row) => reviewState[row.aso] === "historical-invoice");
@@ -939,9 +982,22 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   }, [lateInvoiceReviews, timingNotes]);
 
   const updateTimingNote = (invoiceKey: string, note: string) => {
+    const previous = timingNotes[invoiceKey] || "";
     const next = { ...timingNotes, [invoiceKey]: note };
     setTimingNotes(next);
     saveTimingNotes(next);
+    setAuditHistory((history) => [
+      {
+        id: `local-${invoiceKey}-${Date.now()}`,
+        entityType: "late-invoice-reason",
+        entityKey: invoiceKey,
+        action: "Late invoice reason updated",
+        fromValue: previous,
+        toValue: note,
+        createdAt: new Date().toISOString(),
+      },
+      ...history,
+    ]);
     void saveTimingNotesRemote({ [invoiceKey]: note }).catch((error) => {
       console.warn("Failed to sync invoice timing note", error);
       setRemoteSyncError("Database sync failed. Late invoice notes are saved in this browser and will retry when edited again.");
@@ -997,6 +1053,11 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       if (merged.added > 0) {
         try {
           await saveInvoiceLinesRemote(merged.lines);
+          const savedUpload = await invoiceReconciliationAPI.recordUpload(nextUploadMeta);
+          if (savedUpload) {
+            setUploadMeta(savedUpload);
+            saveUploadMeta(savedUpload);
+          }
           setRemoteSyncError("");
           showSuccess(`Added ${merged.added} new invoice row${merged.added === 1 ? "" : "s"} to the database. ${merged.skipped} already existed.`);
         } catch (syncError) {
@@ -1005,6 +1066,15 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           showWarning(`Added ${merged.added} locally. Database sync failed and will need retry.`);
         }
       } else {
+        void invoiceReconciliationAPI.recordUpload(nextUploadMeta).then((savedUpload) => {
+          if (savedUpload) {
+            setUploadMeta(savedUpload);
+            saveUploadMeta(savedUpload);
+          }
+        }).catch((syncError) => {
+          console.warn("Failed to record invoice upload", syncError);
+          setRemoteSyncError("Database sync failed. Upload history is saved in this browser and will retry on the next upload.");
+        });
         showSuccess(`No new invoice rows added. ${merged.skipped} already existed.`);
       }
     } catch (error) {
@@ -1313,6 +1383,49 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     await XLSX.writeFile(workbook, "invoicing_reconciliation_report.xlsx");
   };
 
+  const exportExceptions = async () => {
+    const exceptionRows = reconciliationRows.filter((row) => row.status !== "matched");
+    const lateWithoutReason = lateInvoiceReviews.filter((invoice) => !timingNotes[invoice.invoiceKey]);
+    if (exceptionRows.length === 0 && lateWithoutReason.length === 0) {
+      showWarning("No open reconciliation exceptions found in the current view.");
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+    const appendRows = (sheetName: string, rows: Record<string, unknown>[]) => {
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), sheetName);
+    };
+    const rowToExport = (row: ReconciliationRow) => ({
+      ASO: row.aso,
+      Customer: row.customer,
+      Status: statusLabel[row.status],
+      Owner: getExceptionOwner(row.status),
+      "Review Status": reviewLabel[reviewState[row.aso] || getDefaultReviewStatus(row.status)],
+      "Delivered Qty": row.deliveredQty,
+      Pallets: row.pallets,
+      "Delivered Date": row.deliveredAt,
+      "Invoice Numbers": row.invoiceNumbers,
+      "Document Date": row.invoiceDates,
+      "Delivery / Due Date": row.deliveryDueDates,
+      Products: row.products,
+    });
+
+    appendRows("DeliveredNotInvoiced", exceptionRows.filter((row) => row.status === "not-invoiced").map(rowToExport));
+    appendRows("InvoicedNotLoaded", exceptionRows.filter((row) => row.status === "not-loaded").map(rowToExport));
+    appendRows("LoadedNotDelivered", exceptionRows.filter((row) => row.status === "loaded-not-delivered").map(rowToExport));
+    appendRows("QtyMismatch", exceptionRows.filter((row) => row.status === "qty-mismatch").map(rowToExport));
+    appendRows("LateNeedsReason", lateWithoutReason.map((invoice) => ({
+      Invoice: invoice.invoiceNumber,
+      ASO: invoice.aso,
+      Customer: invoice.customer,
+      "Created By": invoice.createdBy,
+      "Document Date": invoice.invoiceDate,
+      "Delivery / Due Date": invoice.deliveryDueDate,
+      "Days Late": invoice.daysLate,
+    })));
+    await XLSX.writeFile(workbook, "invoicing_reconciliation_exceptions.xlsx");
+  };
+
   const activeViewLabel =
     viewMode === "month" && activeMonth ? `Month ${activeMonth}` :
     viewMode === "week" && activeWeek ? `Week from ${activeWeek}` :
@@ -1379,6 +1492,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           <Button variant="outline" className="gap-2" onClick={exportReport} disabled={reconciliationRows.length === 0}>
             <FileText className="h-4 w-4" />
             Export Report
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={exportExceptions} disabled={reconciliationRows.length === 0 && lateInvoiceReviews.length === 0}>
+            <Download className="h-4 w-4" />
+            Export Exceptions
           </Button>
           <Button variant="outline" className="gap-2" onClick={clearInvoices} disabled={invoiceLines.length === 0}>
             <XCircle className="h-4 w-4" />
@@ -1481,6 +1598,25 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           );
         })}
       </div>
+
+      <Card className="overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <p className="text-sm font-bold text-gray-900">Data Health</p>
+              <p className="text-xs text-gray-500">Quick checks on the invoice documents in the selected ledger view.</p>
+            </div>
+            <div className="grid flex-1 grid-cols-2 gap-2 md:grid-cols-4">
+              {dataHealth.map((item) => (
+                <div key={item.label} className="rounded-card border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{item.label}</p>
+                  <p className={`mt-1 text-xl font-bold ${item.tone}`}>{formatNumber(item.value)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {creatorWorkload.length > 0 && (
         <Card className="overflow-hidden">
@@ -1616,6 +1752,32 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   ))}
                 </tbody>
               </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {auditHistory.length > 0 && (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-gray-100 p-5">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <ShieldCheck className="h-5 w-5 text-emerald-600" />
+              Reconciliation Audit History
+            </CardTitle>
+            <p className="text-sm text-gray-500">Recent database-tracked changes to late invoice reasons and ledger actions.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-gray-100">
+              {auditHistory.slice(0, 8).map((audit) => (
+                <div key={audit.id} className="grid gap-2 px-5 py-3 text-sm md:grid-cols-[180px_1fr_180px]">
+                  <p className="font-semibold text-gray-800">{audit.action}</p>
+                  <p className="text-gray-600">
+                    {audit.entityKey.replace(/^invoice:/, "")}
+                    {audit.toValue ? ` - ${audit.toValue}` : ""}
+                  </p>
+                  <p className="text-xs font-semibold text-gray-400 md:text-right">{normalizeDate(audit.createdAt)}</p>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

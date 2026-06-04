@@ -77,6 +77,24 @@ const formatNoteMap = (notes: { invoiceKey: string; note: string }[]) => (
   }, {})
 );
 
+const formatUpload = (upload: Record<string, unknown> | null) => upload ? ({
+  filename: upload.filename || "",
+  uploadedAt: upload.uploadedAt instanceof Date ? upload.uploadedAt.toISOString() : upload.uploadedAt || "",
+  rowsAdded: upload.rowsAdded || 0,
+  rowsSkipped: upload.rowsSkipped || 0,
+}) : null;
+
+const formatAudit = (audit: Record<string, unknown>) => ({
+  id: audit.id,
+  entityType: audit.entityType,
+  entityKey: audit.entityKey,
+  action: audit.action,
+  fromValue: audit.fromValue || "",
+  toValue: audit.toValue || "",
+  userId: audit.userId || "",
+  createdAt: audit.createdAt instanceof Date ? audit.createdAt.toISOString() : audit.createdAt || "",
+});
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -89,10 +107,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "GET") {
     try {
-      const [lines, reviews, notes] = await Promise.all([
+      const [lines, reviews, notes, latestUpload, audits] = await Promise.all([
         prisma.invoiceReconciliationLine.findMany({ orderBy: { createdAt: "asc" } }),
         prisma.invoiceReconciliationReview.findMany(),
         prisma.invoiceReconciliationTimingNote.findMany(),
+        prisma.invoiceReconciliationUpload.findFirst({ orderBy: { uploadedAt: "desc" } }),
+        prisma.invoiceReconciliationAudit.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
       ]);
       return res.json({
         success: true,
@@ -100,6 +120,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           lines: lines.map(formatLine),
           reviews: formatReviewMap(reviews),
           timingNotes: formatNoteMap(notes),
+          uploadMeta: formatUpload(latestUpload),
+          audits: audits.map(formatAudit),
         },
       });
     } catch (error) {
@@ -170,8 +192,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const entries = Object.entries(notes as Record<string, unknown>).filter(([invoiceKey]) => normalize(invoiceKey));
         if (entries.length > MAX_BATCH_SIZE) return res.status(400).json({ success: false, error: `Batch size cannot exceed ${MAX_BATCH_SIZE}` });
 
-        const result = await prisma.$transaction(
-          entries.map(([invoiceKey, note]) => prisma.invoiceReconciliationTimingNote.upsert({
+        const existingNotes = await prisma.invoiceReconciliationTimingNote.findMany({
+          where: { invoiceKey: { in: entries.map(([invoiceKey]) => normalize(invoiceKey)) } },
+        });
+        const existingByKey = new Map(existingNotes.map((note) => [note.invoiceKey, note.note]));
+        const result = await prisma.$transaction([
+          ...entries.map(([invoiceKey, note]) => prisma.invoiceReconciliationTimingNote.upsert({
             where: { invoiceKey: normalize(invoiceKey) },
             create: {
               invoiceKey: normalize(invoiceKey),
@@ -184,11 +210,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               updatedById: user.id,
             },
           })),
-        );
-        return res.status(201).json({ success: true, data: formatNoteMap(result) });
+          ...entries
+            .filter(([invoiceKey, note]) => existingByKey.get(normalize(invoiceKey)) !== normalize(note))
+            .map(([invoiceKey, note]) => prisma.invoiceReconciliationAudit.create({
+              data: {
+                entityType: "late-invoice-reason",
+                entityKey: normalize(invoiceKey),
+                action: "Late invoice reason updated",
+                fromValue: existingByKey.get(normalize(invoiceKey)) || null,
+                toValue: normalize(note) || null,
+                userId: user.id,
+              },
+            })),
+        ]);
+        const noteResult = result.filter((item) => "invoiceKey" in item) as { invoiceKey: string; note: string }[];
+        return res.status(201).json({ success: true, data: formatNoteMap(noteResult) });
       } catch (error) {
         console.error("Error saving invoice timing notes:", error);
         return res.status(500).json({ success: false, error: "Failed to save invoice timing notes" });
+      }
+    }
+
+    if (action === "record-upload") {
+      try {
+        const filename = normalize(req.body?.filename);
+        if (!filename) return res.status(400).json({ success: false, error: "Filename is required" });
+        const upload = await prisma.invoiceReconciliationUpload.create({
+          data: {
+            filename,
+            uploadedAt: req.body?.uploadedAt ? new Date(String(req.body.uploadedAt)) : new Date(),
+            rowsAdded: Number.isFinite(Number(req.body?.rowsAdded)) ? Number(req.body.rowsAdded) : 0,
+            rowsSkipped: Number.isFinite(Number(req.body?.rowsSkipped)) ? Number(req.body.rowsSkipped) : 0,
+            updatedById: user.id,
+          },
+        });
+        return res.status(201).json({ success: true, data: formatUpload(upload) });
+      } catch (error) {
+        console.error("Error recording invoice reconciliation upload:", error);
+        return res.status(500).json({ success: false, error: "Failed to record invoice upload" });
       }
     }
 
@@ -200,7 +259,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action !== "lines") return res.status(400).json({ success: false, error: "Unsupported action" });
 
     try {
-      const deleted = await prisma.invoiceReconciliationLine.deleteMany();
+      const [deleted] = await prisma.$transaction([
+        prisma.invoiceReconciliationLine.deleteMany(),
+        prisma.invoiceReconciliationUpload.deleteMany(),
+        prisma.invoiceReconciliationAudit.create({
+          data: {
+            entityType: "invoice-ledger",
+            entityKey: "all",
+            action: "Invoice ledger reset",
+            userId: user.id,
+          },
+        }),
+      ]);
       return res.json({ success: true, data: { deleted: deleted.count } });
     } catch (error) {
       console.error("Error resetting invoice ledger:", error);

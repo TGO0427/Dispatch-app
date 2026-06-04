@@ -579,7 +579,7 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
     .map((shipment, index) => ({ ...shipment, ref: shipment.ref || `AFX-${Date.now()}-${index}` }));
 };
 
-type ExportQueueFilter = "all" | "open" | "assigned" | "in-transit" | "delivered" | "this-week" | "missing-docs" | "risks" | "approved" | "pending-approval" | "archived";
+type ExportQueueFilter = "all" | "open" | "assigned" | "in-transit" | "delivered" | "this-week" | "ready" | "missing-docs" | "risks" | "approved" | "pending-approval" | "archived";
 type ExportEtaFilter = "all" | "this-week" | "next-30" | "overdue" | "no-date";
 
 interface AfricaExportsViewProps {
@@ -828,6 +828,14 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const missingDocsShipments = useMemo(() => {
     return activeShipments.filter((item) => item.status !== "delivered" && getMissingRequiredDocs(item).length > 0);
   }, [activeShipments, countryRules, allChecklistItems, baseRequiredIds]);
+  const readyShipments = useMemo(() => {
+    return activeShipments.filter((item) =>
+      item.status !== "delivered" &&
+      getMissingRequiredDocs(item).length === 0 &&
+      Boolean(item.lastCheckedAt) &&
+      Boolean(item.assignedTransporterId),
+    );
+  }, [activeShipments, countryRules, allChecklistItems, baseRequiredIds]);
   const approvedShipments = useMemo(() => activeShipments.filter((item) => Boolean(item.dispatchApprovedAt)), [activeShipments]);
   const pendingApprovalShipments = useMemo(() => activeShipments.filter((item) => item.status !== "delivered" && !item.dispatchApprovedAt), [activeShipments]);
   const exportCountries = useMemo(() => Array.from(new Set(trackedShipments.map((item) => item.destinationCountry).filter(Boolean))).sort(), [trackedShipments]);
@@ -839,8 +847,9 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     inTransit: activeShipments.filter((item) => item.status === "in-transit").length,
     delivered: activeShipments.filter((item) => item.status === "delivered").length,
     thisWeek: activeShipments.filter((item) => isEtaThisWeek(item.eta)).length,
+    ready: readyShipments.length,
     missingDocs: missingDocsShipments.length,
-  }), [activeShipments, missingDocsShipments.length]);
+  }), [activeShipments, missingDocsShipments.length, readyShipments.length]);
 
   const filteredShipments = useMemo(() => {
     const baseShipments =
@@ -849,6 +858,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       queueFilter === "in-transit" ? activeShipments.filter((item) => item.status === "in-transit") :
       queueFilter === "delivered" ? activeShipments.filter((item) => item.status === "delivered") :
       queueFilter === "this-week" ? activeShipments.filter((item) => isEtaThisWeek(item.eta)) :
+      queueFilter === "ready" ? readyShipments :
       queueFilter === "missing-docs" ? missingDocsShipments :
       queueFilter === "risks" ? riskyShipments :
       queueFilter === "approved" ? approvedShipments :
@@ -866,7 +876,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         .toLowerCase()
         .includes(query)),
     );
-  }, [activeShipments, approvedShipments, archivedShipments, countryFilter, etaFilter, missingDocsShipments, pendingApprovalShipments, queueFilter, riskyShipments, searchQuery, statusFilter, transporterFilter]);
+  }, [activeShipments, approvedShipments, archivedShipments, countryFilter, etaFilter, missingDocsShipments, pendingApprovalShipments, queueFilter, readyShipments, riskyShipments, searchQuery, statusFilter, transporterFilter]);
 
   const completion = getCompletion(shipment);
   const requiredItems = getRequiredItemsForShipment(shipment);
@@ -992,6 +1002,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     queueFilter === "in-transit" ? "No exports in transit" :
     queueFilter === "delivered" ? "No delivered exports" :
     queueFilter === "this-week" ? "No exports this week" :
+    queueFilter === "ready" ? "No shipments are ready to dispatch" :
     queueFilter === "missing-docs" ? "No shipments are missing required documents" :
     queueFilter === "risks" ? "No export risks found" :
     queueFilter === "approved" ? "No approved exports" :
@@ -1005,6 +1016,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     queueFilter === "in-transit" ? "In-transit Africa export shipments will appear here." :
     queueFilter === "delivered" ? "Delivered Africa export shipments will appear here." :
     queueFilter === "this-week" ? "Shipments with an ETA in the current week will appear here." :
+    queueFilter === "ready" ? "Shipments with required docs, transporter, and agent check will appear here." :
     queueFilter === "missing-docs" ? "Shipments with outstanding required documents will appear here." :
     queueFilter === "risks" ? "Required documents and agent checks are clear for this filter." :
     queueFilter === "approved" ? "Approved dispatches will appear here." :
@@ -1080,6 +1092,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   };
 
   const updateDocumentDetail = (id: string, field: "reference" | "expiry" | "notes", value: string) => {
+    const item = CHECKLIST_GROUPS.flatMap((group) => group.items).find((doc) => doc.id === id);
     updateShipment({
       documentDetails: {
         ...(shipment.documentDetails || {}),
@@ -1090,6 +1103,9 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
           [field]: value,
         },
       },
+    }, {
+      action: "Document detail updated",
+      detail: `${item?.label || id}: ${field} updated`,
     });
   };
 
@@ -1449,13 +1465,14 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
       <Card className="overflow-hidden">
         <CardContent className="p-3">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
             {[
               { id: "all" as ExportQueueFilter, label: "All Exports", count: tabCounts.all, dot: "bg-gray-400" },
               { id: "open" as ExportQueueFilter, label: "Open", count: tabCounts.open, dot: "bg-yellow-500" },
               { id: "assigned" as ExportQueueFilter, label: "Assigned", count: tabCounts.assigned, dot: "bg-blue-500" },
               { id: "in-transit" as ExportQueueFilter, label: "In Transit", count: tabCounts.inTransit, dot: "bg-indigo-500" },
               { id: "delivered" as ExportQueueFilter, label: "Delivered", count: tabCounts.delivered, dot: "bg-emerald-500" },
+              { id: "ready" as ExportQueueFilter, label: "Ready", count: tabCounts.ready, dot: "bg-green-500" },
               { id: "missing-docs" as ExportQueueFilter, label: "Missing Docs", count: tabCounts.missingDocs, dot: "bg-red-500" },
               { id: "this-week" as ExportQueueFilter, label: "This Week", count: tabCounts.thisWeek, dot: "bg-purple-500" },
             ].map((tab) => (
@@ -1658,6 +1675,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
               <div className="mb-3 flex flex-wrap gap-1 rounded-card border border-gray-200 bg-gray-50 p-1">
                 {[
                   { id: "all" as ExportQueueFilter, label: "All", count: activeShipments.length, activeClass: "bg-white text-gray-900" },
+                  { id: "ready" as ExportQueueFilter, label: "Ready", count: readyShipments.length, activeClass: "bg-green-50 text-green-700" },
                   { id: "missing-docs" as ExportQueueFilter, label: "Docs", count: missingDocsShipments.length, activeClass: "bg-red-50 text-red-700" },
                   { id: "risks" as ExportQueueFilter, label: "Risks", count: riskyShipments.length, activeClass: "bg-red-50 text-red-700" },
                   { id: "approved" as ExportQueueFilter, label: "Approved", count: approvedShipments.length, activeClass: "bg-emerald-50 text-emerald-700" },

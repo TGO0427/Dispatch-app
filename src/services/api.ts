@@ -310,9 +310,27 @@ export interface InvoiceReconciliationLine {
   postedDate?: string;
 }
 
+export interface InvoiceReconciliationUploadMeta {
+  filename: string;
+  uploadedAt: string;
+  rowsAdded: number;
+  rowsSkipped: number;
+}
+
+export interface InvoiceReconciliationAudit {
+  id: string;
+  entityType: string;
+  entityKey: string;
+  action: string;
+  fromValue?: string;
+  toValue?: string;
+  userId?: string;
+  createdAt: string;
+}
+
 export const invoiceReconciliationAPI = {
-  getAll: async (): Promise<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string> }> => {
-    return fetchAPI<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string> }>("/api/invoice-reconciliation");
+  getAll: async (): Promise<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string>; uploadMeta?: InvoiceReconciliationUploadMeta | null; audits?: InvoiceReconciliationAudit[] }> => {
+    return fetchAPI<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string>; uploadMeta?: InvoiceReconciliationUploadMeta | null; audits?: InvoiceReconciliationAudit[] }>("/api/invoice-reconciliation");
   },
 
   bulkUpsertLines: async (lines: InvoiceReconciliationLine[]): Promise<InvoiceReconciliationLine[]> => {
@@ -333,6 +351,13 @@ export const invoiceReconciliationAPI = {
     return fetchAPI<Record<string, string>>("/api/invoice-reconciliation?action=bulk-upsert-timing-notes", {
       method: "POST",
       body: JSON.stringify({ notes }),
+    });
+  },
+
+  recordUpload: async (upload: InvoiceReconciliationUploadMeta): Promise<InvoiceReconciliationUploadMeta | null> => {
+    return fetchAPI<InvoiceReconciliationUploadMeta | null>("/api/invoice-reconciliation?action=record-upload", {
+      method: "POST",
+      body: JSON.stringify(upload),
     });
   },
 

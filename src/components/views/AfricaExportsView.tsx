@@ -464,6 +464,10 @@ const rulesListToRecord = (rules: CountryRule[]) => rules.reduce<Record<string, 
   return acc;
 }, {});
 
+const isSyncableShipment = (shipment: ExportShipment) => Boolean(shipment.ref?.trim() && shipment.customer?.trim());
+
+const getSyncableShipments = (shipments: ExportShipment[]) => shipments.filter(isSyncableShipment);
+
 const getCompletion = (shipment: ExportShipment) => {
   const total = CHECKLIST_GROUPS.reduce((sum, group) => sum + group.items.length, 0);
   const complete = CHECKLIST_GROUPS.reduce(
@@ -607,11 +611,16 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
             ? await africaExportTransportersAPI.bulkUpsert(loadedTransporters)
             : await africaExportTransportersAPI.bulkUpsert(DEFAULT_TRANSPORTERS);
 
-        const nextShipments = remoteShipments.length > 0
-          ? remoteShipments
-          : loadedShipments.length > 0
-            ? await africaExportsAPI.bulkUpsert(loadedShipments)
+        const localSyncableShipments = getSyncableShipments(loadedShipments);
+        const syncedLocalShipments = remoteShipments.length > 0
+          ? []
+          : localSyncableShipments.length > 0
+            ? await africaExportsAPI.bulkUpsert(localSyncableShipments)
             : [];
+        const localDraftShipments = loadedShipments.filter((item) => !isSyncableShipment(item));
+        const nextShipments = remoteShipments.length > 0
+          ? [...remoteShipments, ...localDraftShipments]
+          : [...syncedLocalShipments, ...localDraftShipments];
 
         const seededRules = remoteCountryRules.length > 0
           ? remoteCountryRules
@@ -620,7 +629,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
         if (cancelled) return;
         setTransporters(nextTransporters);
-        setShipments(nextShipments);
+        setShipments(nextShipments.length > 0 ? nextShipments : loadedShipments);
         setCountryRules(nextCountryRules);
         setSelectedRef((current) => current || nextShipments[0]?.ref || "");
         saveList(TRANSPORTERS_KEY, nextTransporters);
@@ -670,18 +679,27 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     if (!remoteReady) return;
     const timeout = window.setTimeout(async () => {
       try {
-        if (transporters.length > 0) {
-          await africaExportTransportersAPI.bulkUpsert(transporters);
-        }
-        if (shipments.length > 0) {
-          const saved = await africaExportsAPI.bulkUpsert(shipments);
+        const syncableShipments = getSyncableShipments(shipments);
+        if (syncableShipments.length > 0) {
+          const saved = await africaExportsAPI.bulkUpsert(syncableShipments);
           setShipments((current) => {
-            if (current.every((item) => item.id)) return current;
+            if (current.filter(isSyncableShipment).every((item) => item.id)) return current;
             const byRef = new Map(saved.map((item) => [item.ref, item]));
-            return current.map((item) => item.id ? item : byRef.get(item.ref) || item);
+            let changed = false;
+            const next = current.map((item) => {
+              if (item.id || !isSyncableShipment(item)) return item;
+              const savedItem = byRef.get(item.ref);
+              if (!savedItem) return item;
+              changed = true;
+              return savedItem;
+            });
+            return changed ? next : current;
           });
         }
-        setRemoteSyncError("");
+        const draftCount = shipments.length - syncableShipments.length;
+        setRemoteSyncError(draftCount > 0
+          ? `${draftCount} Africa export draft${draftCount === 1 ? "" : "s"} saved locally until reference and consignee are captured.`
+          : "");
       } catch (error) {
         console.warn("Failed to sync Africa export shipments", error);
         setRemoteSyncError("Database sync failed. Changes are saved in this browser and will retry while this page is open.");
@@ -689,7 +707,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     }, 700);
 
     return () => window.clearTimeout(timeout);
-  }, [shipments, transporters, remoteReady]);
+  }, [shipments, remoteReady]);
 
   useEffect(() => {
     if (!remoteReady) return;
@@ -698,7 +716,6 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         if (transporters.length > 0) {
           await africaExportTransportersAPI.bulkUpsert(transporters);
         }
-        setRemoteSyncError("");
       } catch (error) {
         console.warn("Failed to sync Africa export transporters", error);
         setRemoteSyncError("Database sync failed. Changes are saved in this browser and will retry while this page is open.");

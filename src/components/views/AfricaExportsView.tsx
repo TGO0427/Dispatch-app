@@ -1273,7 +1273,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
             Independent export workspace for Africa clients, export documents, and cross-border transporters.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 xl:justify-end">
           <Button variant="outline" className="gap-2" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4" />
             Import Africa Orders
@@ -1281,46 +1281,6 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
           <Button variant="outline" className="gap-2" onClick={createBlankShipment}>
             <Plus className="h-4 w-4" />
             New Export
-          </Button>
-          <span className={`rounded-card border px-3 py-2 text-sm font-semibold ${statusTone}`}>
-            {completion.percent}% complete
-          </span>
-          <span className={`rounded-card border px-3 py-2 text-sm font-semibold ${readiness.tone}`}>
-            {readiness.label}
-          </span>
-          <Button variant="outline" className="gap-2" onClick={markPreDispatchConfirmed} disabled={!shipment.ref}>
-            <ClipboardCheck className="h-4 w-4" />
-            Mark Agent Check
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={downloadExportPack} disabled={!shipment.ref}>
-            <Download className="h-4 w-4" />
-            Export Pack
-          </Button>
-          {isDispatchApproved ? (
-            <Button variant="outline" className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50" onClick={clearDispatchApproval} disabled={!shipment.ref}>
-              <RotateCcw className="h-4 w-4" />
-              Clear Approval
-            </Button>
-          ) : (
-            <Button className="gap-2" onClick={approveDispatch} disabled={!canApproveDispatch}>
-              <ShieldCheck className="h-4 w-4" />
-              Approve Dispatch
-            </Button>
-          )}
-          {shipment.archived ? (
-            <Button variant="outline" className="gap-2" onClick={restoreShipment} disabled={!shipment.ref}>
-              <RotateCcw className="h-4 w-4" />
-              Restore
-            </Button>
-          ) : (
-            <Button variant="outline" className="gap-2" onClick={archiveShipment} disabled={!shipment.ref}>
-              <Archive className="h-4 w-4" />
-              Archive
-            </Button>
-          )}
-          <Button variant="outline" className="gap-2 border-red-200 text-red-700 hover:bg-red-50" onClick={deleteShipment} disabled={!shipment.ref}>
-            <Trash2 className="h-4 w-4" />
-            Delete
           </Button>
         </div>
       </div>
@@ -1332,7 +1292,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-        <Card>
+        <Card className="overflow-hidden border-l-4 border-l-emerald-400">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-emerald-600" />
@@ -1343,7 +1303,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="overflow-hidden border-l-4 border-l-emerald-400">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -1354,7 +1314,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="overflow-hidden border-l-4 border-l-blue-400">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <Truck className="h-5 w-5 text-blue-600" />
@@ -1365,7 +1325,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="overflow-hidden border-l-4 border-l-amber-400">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
@@ -1379,16 +1339,75 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         </Card>
       </div>
 
+      {shipment.ref && (
+        <Card className="overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="truncate text-sm font-bold text-gray-900">{shipment.ref}</span>
+                  <span className={`rounded border px-2 py-1 text-xs font-bold ${statusTone}`}>
+                    {completion.percent}% complete
+                  </span>
+                  <span className={`rounded border px-2 py-1 text-xs font-bold ${readiness.tone}`}>
+                    {readiness.label}
+                  </span>
+                </div>
+                <p className="mt-1 truncate text-sm text-gray-600">
+                  {shipment.customer || "No consignee"} - {shipment.destinationCountry || "Country to confirm"} - {shipment.transportMode || "Mode to confirm"}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 xl:justify-end">
+                <Button variant="outline" size="sm" className="gap-2" onClick={markPreDispatchConfirmed}>
+                  <ClipboardCheck className="h-4 w-4" />
+                  Agent Check
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2" onClick={downloadExportPack}>
+                  <Download className="h-4 w-4" />
+                  Export Pack
+                </Button>
+                {isDispatchApproved ? (
+                  <Button variant="outline" size="sm" className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50" onClick={clearDispatchApproval}>
+                    <RotateCcw className="h-4 w-4" />
+                    Clear Approval
+                  </Button>
+                ) : (
+                  <Button size="sm" className="gap-2" onClick={approveDispatch} disabled={!canApproveDispatch}>
+                    <ShieldCheck className="h-4 w-4" />
+                    Approve
+                  </Button>
+                )}
+                {shipment.archived ? (
+                  <Button variant="outline" size="sm" className="gap-2" onClick={restoreShipment}>
+                    <RotateCcw className="h-4 w-4" />
+                    Restore
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" className="gap-2" onClick={archiveShipment}>
+                    <Archive className="h-4 w-4" />
+                    Archive
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" className="gap-2 border-red-200 text-red-700 hover:bg-red-50" onClick={deleteShipment}>
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {complianceAlerts.length > 0 && (
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-gray-100 p-5">
             <CardTitle className="flex items-center gap-2 text-lg">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
               Export Compliance Alerts
             </CardTitle>
             <p className="text-sm text-gray-600">Open checks before loading Africa export shipments.</p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-5">
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {complianceAlerts.map((alert) => (
                 <button
@@ -1418,12 +1437,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
         <div className="xl:col-span-1">
-          <Card className="xl:sticky xl:top-8">
-            <CardHeader>
+          <Card className="overflow-hidden xl:sticky xl:top-8">
+            <CardHeader className="border-b border-gray-100 p-5">
               <CardTitle className="text-lg">Africa Export Queue</CardTitle>
               <p className="text-sm text-gray-600">Only Africa export shipments appear here.</p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
@@ -1498,8 +1517,8 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         </div>
 
         <div className="space-y-4 xl:col-span-3">
-          <Card>
-            <CardContent className="p-4">
+          <Card className="overflow-hidden">
+            <CardContent className="p-2">
               <div className="flex flex-wrap gap-2">
                 {tabs.map(({ id, label, icon: Icon }) => (
                   <button
@@ -1521,12 +1540,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
           {activeTab === "overview" && (
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-              <Card className="xl:col-span-2">
-                <CardHeader>
+              <Card className="overflow-hidden xl:col-span-2">
+                <CardHeader className="border-b border-gray-100 p-5">
                   <CardTitle>Shipment Setup</CardTitle>
                   <p className="text-sm text-gray-600">Africa client, destination, tariff, Incoterm, and product details.</p>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-5">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <Field label="Reference" value={shipment.ref} onChange={(value) => updateShipment({ ref: value })} placeholder="AFX-0001" />
                     <Field label="Africa Client / Consignee" value={shipment.customer} onChange={(value) => updateShipment({ customer: value })} placeholder="Client name" />
@@ -1655,8 +1674,8 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
+              <Card className="overflow-hidden">
+                <CardHeader className="border-b border-gray-100 p-5">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <CardTitle className="flex items-center gap-2 text-lg">
@@ -1670,7 +1689,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-5">
                   <div className="mb-4 rounded-card border border-gray-200 bg-gray-50 p-3">
                     <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Selected export</p>
                     <p className="mt-1 truncate text-sm font-bold text-gray-900">{shipment.ref || "No export selected"}</p>
@@ -1728,12 +1747,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
           {activeTab === "documents" && (
             <div className="space-y-4">
               {filteredGroups.map((group) => (
-                <Card key={group.title}>
-                  <CardHeader>
+                <Card key={group.title} className="overflow-hidden">
+                  <CardHeader className="border-b border-gray-100 p-5">
                     <CardTitle className="text-lg">{group.title}</CardTitle>
                     <p className="text-sm text-gray-600">{group.description}</p>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-5">
                     <div className="divide-y divide-gray-100 rounded-card border border-gray-200">
                       {group.items.map((item) => {
                         const detail = shipment.documentDetails?.[item.id] || { reference: "", expiry: "", notes: "" };
@@ -1793,12 +1812,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
           {activeTab === "permits" && (
             <div className="space-y-4">
-              <Card>
-                <CardHeader>
+              <Card className="overflow-hidden">
+                <CardHeader className="border-b border-gray-100 p-5">
                   <CardTitle>Pre-dispatch Confirmation</CardTitle>
                   <p className="text-sm text-gray-600">Use this before loading the Africa export.</p>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-5">
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                     {PRE_DISPATCH_CHECKS.map((check) => (
                       <div key={check} className="flex gap-3 rounded-card border border-gray-200 bg-white p-3 text-sm text-gray-700">
@@ -1811,12 +1830,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
               </Card>
 
               {destinationRequirement && (
-                <Card>
-                  <CardHeader>
+                <Card className="overflow-hidden">
+                  <CardHeader className="border-b border-gray-100 p-5">
                     <CardTitle>{destinationRequirement.title}</CardTitle>
                     <p className="text-sm text-gray-600">Applies to the selected destination country: {shipment.destinationCountry}.</p>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-5">
                     <div className="space-y-2">
                       {destinationRequirement.points.map((point) => (
                         <div key={point} className="flex gap-3 rounded-card border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-900">
@@ -1829,12 +1848,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                 </Card>
               )}
 
-              <Card>
-                <CardHeader>
+              <Card className="overflow-hidden">
+                <CardHeader className="border-b border-gray-100 p-5">
                   <CardTitle>Country Rules Library</CardTitle>
                   <p className="text-sm text-gray-600">Maintain destination-specific requirements for Africa export clients.</p>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-5">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <label className="space-y-2">
                       <span className="text-sm font-semibold text-gray-700">Country</span>
@@ -1926,12 +1945,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
+              <Card className="overflow-hidden">
+                <CardHeader className="border-b border-gray-100 p-5">
                   <CardTitle>Question for Destination Agent</CardTitle>
                   <p className="text-sm text-gray-600">Send this before dispatch and keep the response with the shipment pack.</p>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-5">
                   <div className="rounded-card border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-900">
                     {AGENT_QUESTION}
                   </div>
@@ -1944,12 +1963,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
           )}
 
           {activeTab === "incoterms" && (
-            <Card>
-              <CardHeader>
+            <Card className="overflow-hidden">
+              <CardHeader className="border-b border-gray-100 p-5">
                 <CardTitle>Incoterm Impact</CardTitle>
                 <p className="text-sm text-gray-600">Clarify responsibility before quoting or dispatching into Africa.</p>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-5">
                 <div className="overflow-hidden rounded-card border border-gray-200">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
@@ -1973,12 +1992,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
           )}
 
           {activeTab === "history" && (
-            <Card>
-              <CardHeader>
+            <Card className="overflow-hidden">
+              <CardHeader className="border-b border-gray-100 p-5">
                 <CardTitle>Shipment History</CardTitle>
                 <p className="text-sm text-gray-600">Key Africa export actions recorded against the selected shipment.</p>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-5">
                 {!shipment.ref ? (
                   <div className="rounded-card border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
                     Select or create an Africa export shipment to see its history.
@@ -2011,7 +2030,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       {showImport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowImport(false)}>
           <Card className="max-h-[90vh] w-full max-w-5xl overflow-y-auto" onClick={(event) => event.stopPropagation()}>
-            <CardHeader>
+            <CardHeader className="border-b border-gray-100 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <CardTitle>Import Africa Export Orders</CardTitle>
@@ -2022,7 +2041,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                 </button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-5">
               <div className="mb-4 flex flex-wrap gap-2">
                 <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
                   <Upload className="h-4 w-4" />
@@ -2090,11 +2109,11 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
       {showAddTransporter && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddTransporter(false)}>
-          <Card className="w-full max-w-xl" onClick={(event) => event.stopPropagation()}>
-            <CardHeader>
+          <Card className="w-full max-w-xl overflow-hidden" onClick={(event) => event.stopPropagation()}>
+            <CardHeader className="border-b border-gray-100 p-5">
               <CardTitle>Add Africa Export Transporter</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-5">
               <div className="grid grid-cols-1 gap-4">
                 <Field label="Transporter Name" value={newTransporter.name} onChange={(value) => setNewTransporter((prev) => ({ ...prev, name: value }))} />
                 <Field label="Africa Route / Mode" value={newTransporter.route} onChange={(value) => setNewTransporter((prev) => ({ ...prev, route: value }))} placeholder="SADC road, Africa air, sea freight" />

@@ -1241,25 +1241,29 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
   const commitImport = () => {
     if (importPreview.length === 0) return;
+    const existingRefs = new Set(shipments.map((item) => item.ref));
+    const importRefs = new Set<string>();
+    const shipmentsToAdd = importPreview.filter((item) => {
+      if (existingRefs.has(item.ref) || importRefs.has(item.ref)) return false;
+      importRefs.add(item.ref);
+      return true;
+    });
+    const skippedCount = importPreview.length - shipmentsToAdd.length;
+
     setShipments((prev) => {
       const byRef = new Map(prev.map((item) => [item.ref, item]));
-      importPreview.forEach((item) => {
-        const existing = byRef.get(item.ref);
+      shipmentsToAdd.forEach((item) => {
         byRef.set(item.ref, {
-          ...existing,
           ...item,
-          documents: existing?.documents || item.documents || {},
-          documentDetails: existing?.documentDetails || item.documentDetails || {},
-          history: appendHistory(existing?.history || item.history, existing ? "Re-imported" : "Imported", "Africa export order imported from file"),
-          archived: existing?.archived || false,
+          history: appendHistory(item.history, "Imported", "Africa export order imported from file"),
         });
       });
       return Array.from(byRef.values());
     });
-    setSelectedRef(importPreview[0].ref);
+    if (shipmentsToAdd[0]?.ref) setSelectedRef(shipmentsToAdd[0].ref);
     setImportPreview([]);
     setShowImport(false);
-    showSuccess("Africa export shipments imported.");
+    showSuccess(`Added ${shipmentsToAdd.length} Africa export shipment${shipmentsToAdd.length === 1 ? "" : "s"}. ${skippedCount} duplicate ASO/ref${skippedCount === 1 ? "" : "s"} skipped.`);
   };
 
   const downloadTemplate = async () => {

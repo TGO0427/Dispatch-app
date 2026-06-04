@@ -1,12 +1,12 @@
 import React, { useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, Plus, Search, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, PackageCheck, Search, Upload, XCircle } from "lucide-react";
 import * as XLSX from "../../lib/spreadsheet";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { formatNumber, formatPercent } from "../../utils/format";
-import type { Job } from "../../types";
+import { makeNewJob, type Job, type ServiceType } from "../../types";
 
 type InvoiceStatus = "matched" | "not-invoiced" | "not-loaded" | "loaded-not-delivered" | "qty-mismatch";
 type ReviewStatus = "open" | "needs-order-load" | "needs-dispatch-review" | "needs-finance-review" | "historical-invoice" | "not-dispatch-related" | "resolved" | "ignored";
@@ -95,9 +95,16 @@ interface CreatorWorkload {
   averagePerMonth: number;
 }
 
+interface ConfirmDeliveryDraft {
+  deliveredAt: string;
+  serviceType: ServiceType;
+  pallets: string;
+  qty: string;
+  notes: string;
+}
+
 const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
 const REVIEW_STORAGE_KEY = "dispatch_invoice_reconciliation_review_v1";
-const MANUAL_ORDER_PREFILL_KEY = "dispatch_manual_order_prefill";
 
 const normalizeAso = (value: unknown) => String(value ?? "").trim();
 
@@ -448,7 +455,7 @@ interface InvoicingReconciliationProps {
 }
 
 export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = ({ onNavigate }) => {
-  const { jobs } = useDispatch();
+  const { jobs, addJob } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
@@ -461,6 +468,14 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
   const [dirtyReviewCount, setDirtyReviewCount] = useState(0);
+  const [confirmDeliveryRow, setConfirmDeliveryRow] = useState<ReconciliationRow | null>(null);
+  const [confirmDeliveryDraft, setConfirmDeliveryDraft] = useState<ConfirmDeliveryDraft>({
+    deliveredAt: "",
+    serviceType: "delivery",
+    pallets: "0",
+    qty: "0",
+    notes: "",
+  });
 
   const ledgerPeriods = useMemo(() => {
     const months = new Set<string>();
@@ -715,21 +730,55 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     }
   };
 
-  const loadMissingOrder = (row: ReconciliationRow) => {
-    localStorage.setItem(MANUAL_ORDER_PREFILL_KEY, JSON.stringify({
-      ref: row.aso,
-      customer: row.customer,
-      eta: row.deliveryDueDates.split(", ")[0] || "",
-      notes: row.products,
-    }));
-    updateReviewStatus(row.aso, "needs-order-load");
-    onNavigate?.("clipboard", "open");
-    showSuccess(`${row.aso} is ready in Order Management. Complete the Add Job Manually form to load it.`);
-  };
-
   const openExistingOrder = (row: ReconciliationRow) => {
     const targetTab = row.status === "not-invoiced" ? "delivered" : "open";
     onNavigate?.("clipboard", targetTab, row.aso);
+  };
+
+  const openConfirmDelivery = (row: ReconciliationRow) => {
+    setConfirmDeliveryRow(row);
+    setConfirmDeliveryDraft({
+      deliveredAt: row.deliveryDueDates.split(", ")[0] || row.invoiceDates.split(", ")[0] || new Date().toISOString().slice(0, 10),
+      serviceType: "delivery",
+      pallets: String(row.pallets || 0),
+      qty: String(row.invoicedQty || 0),
+      notes: row.products || `Confirmed from invoice ${row.invoiceNumbers || ""}`.trim(),
+    });
+  };
+
+  const confirmInvoiceDelivery = async () => {
+    if (!confirmDeliveryRow) return;
+    if (jobs.some((job) => normalizeAso(job.ref) === confirmDeliveryRow.aso && (job.jobType === "order" || job.jobType === undefined))) {
+      showWarning(`${confirmDeliveryRow.aso} is already loaded in Order Management.`);
+      setConfirmDeliveryRow(null);
+      return;
+    }
+
+    try {
+      const deliveredAt = confirmDeliveryDraft.deliveredAt || new Date().toISOString().slice(0, 10);
+      await addJob(makeNewJob({
+        ref: confirmDeliveryRow.aso,
+        customer: confirmDeliveryRow.customer || "Customer to confirm",
+        pickup: "Confirmed from invoice reconciliation",
+        dropoff: confirmDeliveryRow.customer || "Delivered / collected",
+        priority: "normal",
+        status: "delivered",
+        jobType: "order",
+        serviceType: confirmDeliveryDraft.serviceType,
+        pallets: parseNumber(confirmDeliveryDraft.pallets),
+        outstandingQty: parseNumber(confirmDeliveryDraft.qty),
+        eta: deliveredAt,
+        actualDeliveryAt: deliveredAt,
+        notes: confirmDeliveryDraft.notes,
+        internalNotes: `Confirmed delivery from Invoicing Reconciliation. Invoice: ${confirmDeliveryRow.invoiceNumbers || "not captured"}. Document date: ${confirmDeliveryRow.invoiceDates || "not captured"}.`,
+      }));
+      updateReviewStatus(confirmDeliveryRow.aso, "resolved");
+      setConfirmDeliveryRow(null);
+      showSuccess(`${confirmDeliveryRow.aso} confirmed as ${confirmDeliveryDraft.serviceType === "collection" ? "collected" : "delivered"} and reconciled.`);
+    } catch (error) {
+      console.error("Failed to confirm invoice delivery", error);
+      showError("Could not confirm the delivered order.");
+    }
   };
 
   const scrollTable = (direction: "left" | "right") => {
@@ -1089,11 +1138,11 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                                 variant="outline"
                                 size="icon"
                                 className="h-8 w-8"
-                                onClick={() => loadMissingOrder(row)}
-                                title="Add order manually"
-                                aria-label={`Add order ${row.aso} manually`}
+                                onClick={() => openConfirmDelivery(row)}
+                                title="Confirm delivery"
+                                aria-label={`Confirm delivery for ${row.aso}`}
                               >
-                                <Plus className="h-3.5 w-3.5" />
+                                <PackageCheck className="h-3.5 w-3.5" />
                               </Button>
                             )}
                             <Button
@@ -1117,6 +1166,105 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           </div>
         </CardContent>
       </Card>
+
+      {confirmDeliveryRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setConfirmDeliveryRow(null)}>
+          <Card className="w-full max-w-2xl overflow-hidden" onClick={(event) => event.stopPropagation()}>
+            <CardHeader className="border-b border-gray-100 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle>Confirm Delivery</CardTitle>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Create a delivered Order Management record from invoice reconciliation.
+                  </p>
+                </div>
+                <button className="rounded-card p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" onClick={() => setConfirmDeliveryRow(null)}>
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 p-5">
+              <div className="grid grid-cols-1 gap-3 rounded-card border border-gray-200 bg-gray-50 p-4 text-sm md:grid-cols-2">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">ASO</p>
+                  <p className="mt-1 font-bold text-gray-900">{confirmDeliveryRow.aso}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Customer</p>
+                  <p className="mt-1 font-bold text-gray-900">{confirmDeliveryRow.customer || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Invoice</p>
+                  <p className="mt-1 text-gray-700">{confirmDeliveryRow.invoiceNumbers || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Document Date</p>
+                  <p className="mt-1 text-gray-700">{confirmDeliveryRow.invoiceDates || "-"}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-sm font-semibold text-gray-700">Delivery / Collection Date</span>
+                  <input
+                    type="date"
+                    value={confirmDeliveryDraft.deliveredAt}
+                    onChange={(event) => setConfirmDeliveryDraft((draft) => ({ ...draft, deliveredAt: event.target.value }))}
+                    className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-sm font-semibold text-gray-700">Type</span>
+                  <select
+                    value={confirmDeliveryDraft.serviceType}
+                    onChange={(event) => setConfirmDeliveryDraft((draft) => ({ ...draft, serviceType: event.target.value as ServiceType }))}
+                    className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="delivery">Delivered</option>
+                    <option value="collection">Collected</option>
+                  </select>
+                </label>
+                <label className="space-y-2">
+                  <span className="text-sm font-semibold text-gray-700">Quantity</span>
+                  <input
+                    type="number"
+                    value={confirmDeliveryDraft.qty}
+                    onChange={(event) => setConfirmDeliveryDraft((draft) => ({ ...draft, qty: event.target.value }))}
+                    className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-sm font-semibold text-gray-700">Pallets</span>
+                  <input
+                    type="number"
+                    value={confirmDeliveryDraft.pallets}
+                    onChange={(event) => setConfirmDeliveryDraft((draft) => ({ ...draft, pallets: event.target.value }))}
+                    className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </label>
+                <label className="space-y-2 md:col-span-2">
+                  <span className="text-sm font-semibold text-gray-700">Details kept on shipment card</span>
+                  <textarea
+                    value={confirmDeliveryDraft.notes}
+                    onChange={(event) => setConfirmDeliveryDraft((draft) => ({ ...draft, notes: event.target.value }))}
+                    className="min-h-[90px] w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">
+                <Button variant="outline" onClick={() => setConfirmDeliveryRow(null)}>
+                  Cancel
+                </Button>
+                <Button className="gap-2" onClick={() => void confirmInvoiceDelivery()}>
+                  <PackageCheck className="h-4 w-4" />
+                  Confirm Delivery
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

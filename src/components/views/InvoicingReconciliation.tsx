@@ -12,6 +12,7 @@ import { invoiceReconciliationAPI } from "../../services/api";
 type InvoiceStatus = "matched" | "not-invoiced" | "not-loaded" | "loaded-not-delivered" | "qty-mismatch";
 type ReviewStatus = "open" | "needs-order-load" | "needs-dispatch-review" | "needs-finance-review" | "historical-invoice" | "not-dispatch-related" | "resolved" | "ignored";
 type LedgerViewMode = "all" | "month" | "week";
+type LateInvoiceFilter = "all" | "reviewed" | "not-reviewed";
 
 interface InvoiceLine {
   aso: string;
@@ -133,6 +134,7 @@ interface LateInvoiceReview {
 const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
 const REVIEW_STORAGE_KEY = "dispatch_invoice_reconciliation_review_v1";
 const TIMING_NOTES_STORAGE_KEY = "dispatch_invoice_reconciliation_timing_notes_v1";
+const UPLOAD_META_STORAGE_KEY = "dispatch_invoice_reconciliation_upload_meta_v1";
 
 const lateInvoiceReasonOptions = [
   "System error",
@@ -145,6 +147,13 @@ const lateInvoiceReasonOptions = [
   "Waiting for POD",
   "Other",
 ];
+
+interface InvoiceUploadMeta {
+  filename: string;
+  uploadedAt: string;
+  rowsAdded: number;
+  rowsSkipped: number;
+}
 
 const normalizeAso = (value: unknown) => String(value ?? "").trim();
 
@@ -453,6 +462,20 @@ const saveTimingNotes = (state: Record<string, string>) => {
   localStorage.setItem(TIMING_NOTES_STORAGE_KEY, JSON.stringify(state));
 };
 
+const loadUploadMeta = (): InvoiceUploadMeta | null => {
+  try {
+    const raw = localStorage.getItem(UPLOAD_META_STORAGE_KEY);
+    return raw ? JSON.parse(raw) as InvoiceUploadMeta : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveUploadMeta = (state: InvoiceUploadMeta | null) => {
+  if (!state) localStorage.removeItem(UPLOAD_META_STORAGE_KEY);
+  else localStorage.setItem(UPLOAD_META_STORAGE_KEY, JSON.stringify(state));
+};
+
 const saveReviewStateRemote = async (state: Record<string, ReviewStatus>) => {
   await invoiceReconciliationAPI.bulkUpsertReviews(state);
 };
@@ -632,8 +655,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>(() => loadInvoiceLines());
   const [reviewState, setReviewState] = useState<Record<string, ReviewStatus>>(() => loadReviewState());
   const [timingNotes, setTimingNotes] = useState<Record<string, string>>(() => loadTimingNotes());
+  const [uploadMeta, setUploadMeta] = useState<InvoiceUploadMeta | null>(() => loadUploadMeta());
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus | "all">("all");
+  const [lateInvoiceFilter, setLateInvoiceFilter] = useState<LateInvoiceFilter>("all");
   const [isImporting, setIsImporting] = useState(false);
   const [isConfirmingNotLoaded, setIsConfirmingNotLoaded] = useState(false);
   const [isLoadingLedger, setIsLoadingLedger] = useState(true);
@@ -832,6 +857,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       onTimeInvoices: invoiceTiming.onTime,
       invoiceTimingRows: invoiceTiming.total,
       onTimeInvoicePercent: invoiceTiming.percent,
+      lateInvoices: Math.max(0, invoiceTiming.total - invoiceTiming.onTime),
       matched: bucket("matched").length,
       notInvoiced: notInvoiced.length,
       notLoaded: bucket("not-loaded").length,
@@ -889,6 +915,12 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   }, [invoiceLinesInView, reconciliationRows]);
 
   const lateInvoiceReviews = useMemo(() => buildLateInvoiceReviews(invoiceLinesInView), [invoiceLinesInView]);
+  const filteredLateInvoiceReviews = useMemo(() => lateInvoiceReviews.filter((invoice) => {
+    const hasReason = Boolean(timingNotes[invoice.invoiceKey]);
+    if (lateInvoiceFilter === "reviewed") return hasReason;
+    if (lateInvoiceFilter === "not-reviewed") return !hasReason;
+    return true;
+  }), [lateInvoiceFilter, lateInvoiceReviews, timingNotes]);
   const lateInvoiceReasonTrend = useMemo(() => {
     const total = lateInvoiceReviews.length || 0;
     const counts = new Map<string, number>();
@@ -916,6 +948,32 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     });
   };
 
+  const exportLateInvoiceReasons = async () => {
+    if (lateInvoiceReviews.length === 0) {
+      showWarning("No late invoices found in the current view.");
+      return;
+    }
+    const detailRows = lateInvoiceReviews.map((invoice) => ({
+      Invoice: invoice.invoiceNumber,
+      ASO: invoice.aso,
+      Customer: invoice.customer,
+      "Created By": invoice.createdBy,
+      "Document Date": invoice.invoiceDate,
+      "Delivery / Due Date": invoice.deliveryDueDate,
+      "Days Late": invoice.daysLate,
+      Reason: timingNotes[invoice.invoiceKey] || "No reason selected",
+    }));
+    const trendRows = lateInvoiceReasonTrend.map((item) => ({
+      Reason: item.reason,
+      Count: item.count,
+      "Share %": formatPercent(item.percent, 1),
+    }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(trendRows), "ReasonTrend");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(detailRows), "LateInvoices");
+    await XLSX.writeFile(workbook, "late_invoice_reason_report.xlsx");
+  };
+
   const importInvoices = async (file: File | undefined) => {
     if (!file) return;
     setIsImporting(true);
@@ -928,6 +986,14 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       const merged = mergeInvoiceLedger(invoiceLines, lines);
       setInvoiceLines(merged.lines);
       saveInvoiceLines(merged.lines);
+      const nextUploadMeta = {
+        filename: file.name,
+        uploadedAt: new Date().toISOString(),
+        rowsAdded: merged.added,
+        rowsSkipped: merged.skipped,
+      };
+      setUploadMeta(nextUploadMeta);
+      saveUploadMeta(nextUploadMeta);
       if (merged.added > 0) {
         try {
           await saveInvoiceLinesRemote(merged.lines);
@@ -976,6 +1042,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     }
     setInvoiceLines([]);
     saveInvoiceLines([]);
+    setUploadMeta(null);
+    saveUploadMeta(null);
     setSearchQuery("");
     setActiveStatus("all");
     setViewMode("all");
@@ -1252,8 +1320,9 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
 
   const statCards = [
     { label: "Delivered ASOs", value: stats.delivered, tone: "border-l-emerald-500", status: "all" as const },
-    { label: "Invoice Rows", value: stats.invoiceLines, tone: "border-l-blue-500", status: "all" as const },
+    { label: "Invoice Documents", value: stats.invoiceLines, tone: "border-l-blue-500", status: "all" as const },
     { label: "On-Time Invoice", value: formatPercent(stats.onTimeInvoicePercent, 1), sub: `${formatNumber(stats.onTimeInvoices)} of ${formatNumber(stats.invoiceTimingRows)} invoices`, tone: "border-l-cyan-500", status: "all" as const },
+    { label: "Late Invoices", value: stats.lateInvoices, sub: `${formatNumber(lateInvoiceReviews.filter((invoice) => !timingNotes[invoice.invoiceKey]).length)} needs reason`, tone: "border-l-red-500", status: "all" as const },
     { label: "Open Exceptions", value: stats.openExceptions, tone: "border-l-slate-500", status: "all" as const },
     { label: "Delivered Not Invoiced", value: stats.notInvoiced, sub: `${formatNumber(stats.notInvoicedQty)} qty`, tone: "border-l-red-500", status: "not-invoiced" as const },
     { label: "Historical Invoices", value: stats.historicalInvoices, tone: "border-l-blue-500", status: "not-invoiced" as const },
@@ -1332,6 +1401,11 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                 {formatNumber(invoiceLinesInView.length)} rows in view from {formatNumber(invoiceLines.length)} saved rows.
                 {isLoadingLedger ? " Loading database ledger..." : ""}
               </p>
+              {uploadMeta && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Last upload: <span className="font-semibold text-gray-700">{uploadMeta.filename}</span> on {normalizeDate(uploadMeta.uploadedAt)} ({formatNumber(uploadMeta.rowsAdded)} added, {formatNumber(uploadMeta.rowsSkipped)} skipped)
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex rounded-card border border-gray-200 bg-gray-50 p-1">
@@ -1414,9 +1488,9 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <CardTitle className="text-lg">Creator Workload</CardTitle>
-                <p className="text-sm text-gray-500">Invoice rows grouped by creator and active invoice months.</p>
+                <p className="text-sm text-gray-500">Invoice documents grouped by creator and active invoice months.</p>
               </div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(invoiceLinesInView.length)} invoice rows in view</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(invoiceLinesInView.length)} invoice documents in view</p>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -1425,7 +1499,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                 <thead className="border-b border-gray-200 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">
                   <tr>
                     <th className="px-4 py-3 text-left">Created By</th>
-                    <th className="px-4 py-3 text-right">Invoice Rows</th>
+                    <th className="px-4 py-3 text-right">Invoice Documents</th>
                     <th className="px-4 py-3 text-right">Workload %</th>
                     <th className="px-4 py-3 text-right">Avg / Month</th>
                     <th className="px-4 py-3 text-right">ASOs</th>
@@ -1455,12 +1529,27 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       {lateInvoiceReviews.length > 0 && (
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-gray-100 p-5">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <CardTitle className="text-lg">Late Invoice Review</CardTitle>
                 <p className="text-sm text-gray-500">Add notes for invoices where the document date is after the delivery / due date.</p>
               </div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-red-500">{formatNumber(lateInvoiceReviews.length)} late invoices</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={lateInvoiceFilter}
+                  onChange={(event) => setLateInvoiceFilter(event.target.value as LateInvoiceFilter)}
+                  className="h-9 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  <option value="all">All Late</option>
+                  <option value="not-reviewed">Needs Reason</option>
+                  <option value="reviewed">Reviewed</option>
+                </select>
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => void exportLateInvoiceReasons()}>
+                  <Download className="h-4 w-4" />
+                  Export Reasons
+                </Button>
+                <p className="text-xs font-semibold uppercase tracking-wide text-red-500">{formatNumber(filteredLateInvoiceReviews.length)} of {formatNumber(lateInvoiceReviews.length)} late invoices</p>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -1502,7 +1591,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   </tr>
                 </thead>
                 <tbody>
-                  {lateInvoiceReviews.map((invoice) => (
+                  {filteredLateInvoiceReviews.map((invoice) => (
                     <tr key={invoice.invoiceKey} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-4 py-3 font-semibold text-gray-800">{invoice.invoiceNumber}</td>
                       <td className="px-4 py-3 text-gray-700">{invoice.aso || "-"}</td>

@@ -134,6 +134,18 @@ const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
 const REVIEW_STORAGE_KEY = "dispatch_invoice_reconciliation_review_v1";
 const TIMING_NOTES_STORAGE_KEY = "dispatch_invoice_reconciliation_timing_notes_v1";
 
+const lateInvoiceReasonOptions = [
+  "System error",
+  "Product loading error",
+  "Account hold",
+  "Pricing query",
+  "Customer PO issue",
+  "Stock availability issue",
+  "Credit note / re-invoice",
+  "Waiting for POD",
+  "Other",
+];
+
 const normalizeAso = (value: unknown) => String(value ?? "").trim();
 
 const parseNumber = (value: unknown) => {
@@ -1455,12 +1467,16 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                       <td className="px-4 py-3 text-gray-600">{invoice.deliveryDueDate}</td>
                       <td className="px-4 py-3 text-right font-semibold text-red-600">{formatNumber(invoice.daysLate)}</td>
                       <td className="px-4 py-3">
-                        <input
+                        <select
                           value={timingNotes[invoice.invoiceKey] || ""}
                           onChange={(event) => updateTimingNote(invoice.invoiceKey, event.target.value)}
                           className="w-full min-w-[240px] rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Reason for late invoice"
-                        />
+                        >
+                          <option value="">Select reason</option>
+                          {lateInvoiceReasonOptions.map((reason) => (
+                            <option key={reason} value={reason}>{reason}</option>
+                          ))}
+                        </select>
                       </td>
                     </tr>
                   ))}

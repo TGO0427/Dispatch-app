@@ -751,7 +751,13 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
 
   const loadedByAso = useMemo(() => buildLoadedSummaries(jobs), [jobs]);
   const deliveredByAso = useMemo(() => buildDeliveredSummaries(jobsInView), [jobsInView]);
-  const invoicedByAso = useMemo(() => buildInvoiceSummaries(invoiceLinesInView), [invoiceLinesInView]);
+  const invoiceLinesForReconciliation = useMemo(() => {
+    if (viewMode === "all") return invoiceLines;
+    const deliveredAsosInView = new Set(deliveredByAso.keys());
+    const invoiceRowsInView = new Set(invoiceLinesInView);
+    return invoiceLines.filter((line) => invoiceRowsInView.has(line) || deliveredAsosInView.has(normalizeAso(line.aso)));
+  }, [deliveredByAso, invoiceLines, invoiceLinesInView, viewMode]);
+  const invoicedByAso = useMemo(() => buildInvoiceSummaries(invoiceLinesForReconciliation), [invoiceLinesForReconciliation]);
 
   const reconciliationRows = useMemo<ReconciliationRow[]>(() => {
     const allAsos = new Set([...deliveredByAso.keys(), ...invoicedByAso.keys()]);

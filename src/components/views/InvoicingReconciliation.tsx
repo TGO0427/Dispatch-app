@@ -10,6 +10,7 @@ import type { Job } from "../../types";
 
 type InvoiceStatus = "matched" | "not-invoiced" | "not-loaded" | "loaded-not-delivered" | "qty-mismatch";
 type ReviewStatus = "open" | "needs-order-load" | "needs-dispatch-review" | "needs-finance-review" | "not-dispatch-related" | "resolved" | "ignored";
+type LedgerViewMode = "all" | "month" | "week";
 
 interface InvoiceLine {
   aso: string;
@@ -115,6 +116,78 @@ const normalizeDate = (value: unknown) => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString().slice(0, 10);
+};
+
+const getInvoiceLedgerDate = (line: InvoiceLine) => line.invoiceDate || line.postedDate || line.deliveryDueDate || "";
+
+const getInvoiceKey = (line: InvoiceLine) => {
+  const invoiceNumber = line.invoiceNumber.trim().toLowerCase();
+  if (invoiceNumber) return `invoice:${invoiceNumber}`;
+  return [
+    "row",
+    line.aso,
+    line.invoiceDate,
+    line.deliveryDueDate,
+    line.customer,
+    line.invoiceQty,
+    line.product,
+    line.createdBy,
+  ].map((value) => String(value ?? "").trim().toLowerCase()).join("|");
+};
+
+const mergeInvoiceLedger = (existingLines: InvoiceLine[], importedLines: InvoiceLine[]) => {
+  const existingInvoiceNumbers = new Set(
+    existingLines
+      .map((line) => line.invoiceNumber.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const existingRowKeys = new Set(existingLines.map(getInvoiceKey));
+  const importedRowKeys = new Set<string>();
+  const added: InvoiceLine[] = [];
+  let skipped = 0;
+
+  importedLines.forEach((line) => {
+    const invoiceNumber = line.invoiceNumber.trim().toLowerCase();
+    if (invoiceNumber) {
+      if (existingInvoiceNumbers.has(invoiceNumber)) {
+        skipped += 1;
+        return;
+      }
+      added.push(line);
+      return;
+    }
+
+    const rowKey = getInvoiceKey(line);
+    if (existingRowKeys.has(rowKey) || importedRowKeys.has(rowKey)) {
+      skipped += 1;
+      return;
+    }
+    importedRowKeys.add(rowKey);
+    added.push(line);
+  });
+
+  return {
+    lines: [...existingLines, ...added],
+    added: added.length,
+    skipped,
+  };
+};
+
+const getMonthKey = (dateValue: string) => (/^\d{4}-\d{2}/.test(dateValue) ? dateValue.slice(0, 7) : "");
+
+const formatLocalDateKey = (date: Date) => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, "0"),
+  String(date.getDate()).padStart(2, "0"),
+].join("-");
+
+const getWeekKey = (dateValue: string) => {
+  const time = dateOnlyTime(dateValue);
+  if (time === undefined) return "";
+  const date = new Date(time);
+  const day = date.getDay() || 7;
+  date.setDate(date.getDate() - day + 1);
+  return formatLocalDateKey(date);
 };
 
 const dateOnlyTime = (value: string | undefined) => {
@@ -381,10 +454,61 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus | "all">("all");
   const [isImporting, setIsImporting] = useState(false);
+  const [viewMode, setViewMode] = useState<LedgerViewMode>("all");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedWeek, setSelectedWeek] = useState("");
+
+  const ledgerPeriods = useMemo(() => {
+    const months = new Set<string>();
+    const weeks = new Set<string>();
+    invoiceLines.forEach((line) => {
+      const ledgerDate = getInvoiceLedgerDate(line);
+      const month = getMonthKey(ledgerDate);
+      const week = getWeekKey(ledgerDate);
+      if (month) months.add(month);
+      if (week) weeks.add(week);
+    });
+    jobs.forEach((job) => {
+      if (!((job.jobType === "order" || job.jobType === undefined) && job.status === "delivered")) return;
+      const deliveredDate = normalizeDate(job.actualDeliveryAt);
+      const month = getMonthKey(deliveredDate);
+      const week = getWeekKey(deliveredDate);
+      if (month) months.add(month);
+      if (week) weeks.add(week);
+    });
+    return {
+      months: Array.from(months).sort((a, b) => b.localeCompare(a)),
+      weeks: Array.from(weeks).sort((a, b) => b.localeCompare(a)),
+    };
+  }, [invoiceLines, jobs]);
+
+  const activeMonth = selectedMonth || ledgerPeriods.months[0] || "";
+  const activeWeek = selectedWeek || ledgerPeriods.weeks[0] || "";
+
+  const invoiceLinesInView = useMemo(() => {
+    if (viewMode === "month" && activeMonth) {
+      return invoiceLines.filter((line) => getMonthKey(getInvoiceLedgerDate(line)) === activeMonth);
+    }
+    if (viewMode === "week" && activeWeek) {
+      return invoiceLines.filter((line) => getWeekKey(getInvoiceLedgerDate(line)) === activeWeek);
+    }
+    return invoiceLines;
+  }, [activeMonth, activeWeek, invoiceLines, viewMode]);
+
+  const jobsInView = useMemo(() => {
+    if (viewMode === "all") return jobs;
+    return jobs.filter((job) => {
+      if (!((job.jobType === "order" || job.jobType === undefined) && job.status === "delivered")) return true;
+      const deliveredDate = normalizeDate(job.actualDeliveryAt);
+      if (viewMode === "month" && activeMonth) return getMonthKey(deliveredDate) === activeMonth;
+      if (viewMode === "week" && activeWeek) return getWeekKey(deliveredDate) === activeWeek;
+      return true;
+    });
+  }, [activeMonth, activeWeek, jobs, viewMode]);
 
   const loadedByAso = useMemo(() => buildLoadedSummaries(jobs), [jobs]);
-  const deliveredByAso = useMemo(() => buildDeliveredSummaries(jobs), [jobs]);
-  const invoicedByAso = useMemo(() => buildInvoiceSummaries(invoiceLines), [invoiceLines]);
+  const deliveredByAso = useMemo(() => buildDeliveredSummaries(jobsInView), [jobsInView]);
+  const invoicedByAso = useMemo(() => buildInvoiceSummaries(invoiceLinesInView), [invoiceLinesInView]);
 
   const reconciliationRows = useMemo<ReconciliationRow[]>(() => {
     const allAsos = new Set([...deliveredByAso.keys(), ...invoicedByAso.keys()]);
@@ -451,13 +575,13 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     const bucket = (status: InvoiceStatus) => reconciliationRows.filter((row) => row.status === status);
     const notInvoiced = bucket("not-invoiced");
     const mismatch = bucket("qty-mismatch");
-    const invoiceTimingRows = invoiceLines
+    const invoiceTimingRows = invoiceLinesInView
       .map((line) => isOnTimeInvoice(line.invoiceDate, line.deliveryDueDate))
       .filter((value): value is boolean => value !== undefined);
     const onTimeInvoices = invoiceTimingRows.filter(Boolean).length;
     return {
       delivered: deliveredByAso.size,
-      invoiceLines: invoiceLines.length,
+      invoiceLines: invoiceLinesInView.length,
       onTimeInvoices,
       invoiceTimingRows: invoiceTimingRows.length,
       onTimeInvoicePercent: invoiceTimingRows.length ? (onTimeInvoices / invoiceTimingRows.length) * 100 : 0,
@@ -474,12 +598,12 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         return reviewStatus !== "resolved" && reviewStatus !== "ignored" && reviewStatus !== "not-dispatch-related";
       }).length,
     };
-  }, [deliveredByAso.size, invoiceLines, reconciliationRows, reviewState]);
+  }, [deliveredByAso.size, invoiceLinesInView, reconciliationRows, reviewState]);
 
   const creatorWorkload = useMemo<CreatorWorkload[]>(() => {
     const statusByAso = new Map(reconciliationRows.map((row) => [row.aso, row.status]));
     const byCreator = new Map<string, { invoiceRows: number; asos: Set<string>; invoices: Set<string>; matchedAsos: Set<string>; months: Set<string> }>();
-    invoiceLines.forEach((line) => {
+    invoiceLinesInView.forEach((line) => {
       const createdBy = line.createdBy || "Unassigned";
       const aso = normalizeAso(line.aso);
       const existing = byCreator.get(createdBy) || {
@@ -501,7 +625,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       byCreator.set(createdBy, existing);
     });
 
-    const totalRows = invoiceLines.length || 0;
+    const totalRows = invoiceLinesInView.length || 0;
     return Array.from(byCreator.entries())
       .map(([createdBy, workload]) => ({
         createdBy,
@@ -514,7 +638,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         averagePerMonth: workload.months.size ? workload.invoiceRows / workload.months.size : workload.invoiceRows,
       }))
       .sort((a, b) => b.invoiceRows - a.invoiceRows || a.createdBy.localeCompare(b.createdBy));
-  }, [invoiceLines, reconciliationRows]);
+  }, [invoiceLinesInView, reconciliationRows]);
 
   const importInvoices = async (file: File | undefined) => {
     if (!file) return;
@@ -525,9 +649,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         showWarning("No invoice rows found. Make sure the file has an ASO column.");
         return;
       }
-      setInvoiceLines(lines);
-      saveInvoiceLines(lines);
-      showSuccess(`Imported ${lines.length} invoice rows.`);
+      const merged = mergeInvoiceLedger(invoiceLines, lines);
+      setInvoiceLines(merged.lines);
+      saveInvoiceLines(merged.lines);
+      showSuccess(`Added ${merged.added} new invoice row${merged.added === 1 ? "" : "s"}. ${merged.skipped} already existed.`);
     } catch (error) {
       console.error("Failed to import invoice spreadsheet", error);
       showError("Could not import the invoice spreadsheet.");
@@ -538,9 +663,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   };
 
   const clearInvoices = () => {
-    setInvoiceLines([]);
-    saveInvoiceLines([]);
-    showSuccess("Invoice upload cleared.");
+    setSearchQuery("");
+    setActiveStatus("all");
+    setViewMode("all");
+    showSuccess("Reconciliation view cleared. Saved invoice history was kept.");
   };
 
   const updateReviewStatus = (aso: string, status: ReviewStatus) => {
@@ -610,6 +736,11 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     await XLSX.writeFile(workbook, "invoicing_reconciliation_report.xlsx");
   };
 
+  const activeViewLabel =
+    viewMode === "month" && activeMonth ? `Month ${activeMonth}` :
+    viewMode === "week" && activeWeek ? `Week from ${activeWeek}` :
+    "All invoice history";
+
   const statCards = [
     { label: "Delivered ASOs", value: stats.delivered, tone: "border-l-emerald-500", status: "all" as const },
     { label: "Invoice Rows", value: stats.invoiceLines, tone: "border-l-blue-500", status: "all" as const },
@@ -627,7 +758,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Invoicing Reconciliation</h1>
-          <p className="text-sm text-gray-500">Compare delivered ASOs against uploaded invoice ASOs and route exceptions to the right owner.</p>
+          <p className="text-sm text-gray-500">Invoice uploads are saved as a ledger, then viewed by all history, month, or week.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input
@@ -649,12 +780,72 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
             <FileText className="h-4 w-4" />
             Export Report
           </Button>
-          <Button variant="outline" className="gap-2 border-red-200 text-red-700 hover:bg-red-50" onClick={clearInvoices} disabled={invoiceLines.length === 0}>
+          <Button variant="outline" className="gap-2" onClick={clearInvoices} disabled={invoiceLines.length === 0}>
             <XCircle className="h-4 w-4" />
-            Clear Upload
+            Clear View
           </Button>
         </div>
       </div>
+
+      <Card className="overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ledger View</p>
+              <p className="text-sm font-semibold text-gray-900">{activeViewLabel}</p>
+              <p className="text-xs text-gray-500">
+                {formatNumber(invoiceLinesInView.length)} rows in view from {formatNumber(invoiceLines.length)} saved rows.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex rounded-card border border-gray-200 bg-gray-50 p-1">
+                {[
+                  { id: "all" as LedgerViewMode, label: "All" },
+                  { id: "month" as LedgerViewMode, label: "Month" },
+                  { id: "week" as LedgerViewMode, label: "Week" },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setViewMode(option.id)}
+                    className={`h-8 rounded px-3 text-xs font-bold transition ${
+                      viewMode === option.id ? "bg-white text-emerald-700 shadow-sm" : "text-gray-500 hover:text-gray-800"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {viewMode === "month" && (
+                <select
+                  value={activeMonth}
+                  onChange={(event) => setSelectedMonth(event.target.value)}
+                  className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  {ledgerPeriods.months.length === 0 ? (
+                    <option value="">No months</option>
+                  ) : ledgerPeriods.months.map((month) => (
+                    <option key={month} value={month}>{month}</option>
+                  ))}
+                </select>
+              )}
+              {viewMode === "week" && (
+                <select
+                  value={activeWeek}
+                  onChange={(event) => setSelectedWeek(event.target.value)}
+                  className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  {ledgerPeriods.weeks.length === 0 ? (
+                    <option value="">No weeks</option>
+                  ) : ledgerPeriods.weeks.map((week) => (
+                    <option key={week} value={week}>Week from {week}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-9">
         {statCards.map((card) => (
@@ -679,7 +870,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                 <CardTitle className="text-lg">Creator Workload</CardTitle>
                 <p className="text-sm text-gray-500">Invoice rows grouped by creator and active invoice months.</p>
               </div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(invoiceLines.length)} invoice rows</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(invoiceLinesInView.length)} invoice rows in view</p>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -720,7 +911,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <CardTitle className="text-lg">ASO Reconciliation</CardTitle>
-              <p className="mt-1 text-sm text-gray-600">Delivered data comes from Order Management. Invoiced data comes from the latest uploaded spreadsheet.</p>
+              <p className="mt-1 text-sm text-gray-600">Delivered data comes from Order Management. Invoiced data comes from the saved invoice ledger.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
@@ -760,6 +951,12 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
             <div className="m-5 flex items-start gap-3 rounded-card border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
               <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <p>Upload an invoice spreadsheet to compare against delivered ASOs. Your current file can use Source Sales Order as the ASO, with Invoice No, Document Date, Customer, Created By, Delivery Status, Status, and Posted Date. Invoice Qty is optional.</p>
+            </div>
+          )}
+          {invoiceLines.length > 0 && invoiceLinesInView.length === 0 && (
+            <div className="m-5 flex items-start gap-3 rounded-card border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <p>No invoice rows exist for this selected {viewMode}. Switch to All or choose another period to view saved invoice history.</p>
             </div>
           )}
 

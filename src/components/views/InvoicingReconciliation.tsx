@@ -223,6 +223,8 @@ const getOnTimeInvoiceLabel = (invoiceDates: string, deliveryDueDates: string) =
   return formatPercent((onTimeCount / comparisons.length) * 100, 1);
 };
 
+const firstListValue = (value: string) => value.split(", ").map((item) => item.trim()).find(Boolean) || "";
+
 const findValue = (row: Record<string, unknown>, aliases: string[]) => {
   const entries = Object.entries(row);
   const match = entries.find(([key]) => aliases.includes(key.trim().toLowerCase()));
@@ -798,6 +800,36 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     await XLSX.writeFile(workbook, "invoice_reconciliation_template.xlsx");
   };
 
+  const downloadInvoicedNotLoadedTemplate = async () => {
+    const notLoadedRows = reconciliationRows.filter((row) => row.status === "not-loaded");
+    if (notLoadedRows.length === 0) {
+      showWarning("No Invoiced Not Loaded rows found in the current ledger view.");
+      return;
+    }
+
+    const rows = notLoadedRows.map((row) => {
+      const documentDate = firstListValue(row.invoiceDates);
+      const deliveryDueDate = firstListValue(row.deliveryDueDates);
+      return {
+        "Document Date": documentDate,
+        "Document No": firstListValue(row.invoiceNumbers),
+        "ASO": row.aso,
+        "Customer Name": row.customer,
+        "Inventory Name": row.products,
+        "Warehouse": "",
+        "Qty": row.invoicedQty || "",
+        "pallets": row.pallets || "",
+        "Delivery Type": "Delivered",
+        "Confirmed Delivery Date": deliveryDueDate || documentDate,
+        "Confirm Notes": row.products || `Confirmed from invoice ${firstListValue(row.invoiceNumbers)}`.trim(),
+      };
+    });
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), "InvoicedNotLoaded");
+    await XLSX.writeFile(workbook, "invoiced_not_loaded_delivery_template.xlsx");
+  };
+
   const exportReport = async () => {
     const rows = reconciliationRows.map((row) => ({
       ASO: row.aso,
@@ -861,6 +893,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           <Button variant="outline" className="gap-2" onClick={downloadTemplate}>
             <Download className="h-4 w-4" />
             Template
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={downloadInvoicedNotLoadedTemplate} disabled={stats.notLoaded === 0}>
+            <Download className="h-4 w-4" />
+            Not Loaded Template
           </Button>
           <Button variant="outline" className="gap-2" onClick={exportReport} disabled={reconciliationRows.length === 0}>
             <FileText className="h-4 w-4" />

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, PackageCheck, Search, ShieldCheck, Upload, XCircle } from "lucide-react";
 import * as XLSX from "../../lib/spreadsheet";
+import { useAuth } from "../../context/AuthContext";
 import { useDispatch } from "../../context/DispatchContext";
 import { useNotification } from "../../context/NotificationContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
@@ -660,6 +661,7 @@ interface InvoicingReconciliationProps {
 export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = ({ onNavigate }) => {
   const { jobs, addJob } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
+  const { isAdmin } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const notLoadedFileInputRef = useRef<HTMLInputElement | null>(null);
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1086,13 +1088,6 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     }
   };
 
-  const clearInvoices = () => {
-    setSearchQuery("");
-    setActiveStatus("all");
-    setViewMode("all");
-    showSuccess("Reconciliation view cleared. Saved invoice history was kept.");
-  };
-
   const resetInvoiceLedger = async () => {
     const proceed = await confirm({
       title: "Reset Invoice Ledger",
@@ -1497,14 +1492,12 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
             <Download className="h-4 w-4" />
             Export Exceptions
           </Button>
-          <Button variant="outline" className="gap-2" onClick={clearInvoices} disabled={invoiceLines.length === 0}>
-            <XCircle className="h-4 w-4" />
-            Clear View
-          </Button>
-          <Button variant="outline" className="gap-2 border-red-200 text-red-700 hover:bg-red-50" onClick={() => void resetInvoiceLedger()} disabled={invoiceLines.length === 0}>
-            <XCircle className="h-4 w-4" />
-            Reset Ledger
-          </Button>
+          {isAdmin && (
+            <Button variant="outline" className="gap-2 border-red-200 text-red-700 hover:bg-red-50" onClick={() => void resetInvoiceLedger()} disabled={invoiceLines.length === 0}>
+              <XCircle className="h-4 w-4" />
+              Reset Ledger
+            </Button>
+          )}
         </div>
       </div>
 

@@ -2074,8 +2074,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   </Button>
                 )}
                 <p className="text-xs font-semibold uppercase tracking-wide text-red-500">{formatNumber(lateInvoicesWithoutReason.length)} needs reason</p>
-                <Button variant="outline" size="sm" onClick={() => setShowLateInvoiceDetails((value) => !value)}>
-                  {showLateInvoiceDetails ? "Hide Details" : "Show Details"}
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowLateInvoiceDetails((value) => !value)}>
+                  {showLateInvoiceDetails ? "Hide Late Invoice Details" : "Show Late Invoice Details"}
                 </Button>
               </div>
             </div>
@@ -2186,6 +2186,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
               </div>
               {showLateInvoiceDetails && (
               <div className="mt-5 rounded-card border border-gray-200 bg-white p-3">
+                <div className="mb-3 border-b border-gray-100 pb-3">
+                  <p className="text-sm font-bold text-gray-900">Late Invoice Detail Workspace</p>
+                  <p className="text-xs text-gray-500">Use this workspace to filter late invoices, apply bulk reasons, save reason updates, and export the current period.</p>
+                </div>
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <select
                     value={lateInvoiceFilter}
@@ -2349,8 +2353,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   {formatNumber(filteredAuditHistory.length)} changes
                 </p>
-                <Button variant="outline" size="sm" onClick={() => setShowAuditHistory((value) => !value)}>
-                  {showAuditHistory ? "Hide History" : "Show History"}
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowAuditHistory((value) => !value)}>
+                  {showAuditHistory ? "Hide Audit History" : "Show Audit History"}
                 </Button>
               </div>
             </div>
@@ -2435,8 +2439,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                 {formatNumber(stats.openExceptions)} open exceptions
               </p>
-              <Button variant="outline" onClick={() => setShowAsoReconciliation((value) => !value)}>
-                {showAsoReconciliation ? "Hide Details" : "Show Details"}
+              <Button type="button" variant="outline" onClick={() => setShowAsoReconciliation((value) => !value)}>
+                {showAsoReconciliation ? "Hide ASO Details" : "Show ASO Details"}
               </Button>
             </div>
           </div>

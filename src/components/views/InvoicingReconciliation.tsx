@@ -146,6 +146,9 @@ const lateInvoiceReasonOptions = [
   "Stock availability issue",
   "Credit note / re-invoice",
   "Waiting for POD",
+  "Logistics delay",
+  "Supplier Doc delay",
+  "QC hold",
   "Other",
 ];
 
@@ -682,7 +685,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [pendingInvoiceUpload, setPendingInvoiceUpload] = useState<PendingInvoiceUpload | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus | "all">("all");
-  const [lateInvoiceFilter, setLateInvoiceFilter] = useState<LateInvoiceFilter>("all");
+  const [lateInvoiceFilter, setLateInvoiceFilter] = useState<LateInvoiceFilter>("not-reviewed");
   const [isImporting, setIsImporting] = useState(false);
   const [isConfirmingNotLoaded, setIsConfirmingNotLoaded] = useState(false);
   const [isLoadingLedger, setIsLoadingLedger] = useState(true);
@@ -971,6 +974,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   }, [invoiceLinesInView, reconciliationRows]);
 
   const lateInvoiceReviews = useMemo(() => buildLateInvoiceReviews(invoiceLinesInView), [invoiceLinesInView]);
+  const lateInvoicesWithoutReason = useMemo(() => lateInvoiceReviews.filter((invoice) => !timingNotes[invoice.invoiceKey]), [lateInvoiceReviews, timingNotes]);
+  const lateInvoicesWithReason = useMemo(() => lateInvoiceReviews.filter((invoice) => Boolean(timingNotes[invoice.invoiceKey])), [lateInvoiceReviews, timingNotes]);
   const filteredLateInvoiceReviews = useMemo(() => lateInvoiceReviews.filter((invoice) => {
     const hasReason = Boolean(timingNotes[invoice.invoiceKey]);
     if (lateInvoiceFilter === "reviewed") return hasReason;
@@ -978,10 +983,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     return true;
   }), [lateInvoiceFilter, lateInvoiceReviews, timingNotes]);
   const lateInvoiceReasonTrend = useMemo(() => {
-    const total = lateInvoiceReviews.length || 0;
+    const total = lateInvoicesWithReason.length || 0;
     const counts = new Map<string, number>();
-    lateInvoiceReviews.forEach((invoice) => {
-      const reason = timingNotes[invoice.invoiceKey] || "No reason selected";
+    lateInvoicesWithReason.forEach((invoice) => {
+      const reason = timingNotes[invoice.invoiceKey];
       counts.set(reason, (counts.get(reason) || 0) + 1);
     });
 
@@ -992,7 +997,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         percent: total ? (count / total) * 100 : 0,
       }))
       .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
-  }, [lateInvoiceReviews, timingNotes]);
+  }, [lateInvoicesWithReason, timingNotes]);
 
   const updateTimingNote = (invoiceKey: string, note: string) => {
     const previous = timingNotes[invoiceKey] || "";
@@ -1015,6 +1020,19 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       console.warn("Failed to sync invoice timing note", error);
       setRemoteSyncError("Database sync failed. Late invoice notes are saved in this browser and will retry when edited again.");
     });
+  };
+
+  const saveLateInvoiceReasons = async () => {
+    try {
+      await saveTimingNotesRemote(timingNotes);
+      setRemoteSyncError("");
+      setLateInvoiceFilter("not-reviewed");
+      showSuccess("Late invoice reasons saved. Reviewed invoices moved out of the active queue.");
+    } catch (error) {
+      console.warn("Failed to save late invoice reasons", error);
+      setRemoteSyncError("Database sync failed. Late invoice reasons are saved in this browser and can be retried.");
+      showWarning("Late invoice reasons saved in this browser, but database sync failed.");
+    }
   };
 
   const exportLateInvoiceReasons = async () => {
@@ -1477,7 +1495,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     { label: "Delivered ASOs", value: stats.delivered, tone: "border-l-emerald-500", status: "all" as const },
     { label: "Invoice Documents", value: stats.invoiceLines, tone: "border-l-blue-500", status: "all" as const },
     { label: "On-Time Invoice", value: formatPercent(stats.onTimeInvoicePercent, 1), sub: `${formatNumber(stats.onTimeInvoices)} of ${formatNumber(stats.invoiceTimingRows)} invoices`, tone: "border-l-cyan-500", status: "all" as const },
-    { label: "Late Invoices", value: stats.lateInvoices, sub: `${formatNumber(lateInvoiceReviews.filter((invoice) => !timingNotes[invoice.invoiceKey]).length)} needs reason`, tone: "border-l-red-500", status: "all" as const },
+    { label: "Late Invoices", value: stats.lateInvoices, sub: `${formatNumber(lateInvoicesWithoutReason.length)} needs reason`, tone: "border-l-red-500", status: "all" as const },
     { label: "Open Exceptions", value: stats.openExceptions, tone: "border-l-slate-500", status: "all" as const },
     { label: "Delivered Not Invoiced", value: stats.notInvoiced, sub: `${formatNumber(stats.notInvoicedQty)} qty`, tone: "border-l-red-500", status: "not-invoiced" as const },
     { label: "Historical Invoices", value: stats.historicalInvoices, tone: "border-l-blue-500", status: "not-invoiced" as const },
@@ -1743,7 +1761,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <CardTitle className="text-lg">Late Invoice Review</CardTitle>
-                <p className="text-sm text-gray-500">Add notes for invoices where the document date is after the delivery / due date.</p>
+                <p className="text-sm text-gray-500">Add a reason for invoices where the document date is after the delivery / due date. Saved reasons remain in the trend.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <select
@@ -1755,11 +1773,15 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   <option value="not-reviewed">Needs Reason</option>
                   <option value="reviewed">Reviewed</option>
                 </select>
+                <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => void saveLateInvoiceReasons()} disabled={lateInvoicesWithReason.length === 0}>
+                  <CheckCircle2 className="h-4 w-4" />
+                  Save Reasons
+                </Button>
                 <Button variant="outline" size="sm" className="gap-2" onClick={() => void exportLateInvoiceReasons()}>
                   <Download className="h-4 w-4" />
                   Export Reasons
                 </Button>
-                <p className="text-xs font-semibold uppercase tracking-wide text-red-500">{formatNumber(filteredLateInvoiceReviews.length)} of {formatNumber(lateInvoiceReviews.length)} late invoices</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-red-500">{formatNumber(lateInvoicesWithoutReason.length)} needs reason</p>
               </div>
             </div>
           </CardHeader>
@@ -1768,12 +1790,16 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold text-gray-900">Reason Trend</p>
-                  <p className="text-xs text-gray-500">Grouped by the selected late invoice reason.</p>
+                  <p className="text-xs text-gray-500">Grouped by saved late invoice reasons.</p>
                 </div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(lateInvoiceReasonTrend.length)} reasons</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(lateInvoicesWithReason.length)} reviewed</p>
               </div>
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                {lateInvoiceReasonTrend.map((item) => (
+                {lateInvoiceReasonTrend.length === 0 ? (
+                  <div className="rounded-card border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">
+                    No late invoice reasons saved yet.
+                  </div>
+                ) : lateInvoiceReasonTrend.map((item) => (
                   <div key={item.reason} className="rounded-card border border-gray-200 bg-white p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-sm font-semibold text-gray-800">{item.reason}</p>
@@ -1802,7 +1828,13 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLateInvoiceReviews.map((invoice) => (
+                  {filteredLateInvoiceReviews.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
+                        {lateInvoiceFilter === "not-reviewed" ? "All late invoices in this view have saved reasons." : "No late invoices match this filter."}
+                      </td>
+                    </tr>
+                  ) : filteredLateInvoiceReviews.map((invoice) => (
                     <tr key={invoice.invoiceKey} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-4 py-3 font-semibold text-gray-800">{invoice.invoiceNumber}</td>
                       <td className="px-4 py-3 text-gray-700">{invoice.aso || "-"}</td>

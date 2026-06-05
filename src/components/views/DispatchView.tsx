@@ -559,6 +559,15 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
           coa: itemsToMove.every((item) => item.coaAvailable),
         },
         documentDetails: {},
+        productLines: itemsToMove.map((item, index) => ({
+          id: `line-${Date.now()}-${index}`,
+          product: item.notes || "",
+          hsCode: "",
+          quantity: item.outstandingQty || 0,
+          pallets: item.pallets || 0,
+          batch: "",
+          notes: item.notes || "",
+        })),
         history: [{
           id: `history-${Date.now()}`,
           at: now,

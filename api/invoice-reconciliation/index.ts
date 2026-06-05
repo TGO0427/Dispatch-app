@@ -82,6 +82,7 @@ const formatUpload = (upload: Record<string, unknown> | null) => upload ? ({
   uploadedAt: upload.uploadedAt instanceof Date ? upload.uploadedAt.toISOString() : upload.uploadedAt || "",
   rowsAdded: upload.rowsAdded || 0,
   rowsSkipped: upload.rowsSkipped || 0,
+  updatedById: upload.updatedById || "",
 }) : null;
 
 const formatAudit = (audit: Record<string, unknown>) => ({
@@ -107,11 +108,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "GET") {
     try {
-      const [lines, reviews, notes, latestUpload, audits] = await Promise.all([
+      const [lines, reviews, notes, latestUpload, uploads, audits] = await Promise.all([
         prisma.invoiceReconciliationLine.findMany({ orderBy: { createdAt: "asc" } }),
         prisma.invoiceReconciliationReview.findMany(),
         prisma.invoiceReconciliationTimingNote.findMany(),
         prisma.invoiceReconciliationUpload.findFirst({ orderBy: { uploadedAt: "desc" } }),
+        prisma.invoiceReconciliationUpload.findMany({ orderBy: { uploadedAt: "desc" }, take: 25 }),
         prisma.invoiceReconciliationAudit.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
       ]);
       return res.json({
@@ -121,6 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           reviews: formatReviewMap(reviews),
           timingNotes: formatNoteMap(notes),
           uploadMeta: formatUpload(latestUpload),
+          uploads: uploads.map(formatUpload),
           audits: audits.map(formatAudit),
         },
       });
@@ -259,6 +262,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action !== "lines") return res.status(400).json({ success: false, error: "Unsupported action" });
 
     try {
+      const reason = normalize(req.body?.reason);
       const [deleted] = await prisma.$transaction([
         prisma.invoiceReconciliationLine.deleteMany(),
         prisma.invoiceReconciliationUpload.deleteMany(),
@@ -267,6 +271,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             entityType: "invoice-ledger",
             entityKey: "all",
             action: "Invoice ledger reset",
+            toValue: reason || null,
             userId: user.id,
           },
         }),

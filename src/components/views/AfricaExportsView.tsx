@@ -34,6 +34,16 @@ type ExportStatus = "pending" | "assigned" | "in-transit" | "delivered";
 type DocumentStatus = Record<string, boolean>;
 type DocumentDetails = Record<string, { reference: string; expiry: string; notes: string }>;
 
+interface ProductLine {
+  id: string;
+  product: string;
+  hsCode: string;
+  quantity: number;
+  pallets: number;
+  batch: string;
+  notes: string;
+}
+
 interface CountryRule {
   id?: string;
   country: string;
@@ -79,6 +89,7 @@ interface ExportShipment {
   notes: string;
   documents: DocumentStatus;
   documentDetails?: DocumentDetails;
+  productLines?: ProductLine[];
   history?: ShipmentHistoryEntry[];
   archived?: boolean;
   dispatchApprovedAt?: string;
@@ -374,6 +385,7 @@ const DEFAULT_SHIPMENT: ExportShipment = {
   notes: "",
   documents: {},
   documentDetails: {},
+  productLines: [],
   history: [],
   archived: false,
 };
@@ -559,6 +571,44 @@ const mergeUniqueTextList = (...values: string[]) => {
     .join("; ");
 };
 
+const createProductLine = (shipment: Pick<ExportShipment, "productType" | "hsCode" | "quantity" | "pallets" | "notes">): ProductLine | null => {
+  if (!shipment.productType && !shipment.hsCode && !shipment.quantity && !shipment.pallets && !shipment.notes) return null;
+  return {
+    id: `line-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    product: shipment.productType || "",
+    hsCode: shipment.hsCode || "",
+    quantity: shipment.quantity || 0,
+    pallets: shipment.pallets || 0,
+    batch: "",
+    notes: shipment.notes || "",
+  };
+};
+
+const mergeProductLines = (...lineGroups: (ProductLine[] | undefined)[]) => {
+  const byKey = new Map<string, ProductLine>();
+  lineGroups.flatMap((lines) => lines || []).forEach((line) => {
+    const key = [line.product, line.hsCode, line.batch, line.notes].map((value) => String(value || "").trim().toLowerCase()).join("|");
+    const existing = byKey.get(key);
+    if (existing) {
+      byKey.set(key, {
+        ...existing,
+        quantity: (existing.quantity || 0) + (line.quantity || 0),
+        pallets: Math.max(existing.pallets || 0, line.pallets || 0),
+      });
+      return;
+    }
+    byKey.set(key, { ...line, id: line.id || `line-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
+  });
+  return Array.from(byKey.values());
+};
+
+const summarizeProductLines = (lines: ProductLine[]) => ({
+  productType: mergeUniqueTextList(...lines.map((line) => line.product)),
+  hsCode: joinHsCodes(lines.flatMap((line) => splitHsCodes(line.hsCode))),
+  quantity: lines.reduce((sum, line) => sum + (line.quantity || 0), 0),
+  pallets: lines.reduce((max, line) => Math.max(max, line.pallets || 0), 0),
+});
+
 const mergeShipmentLines = (shipments: ExportShipment[]) => {
   const byRef = new Map<string, ExportShipment>();
   const lineCounts = new Map<string, number>();
@@ -585,6 +635,7 @@ const mergeShipmentLines = (shipments: ExportShipment[]) => {
       quantity: (existing.quantity || 0) + (shipment.quantity || 0),
       pallets: Math.max(existing.pallets || 0, shipment.pallets || 0),
       notes: mergeUniqueTextList(existing.notes, shipment.notes),
+      productLines: mergeProductLines(existing.productLines, shipment.productLines),
     });
   });
 
@@ -612,7 +663,7 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
     const customer = String(findValue(headers, row, ["customer", "customer name", "client", "consignee", "buyer"]) ?? "").trim();
     if (!ref || !customer) return null;
 
-    return {
+    const shipment = {
       ...DEFAULT_SHIPMENT,
       ref,
       customer,
@@ -630,6 +681,11 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
       documentDetails: {},
       history: appendHistory([], "Imported", `Imported from ${file.name}`),
       archived: false,
+    };
+    const productLine = createProductLine(shipment);
+    return {
+      ...shipment,
+      productLines: productLine ? [productLine] : [],
     };
   }).filter((shipment): shipment is ExportShipment => Boolean(shipment && shipment.ref && shipment.customer))
     .map((shipment, index) => ({ ...shipment, ref: shipment.ref || `AFX-${Date.now()}-${index}` }));
@@ -1167,6 +1223,33 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     });
   };
 
+  const addProductLine = () => {
+    const nextLines = [
+      ...(shipment.productLines || []),
+      { id: `line-${Date.now()}`, product: "", hsCode: "", quantity: 0, pallets: 0, batch: "", notes: "" },
+    ];
+    updateShipment({ productLines: nextLines }, { action: "Product line added", detail: "Blank export product line added" });
+  };
+
+  const updateProductLine = (id: string, field: keyof ProductLine, value: string) => {
+    const nextLines = (shipment.productLines || []).map((line) => line.id === id ? {
+      ...line,
+      [field]: field === "quantity" || field === "pallets" ? parseNumber(value) : value,
+    } : line);
+    updateShipment({
+      productLines: nextLines,
+      ...summarizeProductLines(nextLines),
+    }, { action: "Product line updated", detail: `${field} updated` });
+  };
+
+  const removeProductLine = (id: string) => {
+    const nextLines = (shipment.productLines || []).filter((line) => line.id !== id);
+    updateShipment({
+      productLines: nextLines,
+      ...summarizeProductLines(nextLines),
+    }, { action: "Product line removed", detail: "Export product line removed" });
+  };
+
   const markPreDispatchConfirmed = () => {
     updateShipment(
       { lastCheckedAt: new Date().toISOString().slice(0, 10) },
@@ -1311,9 +1394,56 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summary), "Shipment Summary");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet((shipment.productLines || []).map((line) => ({
+      Product: line.product,
+      "HS Code": line.hsCode,
+      Qty: line.quantity,
+      Pallets: line.pallets,
+      Batch: line.batch,
+      Notes: line.notes,
+    }))), "Product Lines");
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), "Document Pack");
     await XLSX.writeFile(workbook, `${shipment.ref}_africa_export_pack.xlsx`);
     showSuccess("Africa export pack downloaded.");
+  };
+
+  const downloadReadyDispatchExport = async () => {
+    if (readyShipments.length === 0) {
+      showWarning("No Africa export shipments are ready to dispatch.");
+      return;
+    }
+    const rows = readyShipments.map((item) => {
+      const required = getRequiredItemsForShipment(item);
+      const completed = required.filter((doc) => item.documents?.[doc.id]).length;
+      const transporter = transporters.find((carrier) => carrier.id === item.assignedTransporterId);
+      return {
+        Reference: item.ref,
+        Customer: item.customer,
+        Country: item.destinationCountry,
+        "HS Codes": item.hsCode,
+        Products: item.productType,
+        Qty: item.quantity,
+        Pallets: item.pallets,
+        Transporter: transporter?.name || "Unassigned",
+        "Agent Check": item.lastCheckedAt,
+        "Required Docs": `${completed}/${required.length}`,
+        "Dispatch Approved": item.dispatchApprovedAt || "No",
+        ETA: item.eta,
+      };
+    });
+    const lineRows = readyShipments.flatMap((item) => (item.productLines || []).map((line) => ({
+      Reference: item.ref,
+      Product: line.product,
+      "HS Code": line.hsCode,
+      Qty: line.quantity,
+      Pallets: line.pallets,
+      Batch: line.batch,
+      Notes: line.notes,
+    })));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), "Ready Shipments");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(lineRows), "Product Lines");
+    await XLSX.writeFile(workbook, "africa_ready_to_dispatch.xlsx");
   };
 
   const saveCountryRule = async () => {
@@ -1468,6 +1598,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
           <Button variant="outline" className="gap-2" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4" />
             Import Africa Orders
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={downloadReadyDispatchExport} disabled={readyShipments.length === 0}>
+            <Download className="h-4 w-4" />
+            Ready Export
           </Button>
           <Button variant="outline" className="gap-2" onClick={createBlankShipment}>
             <Plus className="h-4 w-4" />
@@ -1946,6 +2080,47 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     <Field label="ETA / Dispatch Date" value={shipment.eta} onChange={(value) => updateShipment({ eta: value })} type="date" />
                     <Field label="Qty" value={String(shipment.quantity || "")} onChange={(value) => updateShipment({ quantity: parseNumber(value) })} type="number" />
                     <Field label="Pallets" value={String(shipment.pallets || "")} onChange={(value) => updateShipment({ pallets: parseNumber(value) })} type="number" />
+                    <div className="space-y-2 md:col-span-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-gray-700">Product Lines</span>
+                        <Button type="button" size="sm" variant="outline" className="h-8 gap-2" onClick={addProductLine}>
+                          <Plus className="h-3.5 w-3.5" />
+                          Add Line
+                        </Button>
+                      </div>
+                      <div className="overflow-x-auto rounded-card border border-gray-200">
+                        <table className="w-full min-w-[920px] text-xs">
+                          <thead className="bg-gray-50 text-left font-semibold uppercase tracking-wide text-gray-500">
+                            <tr>
+                              {["Product", "HS Code", "Qty", "Pallets", "Batch", "Notes", ""].map((heading) => (
+                                <th key={heading} className="px-3 py-2">{heading}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {(shipment.productLines || []).length === 0 ? (
+                              <tr>
+                                <td colSpan={7} className="px-3 py-4 text-center text-gray-400">No product lines captured yet.</td>
+                              </tr>
+                            ) : (shipment.productLines || []).map((line) => (
+                              <tr key={line.id}>
+                                <td className="p-2"><input value={line.product} onChange={(event) => updateProductLine(line.id, "product", event.target.value)} className="w-full rounded border border-gray-300 px-2 py-1" /></td>
+                                <td className="p-2"><input value={line.hsCode} onChange={(event) => updateProductLine(line.id, "hsCode", event.target.value)} className="w-full rounded border border-gray-300 px-2 py-1" /></td>
+                                <td className="p-2"><input type="number" value={line.quantity || ""} onChange={(event) => updateProductLine(line.id, "quantity", event.target.value)} className="w-full rounded border border-gray-300 px-2 py-1" /></td>
+                                <td className="p-2"><input type="number" value={line.pallets || ""} onChange={(event) => updateProductLine(line.id, "pallets", event.target.value)} className="w-full rounded border border-gray-300 px-2 py-1" /></td>
+                                <td className="p-2"><input value={line.batch} onChange={(event) => updateProductLine(line.id, "batch", event.target.value)} className="w-full rounded border border-gray-300 px-2 py-1" /></td>
+                                <td className="p-2"><input value={line.notes} onChange={(event) => updateProductLine(line.id, "notes", event.target.value)} className="w-full rounded border border-gray-300 px-2 py-1" /></td>
+                                <td className="p-2 text-right">
+                                  <button type="button" onClick={() => removeProductLine(line.id)} className="rounded border border-red-200 px-2 py-1 font-semibold text-red-600 hover:bg-red-50">
+                                    Remove
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                     <label className="space-y-2">
                       <span className="text-sm font-semibold text-gray-700">Origin Preference</span>
                       <select

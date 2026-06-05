@@ -107,6 +107,7 @@ model AfricaExportShipment {
   notes                 String?  @db.Text
   documents             Json     @default("{}")
   documentDetails       Json     @default("{}")
+  productLines          Json     @default("[]")
   history               Json     @default("[]")
   archived              Boolean  @default(false)
   dispatchApprovedAt    String?  @db.VarChar(255)

@@ -154,6 +154,7 @@ interface InvoiceUploadMeta {
   uploadedAt: string;
   rowsAdded: number;
   rowsSkipped: number;
+  updatedById?: string;
 }
 
 interface ReconciliationAudit {
@@ -165,6 +166,13 @@ interface ReconciliationAudit {
   toValue?: string;
   userId?: string;
   createdAt: string;
+}
+
+interface PendingInvoiceUpload {
+  filename: string;
+  lines: InvoiceLine[];
+  added: number;
+  skipped: number;
 }
 
 const normalizeAso = (value: unknown) => String(value ?? "").trim();
@@ -669,7 +677,9 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [reviewState, setReviewState] = useState<Record<string, ReviewStatus>>(() => loadReviewState());
   const [timingNotes, setTimingNotes] = useState<Record<string, string>>(() => loadTimingNotes());
   const [uploadMeta, setUploadMeta] = useState<InvoiceUploadMeta | null>(() => loadUploadMeta());
+  const [uploadHistory, setUploadHistory] = useState<InvoiceUploadMeta[]>([]);
   const [auditHistory, setAuditHistory] = useState<ReconciliationAudit[]>([]);
+  const [pendingInvoiceUpload, setPendingInvoiceUpload] = useState<PendingInvoiceUpload | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatus, setActiveStatus] = useState<InvoiceStatus | "all">("all");
   const [lateInvoiceFilter, setLateInvoiceFilter] = useState<LateInvoiceFilter>("all");
@@ -726,6 +736,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           setUploadMeta(remote.uploadMeta);
           saveUploadMeta(remote.uploadMeta);
         }
+        setUploadHistory((remote.uploads || []).filter(Boolean) as InvoiceUploadMeta[]);
         setAuditHistory(remote.audits || []);
 
         setRemoteSyncError("");
@@ -1042,10 +1053,30 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         return;
       }
       const merged = mergeInvoiceLedger(invoiceLines, lines);
+      setPendingInvoiceUpload({
+        filename: file.name,
+        lines,
+        added: merged.added,
+        skipped: merged.skipped,
+      });
+    } catch (error) {
+      console.error("Failed to import invoice spreadsheet", error);
+      showError("Could not import the invoice spreadsheet.");
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const commitInvoiceUpload = async () => {
+    if (!pendingInvoiceUpload) return;
+    setIsImporting(true);
+    try {
+      const merged = mergeInvoiceLedger(invoiceLines, pendingInvoiceUpload.lines);
       setInvoiceLines(merged.lines);
       saveInvoiceLines(merged.lines);
       const nextUploadMeta = {
-        filename: file.name,
+        filename: pendingInvoiceUpload.filename,
         uploadedAt: new Date().toISOString(),
         rowsAdded: merged.added,
         rowsSkipped: merged.skipped,
@@ -1059,6 +1090,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           if (savedUpload) {
             setUploadMeta(savedUpload);
             saveUploadMeta(savedUpload);
+            setUploadHistory((history) => [savedUpload, ...history].slice(0, 25));
           }
           setRemoteSyncError("");
           showSuccess(`Added ${merged.added} new invoice row${merged.added === 1 ? "" : "s"} to the database. ${merged.skipped} already existed.`);
@@ -1072,6 +1104,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           if (savedUpload) {
             setUploadMeta(savedUpload);
             saveUploadMeta(savedUpload);
+            setUploadHistory((history) => [savedUpload, ...history].slice(0, 25));
           }
         }).catch((syncError) => {
           console.warn("Failed to record invoice upload", syncError);
@@ -1079,12 +1112,12 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         });
         showSuccess(`No new invoice rows added. ${merged.skipped} already existed.`);
       }
+      setPendingInvoiceUpload(null);
     } catch (error) {
-      console.error("Failed to import invoice spreadsheet", error);
-      showError("Could not import the invoice spreadsheet.");
+      console.error("Failed to commit invoice upload", error);
+      showError("Could not save the invoice upload.");
     } finally {
       setIsImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -1096,8 +1129,13 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       confirmText: "Reset Ledger",
     });
     if (!proceed) return;
+    const resetReason = window.prompt("Reason for resetting the invoice ledger?");
+    if (!resetReason?.trim()) {
+      showWarning("Reset cancelled. A reset reason is required.");
+      return;
+    }
     try {
-      await invoiceReconciliationAPI.resetLines();
+      await invoiceReconciliationAPI.resetLines(resetReason.trim());
       setRemoteSyncError("");
     } catch (error) {
       console.warn("Failed to reset invoice ledger in database", error);
@@ -1109,11 +1147,20 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     saveInvoiceLines([]);
     setUploadMeta(null);
     saveUploadMeta(null);
+    setUploadHistory([]);
     setSearchQuery("");
     setActiveStatus("all");
     setViewMode("all");
     setSelectedMonth("");
     setSelectedWeek("");
+    setAuditHistory((history) => [{
+      id: `local-reset-${Date.now()}`,
+      entityType: "invoice-ledger",
+      entityKey: "all",
+      action: "Invoice ledger reset",
+      toValue: resetReason.trim(),
+      createdAt: new Date().toISOString(),
+    }, ...history]);
     showSuccess("Invoice ledger cleared. You can upload a new invoice sheet from scratch.");
   };
 
@@ -1567,6 +1614,41 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         </CardContent>
       </Card>
 
+      {uploadHistory.length > 0 && (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-gray-100 p-5">
+            <CardTitle className="text-lg">Upload History</CardTitle>
+            <p className="text-sm text-gray-500">Recent invoice uploads saved to the reconciliation database.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead className="border-b border-gray-200 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3 text-left">File</th>
+                    <th className="px-4 py-3 text-left">Uploaded</th>
+                    <th className="px-4 py-3 text-right">Added</th>
+                    <th className="px-4 py-3 text-right">Skipped</th>
+                    <th className="px-4 py-3 text-left">User</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {uploadHistory.map((upload, index) => (
+                    <tr key={`${upload.filename}-${upload.uploadedAt}-${index}`} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="max-w-[320px] truncate px-4 py-3 font-semibold text-gray-800" title={upload.filename}>{upload.filename}</td>
+                      <td className="px-4 py-3 text-gray-600">{normalizeDate(upload.uploadedAt)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-emerald-700">{formatNumber(upload.rowsAdded)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-amber-700">{formatNumber(upload.rowsSkipped)}</td>
+                      <td className="px-4 py-3 text-gray-500">{upload.updatedById || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-10">
         {statCards.map((card) => {
           const isFilterCard = card.status !== "all";
@@ -1946,6 +2028,42 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           </div>
         </CardContent>
       </Card>
+
+      {pendingInvoiceUpload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPendingInvoiceUpload(null)}>
+          <Card className="w-full max-w-xl overflow-hidden" onClick={(event) => event.stopPropagation()}>
+            <CardHeader className="border-b border-gray-100 p-5">
+              <CardTitle>Confirm Invoice Upload</CardTitle>
+              <p className="mt-1 text-sm text-gray-600">Review what will be added to the invoice reconciliation ledger before saving.</p>
+            </CardHeader>
+            <CardContent className="space-y-4 p-5">
+              <div className="rounded-card border border-gray-200 bg-gray-50 p-4">
+                <p className="truncate text-sm font-bold text-gray-900">{pendingInvoiceUpload.filename}</p>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded bg-white p-3">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Rows</p>
+                    <p className="text-xl font-bold text-gray-900">{formatNumber(pendingInvoiceUpload.lines.length)}</p>
+                  </div>
+                  <div className="rounded bg-white p-3">
+                    <p className="text-xs font-semibold uppercase text-gray-500">New</p>
+                    <p className="text-xl font-bold text-emerald-700">{formatNumber(pendingInvoiceUpload.added)}</p>
+                  </div>
+                  <div className="rounded bg-white p-3">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Existing</p>
+                    <p className="text-xl font-bold text-amber-700">{formatNumber(pendingInvoiceUpload.skipped)}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">
+                <Button variant="outline" onClick={() => setPendingInvoiceUpload(null)}>Cancel</Button>
+                <Button onClick={() => void commitInvoiceUpload()} disabled={isImporting}>
+                  {isImporting ? "Saving..." : "Save to Ledger"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {confirmDeliveryRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setConfirmDeliveryRow(null)}>

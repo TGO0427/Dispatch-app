@@ -176,6 +176,7 @@ export interface AfricaExportShipment {
   notes: string;
   documents: Record<string, boolean>;
   documentDetails?: Record<string, { reference: string; expiry: string; notes: string }>;
+  productLines?: { id: string; product: string; hsCode: string; quantity: number; pallets: number; batch: string; notes: string }[];
   history?: { id: string; at: string; action: string; detail: string }[];
   archived?: boolean;
   dispatchApprovedAt?: string;
@@ -316,6 +317,7 @@ export interface InvoiceReconciliationUploadMeta {
   uploadedAt: string;
   rowsAdded: number;
   rowsSkipped: number;
+  updatedById?: string;
 }
 
 export interface InvoiceReconciliationAudit {
@@ -330,8 +332,8 @@ export interface InvoiceReconciliationAudit {
 }
 
 export const invoiceReconciliationAPI = {
-  getAll: async (): Promise<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string>; uploadMeta?: InvoiceReconciliationUploadMeta | null; audits?: InvoiceReconciliationAudit[] }> => {
-    return fetchAPI<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string>; uploadMeta?: InvoiceReconciliationUploadMeta | null; audits?: InvoiceReconciliationAudit[] }>("/api/invoice-reconciliation");
+  getAll: async (): Promise<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string>; uploadMeta?: InvoiceReconciliationUploadMeta | null; uploads?: (InvoiceReconciliationUploadMeta | null)[]; audits?: InvoiceReconciliationAudit[] }> => {
+    return fetchAPI<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string>; uploadMeta?: InvoiceReconciliationUploadMeta | null; uploads?: (InvoiceReconciliationUploadMeta | null)[]; audits?: InvoiceReconciliationAudit[] }>("/api/invoice-reconciliation");
   },
 
   bulkUpsertLines: async (lines: InvoiceReconciliationLine[]): Promise<InvoiceReconciliationLine[]> => {
@@ -362,9 +364,10 @@ export const invoiceReconciliationAPI = {
     });
   },
 
-  resetLines: async (): Promise<{ deleted: number }> => {
+  resetLines: async (reason?: string): Promise<{ deleted: number }> => {
     return fetchAPI<{ deleted: number }>("/api/invoice-reconciliation?action=lines", {
       method: "DELETE",
+      body: JSON.stringify({ reason }),
     });
   },
 };

@@ -525,7 +525,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
     if (!proceed) return;
 
     try {
-      const itemNotes = itemsToMove
+      const productDescriptions = itemsToMove
         .map((item) => item.notes)
         .filter(Boolean)
         .slice(0, 8)
@@ -538,7 +538,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         customer: job.customer,
         destinationCountry: "",
         hsCode: "",
-        productType: itemNotes || job.notes || "",
+        productType: productDescriptions || job.notes || "",
         incoterm: "FCA",
         transportMode: getAfricaTransportMode(job),
         preferenceScheme: "To confirm",
@@ -549,11 +549,10 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         status: getAfricaExportStatus(job.status),
         lastCheckedAt: "",
         notes: [
-          "Moved from Order Management.",
           `Pickup: ${job.pickup || "TBD"}`,
           `Dropoff: ${job.dropoff || "TBD"}`,
           totalQty > 0 ? `Outstanding qty: ${totalQty}` : "",
-          itemNotes ? `Items: ${itemNotes}` : "",
+          job.eta ? `ETA: ${job.eta}` : "",
         ].filter(Boolean).join("\n"),
         documents: {
           coa: itemsToMove.every((item) => item.coaAvailable),

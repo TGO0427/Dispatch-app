@@ -609,6 +609,11 @@ const summarizeProductLines = (lines: ProductLine[]) => ({
   pallets: lines.reduce((max, line) => Math.max(max, line.pallets || 0), 0),
 });
 
+const getImportShipmentNote = (headers: string[], row: unknown[]) => {
+  const shipmentNote = String(findValue(headers, row, ["shipment notes", "export notes", "special instructions", "dispatch notes"]) ?? "").trim();
+  return shipmentNote;
+};
+
 const mergeShipmentLines = (shipments: ExportShipment[]) => {
   const byRef = new Map<string, ExportShipment>();
   const lineCounts = new Map<string, number>();
@@ -634,7 +639,7 @@ const mergeShipmentLines = (shipments: ExportShipment[]) => {
       eta: existing.eta || shipment.eta,
       quantity: (existing.quantity || 0) + (shipment.quantity || 0),
       pallets: Math.max(existing.pallets || 0, shipment.pallets || 0),
-      notes: mergeUniqueTextList(existing.notes, shipment.notes),
+      notes: existing.notes || shipment.notes,
       productLines: mergeProductLines(existing.productLines, shipment.productLines),
     });
   });
@@ -675,14 +680,15 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
       eta: normalizeDate(findValue(headers, row, ["eta", "delivery date", "dispatch date", "shipment date"])),
       quantity: parseNumber(findValue(headers, row, ["qty", "quantity", "order qty", "invoice qty", "dispatch qty"])),
       pallets: parseNumber(findValue(headers, row, ["pallets", "pallet qty", "pallet quantity"])),
-      notes: String(findValue(headers, row, ["notes", "remarks", "comment"]) ?? "").trim(),
+      notes: getImportShipmentNote(headers, row),
       status: "pending" as ExportStatus,
       documents: {},
       documentDetails: {},
       history: appendHistory([], "Imported", `Imported from ${file.name}`),
       archived: false,
     };
-    const productLine = createProductLine(shipment);
+    const lineNote = String(findValue(headers, row, ["line notes", "product notes", "notes", "remarks", "comment"]) ?? "").trim();
+    const productLine = createProductLine({ ...shipment, notes: lineNote });
     return {
       ...shipment,
       productLines: productLine ? [productLine] : [],
@@ -2140,7 +2146,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                         value={shipment.notes}
                         onChange={(event) => updateShipment({ notes: event.target.value })}
                         className="min-h-[90px] w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="Destination-specific instructions, permit notes, or document caveats."
+                        placeholder="Operational export instructions only: routing, agent/customer instructions, permits, or document caveats. Product details belong in Product Lines."
                       />
                     </label>
                   </div>

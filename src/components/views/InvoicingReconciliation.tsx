@@ -149,6 +149,7 @@ const lateInvoiceReasonOptions = [
   "Logistics delay",
   "Supplier Doc delay",
   "QC hold",
+  "Concession required",
   "Other",
 ];
 

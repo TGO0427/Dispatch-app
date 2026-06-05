@@ -1820,6 +1820,9 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
               <div>
                 <CardTitle className="text-lg">Late Invoice Review</CardTitle>
                 <p className="text-sm text-gray-500">Add a reason for invoices where the document date is after the delivery / due date. Saved reasons remain in the trend.</p>
+                <p className="mt-2 inline-flex rounded-card border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                  Showing: {activeViewLabel}
+                </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <select
@@ -1848,7 +1851,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold text-gray-900">Reason Trend</p>
-                  <p className="text-xs text-gray-500">Grouped by saved late invoice reasons.</p>
+                  <p className="text-xs text-gray-500">Grouped by saved late invoice reasons for {activeViewLabel.toLowerCase()}.</p>
                 </div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(lateInvoicesWithReason.length)} reviewed</p>
               </div>

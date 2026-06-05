@@ -13,6 +13,7 @@ import { invoiceReconciliationAPI } from "../../services/api";
 type InvoiceStatus = "matched" | "not-invoiced" | "not-loaded" | "loaded-not-delivered" | "qty-mismatch";
 type ReviewStatus = "open" | "needs-order-load" | "needs-dispatch-review" | "needs-finance-review" | "historical-invoice" | "not-dispatch-related" | "resolved" | "ignored";
 type LedgerViewMode = "all" | "month" | "week";
+type AuditViewMode = "week" | "month" | "all";
 type LateInvoiceFilter = "all" | "reviewed" | "not-reviewed";
 
 interface InvoiceLine {
@@ -694,6 +695,9 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [viewMode, setViewMode] = useState<LedgerViewMode>("all");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
+  const [auditViewMode, setAuditViewMode] = useState<AuditViewMode>("week");
+  const [selectedAuditMonth, setSelectedAuditMonth] = useState("");
+  const [selectedAuditWeek, setSelectedAuditWeek] = useState("");
   const [dirtyReviewCount, setDirtyReviewCount] = useState(0);
   const [confirmDeliveryRow, setConfirmDeliveryRow] = useState<ReconciliationRow | null>(null);
   const [confirmDeliveryDraft, setConfirmDeliveryDraft] = useState<ConfirmDeliveryDraft>({
@@ -787,6 +791,54 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
 
   const activeMonth = selectedMonth || ledgerPeriods.months[0] || "";
   const activeWeek = selectedWeek || ledgerPeriods.weeks[0] || "";
+
+  const dedupedAuditHistory = useMemo(() => {
+    const unique = new Map<string, ReconciliationAudit>();
+    auditHistory
+      .slice()
+      .sort((a, b) => (dateOnlyTime(b.createdAt) ?? 0) - (dateOnlyTime(a.createdAt) ?? 0))
+      .forEach((audit) => {
+        const key = [
+          audit.entityType,
+          audit.entityKey.trim().toLowerCase(),
+          audit.action.trim().toLowerCase(),
+          String(audit.fromValue || "").trim().toLowerCase(),
+          String(audit.toValue || "").trim().toLowerCase(),
+        ].join("|");
+        if (!unique.has(key) || unique.get(key)?.id.startsWith("local-")) {
+          unique.set(key, audit);
+        }
+      });
+    return Array.from(unique.values()).sort((a, b) => (dateOnlyTime(b.createdAt) ?? 0) - (dateOnlyTime(a.createdAt) ?? 0));
+  }, [auditHistory]);
+
+  const auditPeriods = useMemo(() => {
+    const months = new Set<string>();
+    const weeks = new Set<string>();
+    dedupedAuditHistory.forEach((audit) => {
+      const auditDate = normalizeDate(audit.createdAt);
+      const month = getMonthKey(auditDate);
+      const week = getWeekKey(auditDate);
+      if (month) months.add(month);
+      if (week) weeks.add(week);
+    });
+    return {
+      months: Array.from(months).sort((a, b) => b.localeCompare(a)),
+      weeks: Array.from(weeks).sort((a, b) => b.localeCompare(a)),
+    };
+  }, [dedupedAuditHistory]);
+
+  const activeAuditMonth = selectedAuditMonth || auditPeriods.months[0] || "";
+  const activeAuditWeek = selectedAuditWeek || auditPeriods.weeks[0] || "";
+  const filteredAuditHistory = useMemo(() => {
+    if (auditViewMode === "month" && activeAuditMonth) {
+      return dedupedAuditHistory.filter((audit) => getMonthKey(normalizeDate(audit.createdAt)) === activeAuditMonth);
+    }
+    if (auditViewMode === "week" && activeAuditWeek) {
+      return dedupedAuditHistory.filter((audit) => getWeekKey(normalizeDate(audit.createdAt)) === activeAuditWeek);
+    }
+    return dedupedAuditHistory;
+  }, [activeAuditMonth, activeAuditWeek, auditViewMode, dedupedAuditHistory]);
 
   const invoiceLinesInView = useMemo(() => {
     if (viewMode === "month" && activeMonth) {
@@ -1865,18 +1917,75 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         </Card>
       )}
 
-      {auditHistory.length > 0 && (
+      {dedupedAuditHistory.length > 0 && (
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-gray-100 p-5">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              Reconciliation Audit History
-            </CardTitle>
-            <p className="text-sm text-gray-500">Recent database-tracked changes to late invoice reasons and ledger actions.</p>
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                  Reconciliation Audit History
+                </CardTitle>
+                <p className="text-sm text-gray-500">Database-tracked changes to late invoice reasons and ledger actions, grouped by period.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex rounded-card border border-gray-200 bg-gray-50 p-1">
+                  {[
+                    { id: "week" as AuditViewMode, label: "Week" },
+                    { id: "month" as AuditViewMode, label: "Month" },
+                    { id: "all" as AuditViewMode, label: "All" },
+                  ].map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setAuditViewMode(option.id)}
+                      className={`h-8 rounded px-3 text-xs font-bold transition ${
+                        auditViewMode === option.id ? "bg-white text-emerald-700 shadow-sm" : "text-gray-500 hover:text-gray-800"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {auditViewMode === "month" && (
+                  <select
+                    value={activeAuditMonth}
+                    onChange={(event) => setSelectedAuditMonth(event.target.value)}
+                    className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    {auditPeriods.months.length === 0 ? (
+                      <option value="">No months</option>
+                    ) : auditPeriods.months.map((month) => (
+                      <option key={month} value={month}>{month}</option>
+                    ))}
+                  </select>
+                )}
+                {auditViewMode === "week" && (
+                  <select
+                    value={activeAuditWeek}
+                    onChange={(event) => setSelectedAuditWeek(event.target.value)}
+                    className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    {auditPeriods.weeks.length === 0 ? (
+                      <option value="">No weeks</option>
+                    ) : auditPeriods.weeks.map((week) => (
+                      <option key={week} value={week}>Week from {week}</option>
+                    ))}
+                  </select>
+                )}
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  {formatNumber(filteredAuditHistory.length)} changes
+                </p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-gray-100">
-              {auditHistory.slice(0, 8).map((audit) => (
+              {filteredAuditHistory.length === 0 ? (
+                <div className="px-5 py-8 text-center text-sm text-gray-500">
+                  No audit history for this selected period.
+                </div>
+              ) : filteredAuditHistory.slice(0, 8).map((audit) => (
                 <div key={audit.id} className="grid gap-2 px-5 py-3 text-sm md:grid-cols-[180px_1fr_180px]">
                   <p className="font-semibold text-gray-800">{audit.action}</p>
                   <p className="text-gray-600">

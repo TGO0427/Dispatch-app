@@ -338,8 +338,8 @@ export interface InvoiceReconciliationTimingNoteMeta {
 }
 
 export const invoiceReconciliationAPI = {
-  getAll: async (): Promise<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string>; timingNoteMeta?: Record<string, InvoiceReconciliationTimingNoteMeta>; uploadMeta?: InvoiceReconciliationUploadMeta | null; uploads?: (InvoiceReconciliationUploadMeta | null)[]; audits?: InvoiceReconciliationAudit[] }> => {
-    return fetchAPI<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string>; timingNoteMeta?: Record<string, InvoiceReconciliationTimingNoteMeta>; uploadMeta?: InvoiceReconciliationUploadMeta | null; uploads?: (InvoiceReconciliationUploadMeta | null)[]; audits?: InvoiceReconciliationAudit[] }>("/api/invoice-reconciliation");
+  getAll: async (): Promise<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string>; timingComments?: Record<string, string>; timingNoteMeta?: Record<string, InvoiceReconciliationTimingNoteMeta>; uploadMeta?: InvoiceReconciliationUploadMeta | null; uploads?: (InvoiceReconciliationUploadMeta | null)[]; audits?: InvoiceReconciliationAudit[] }> => {
+    return fetchAPI<{ lines: InvoiceReconciliationLine[]; reviews: Record<string, string>; timingNotes?: Record<string, string>; timingComments?: Record<string, string>; timingNoteMeta?: Record<string, InvoiceReconciliationTimingNoteMeta>; uploadMeta?: InvoiceReconciliationUploadMeta | null; uploads?: (InvoiceReconciliationUploadMeta | null)[]; audits?: InvoiceReconciliationAudit[] }>("/api/invoice-reconciliation");
   },
 
   bulkUpsertLines: async (lines: InvoiceReconciliationLine[]): Promise<InvoiceReconciliationLine[]> => {
@@ -356,10 +356,10 @@ export const invoiceReconciliationAPI = {
     });
   },
 
-  bulkUpsertTimingNotes: async (notes: Record<string, string>): Promise<{ notes: Record<string, string>; timingNoteMeta: Record<string, InvoiceReconciliationTimingNoteMeta> }> => {
-    return fetchAPI<{ notes: Record<string, string>; timingNoteMeta: Record<string, InvoiceReconciliationTimingNoteMeta> }>("/api/invoice-reconciliation?action=bulk-upsert-timing-notes", {
+  bulkUpsertTimingNotes: async (notes: Record<string, string>, comments: Record<string, string> = {}): Promise<{ notes: Record<string, string>; timingComments: Record<string, string>; timingNoteMeta: Record<string, InvoiceReconciliationTimingNoteMeta> }> => {
+    return fetchAPI<{ notes: Record<string, string>; timingComments: Record<string, string>; timingNoteMeta: Record<string, InvoiceReconciliationTimingNoteMeta> }>("/api/invoice-reconciliation?action=bulk-upsert-timing-notes", {
       method: "POST",
-      body: JSON.stringify({ notes }),
+      body: JSON.stringify({ notes, comments }),
     });
   },
 

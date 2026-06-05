@@ -136,7 +136,9 @@ interface LateInvoiceReview {
 const STORAGE_KEY = "dispatch_invoice_reconciliation_lines_v1";
 const REVIEW_STORAGE_KEY = "dispatch_invoice_reconciliation_review_v1";
 const TIMING_NOTES_STORAGE_KEY = "dispatch_invoice_reconciliation_timing_notes_v1";
+const TIMING_COMMENTS_STORAGE_KEY = "dispatch_invoice_reconciliation_timing_comments_v1";
 const UPLOAD_META_STORAGE_KEY = "dispatch_invoice_reconciliation_upload_meta_v1";
+const LATE_INVOICE_TARGET_PERCENT = 5;
 
 const lateInvoiceReasonOptions = [
   "System error",
@@ -153,6 +155,22 @@ const lateInvoiceReasonOptions = [
   "Concession required",
   "Other",
 ];
+
+const lateInvoiceReasonOwners: Record<string, string> = {
+  "System error": "Systems",
+  "Product loading error": "Operations",
+  "Account hold": "Finance",
+  "Pricing query": "Finance",
+  "Customer PO issue": "Customer Service",
+  "Stock availability issue": "Planning",
+  "Credit note / re-invoice": "Finance",
+  "Waiting for POD": "Logistics",
+  "Logistics delay": "Logistics",
+  "Supplier Doc delay": "Supplier / Admin",
+  "QC hold": "Quality",
+  "Concession required": "Commercial",
+  Other: "Review",
+};
 
 interface InvoiceUploadMeta {
   filename: string;
@@ -498,6 +516,19 @@ const saveTimingNotes = (state: Record<string, string>) => {
   localStorage.setItem(TIMING_NOTES_STORAGE_KEY, JSON.stringify(state));
 };
 
+const loadTimingComments = (): Record<string, string> => {
+  try {
+    const raw = localStorage.getItem(TIMING_COMMENTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) as Record<string, string> : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveTimingComments = (state: Record<string, string>) => {
+  localStorage.setItem(TIMING_COMMENTS_STORAGE_KEY, JSON.stringify(state));
+};
+
 const loadUploadMeta = (): InvoiceUploadMeta | null => {
   try {
     const raw = localStorage.getItem(UPLOAD_META_STORAGE_KEY);
@@ -516,8 +547,8 @@ const saveReviewStateRemote = async (state: Record<string, ReviewStatus>) => {
   await invoiceReconciliationAPI.bulkUpsertReviews(state);
 };
 
-const saveTimingNotesRemote = async (state: Record<string, string>) => {
-  return invoiceReconciliationAPI.bulkUpsertTimingNotes(state);
+const saveTimingNotesRemote = async (state: Record<string, string>, comments: Record<string, string> = {}) => {
+  return invoiceReconciliationAPI.bulkUpsertTimingNotes(state, comments);
 };
 
 const buildLoadedSummaries = (jobs: Job[]) => {
@@ -692,6 +723,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>(() => loadInvoiceLines());
   const [reviewState, setReviewState] = useState<Record<string, ReviewStatus>>(() => loadReviewState());
   const [timingNotes, setTimingNotes] = useState<Record<string, string>>(() => loadTimingNotes());
+  const [timingComments, setTimingComments] = useState<Record<string, string>>(() => loadTimingComments());
   const [timingNoteMeta, setTimingNoteMeta] = useState<Record<string, InvoiceReconciliationTimingNoteMeta>>({});
   const [uploadMeta, setUploadMeta] = useState<InvoiceUploadMeta | null>(() => loadUploadMeta());
   const [uploadHistory, setUploadHistory] = useState<InvoiceUploadMeta[]>([]);
@@ -712,6 +744,9 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [selectedAuditWeek, setSelectedAuditWeek] = useState("");
   const [selectedLateReason, setSelectedLateReason] = useState("");
   const [showAuditHistory, setShowAuditHistory] = useState(false);
+  const [selectedLateInvoiceKeys, setSelectedLateInvoiceKeys] = useState<Set<string>>(() => new Set());
+  const [bulkLateReason, setBulkLateReason] = useState("");
+  const [bulkLateComment, setBulkLateComment] = useState("");
   const [dirtyReviewCount, setDirtyReviewCount] = useState(0);
   const [confirmDeliveryRow, setConfirmDeliveryRow] = useState<ReconciliationRow | null>(null);
   const [confirmDeliveryDraft, setConfirmDeliveryDraft] = useState<ConfirmDeliveryDraft>({
@@ -747,13 +782,17 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         }
 
         const remoteTimingNotes = remote.timingNotes || {};
+        const remoteTimingComments = remote.timingComments || {};
         if (Object.keys(remoteTimingNotes).length > 0) {
           setTimingNotes(remoteTimingNotes);
           saveTimingNotes(remoteTimingNotes);
+          setTimingComments(remoteTimingComments);
+          saveTimingComments(remoteTimingComments);
           setTimingNoteMeta(remote.timingNoteMeta || {});
         } else if (Object.keys(timingNotes).length > 0) {
-          const saved = await saveTimingNotesRemote(timingNotes);
+          const saved = await saveTimingNotesRemote(timingNotes, timingComments);
           setTimingNoteMeta(saved.timingNoteMeta || {});
+          setTimingComments(saved.timingComments || timingComments);
         }
 
         if (remote.uploadMeta) {
@@ -1071,6 +1110,21 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       }))
       .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
   }, [lateInvoicesWithReason, timingNotes]);
+  const lateInvoiceOwnerTrend = useMemo(() => {
+    const total = lateInvoicesWithReason.length || 0;
+    const counts = new Map<string, number>();
+    lateInvoicesWithReason.forEach((invoice) => {
+      const owner = lateInvoiceReasonOwners[timingNotes[invoice.invoiceKey]] || "Review";
+      counts.set(owner, (counts.get(owner) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([owner, count]) => ({
+        owner,
+        count,
+        percent: total ? (count / total) * 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count || a.owner.localeCompare(b.owner));
+  }, [lateInvoicesWithReason, timingNotes]);
   const lateInvoiceAgeing = useMemo(() => {
     const total = lateInvoiceReviews.length;
     const counts = new Map<string, number>([
@@ -1089,6 +1143,18 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       percent: total ? (count / total) * 100 : 0,
     }));
   }, [lateInvoiceReviews]);
+  const lateInvoiceRate = stats.invoiceTimingRows ? (stats.lateInvoices / stats.invoiceTimingRows) * 100 : 0;
+  const managerSummary = useMemo(() => {
+    const topReason = lateInvoiceReasonTrend[0];
+    const topOwner = lateInvoiceOwnerTrend[0];
+    const worstAgeing = lateInvoiceAgeing.slice().sort((a, b) => b.count - a.count || a.bucket.localeCompare(b.bucket))[0];
+    return {
+      topReason,
+      topOwner,
+      worstAgeing,
+      isTargetMet: lateInvoiceRate <= LATE_INVOICE_TARGET_PERCENT,
+    };
+  }, [lateInvoiceAgeing, lateInvoiceOwnerTrend, lateInvoiceRate, lateInvoiceReasonTrend]);
 
   const selectLateReason = (reason: string) => {
     setSelectedLateReason(reason);
@@ -1097,6 +1163,30 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
 
   const clearLateReasonFilter = () => {
     setSelectedLateReason("");
+  };
+
+  const visibleLateInvoiceKeys = useMemo(() => filteredLateInvoiceReviews.map((invoice) => invoice.invoiceKey), [filteredLateInvoiceReviews]);
+  const selectedVisibleLateInvoiceCount = useMemo(() => visibleLateInvoiceKeys.filter((invoiceKey) => selectedLateInvoiceKeys.has(invoiceKey)).length, [selectedLateInvoiceKeys, visibleLateInvoiceKeys]);
+
+  const toggleLateInvoiceSelection = (invoiceKey: string) => {
+    setSelectedLateInvoiceKeys((current) => {
+      const next = new Set(current);
+      if (next.has(invoiceKey)) next.delete(invoiceKey);
+      else next.add(invoiceKey);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleLateInvoices = () => {
+    setSelectedLateInvoiceKeys((current) => {
+      const next = new Set(current);
+      const allSelected = visibleLateInvoiceKeys.length > 0 && visibleLateInvoiceKeys.every((invoiceKey) => next.has(invoiceKey));
+      visibleLateInvoiceKeys.forEach((invoiceKey) => {
+        if (allSelected) next.delete(invoiceKey);
+        else next.add(invoiceKey);
+      });
+      return next;
+    });
   };
 
   const updateTimingNote = (invoiceKey: string, note: string) => {
@@ -1124,9 +1214,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       },
       ...history,
     ]);
-    void saveTimingNotesRemote({ [invoiceKey]: note })
+    void saveTimingNotesRemote({ [invoiceKey]: note }, { [invoiceKey]: timingComments[invoiceKey] || "" })
       .then((saved) => {
         setTimingNoteMeta((meta) => ({ ...meta, ...(saved.timingNoteMeta || {}) }));
+        setTimingComments((comments) => ({ ...comments, ...(saved.timingComments || {}) }));
         setRemoteSyncError("");
       })
       .catch((error) => {
@@ -1135,10 +1226,72 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       });
   };
 
+  const updateTimingComment = (invoiceKey: string, comment: string) => {
+    const next = { ...timingComments, [invoiceKey]: comment };
+    setTimingComments(next);
+    saveTimingComments(next);
+  };
+
+  const applyBulkLateReason = () => {
+    if (!bulkLateReason) {
+      showWarning("Select a late invoice reason before applying to selected rows.");
+      return;
+    }
+    if (selectedLateInvoiceKeys.size === 0) {
+      showWarning("Select at least one late invoice row first.");
+      return;
+    }
+    const selectedKeys = Array.from(selectedLateInvoiceKeys);
+    const nextNotes = { ...timingNotes };
+    const nextComments = { ...timingComments };
+    selectedKeys.forEach((invoiceKey) => {
+      nextNotes[invoiceKey] = bulkLateReason;
+      if (bulkLateComment.trim()) nextComments[invoiceKey] = bulkLateComment.trim();
+    });
+    setTimingNotes(nextNotes);
+    setTimingComments(nextComments);
+    saveTimingNotes(nextNotes);
+    saveTimingComments(nextComments);
+    setTimingNoteMeta((meta) => {
+      const nextMeta = { ...meta };
+      selectedKeys.forEach((invoiceKey) => {
+        nextMeta[invoiceKey] = {
+          updatedById: user?.id || "",
+          updatedByName: user?.username || "",
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      return nextMeta;
+    });
+    setSelectedLateInvoiceKeys(new Set());
+    setLateInvoiceFilter("reviewed");
+    showSuccess(`Applied ${bulkLateReason} to ${formatNumber(selectedKeys.length)} late invoice${selectedKeys.length === 1 ? "" : "s"}.`);
+    void saveTimingNotesRemote(
+      selectedKeys.reduce<Record<string, string>>((acc, invoiceKey) => {
+        acc[invoiceKey] = bulkLateReason;
+        return acc;
+      }, {}),
+      selectedKeys.reduce<Record<string, string>>((acc, invoiceKey) => {
+        acc[invoiceKey] = nextComments[invoiceKey] || "";
+        return acc;
+      }, {}),
+    )
+      .then((saved) => {
+        setTimingNoteMeta((meta) => ({ ...meta, ...(saved.timingNoteMeta || {}) }));
+        setTimingComments((comments) => ({ ...comments, ...(saved.timingComments || {}) }));
+        setRemoteSyncError("");
+      })
+      .catch((error) => {
+        console.warn("Failed to sync bulk late invoice reasons", error);
+        setRemoteSyncError("Database sync failed. Bulk late invoice reasons are saved in this browser and can be retried with Save Reasons.");
+      });
+  };
+
   const saveLateInvoiceReasons = async () => {
     try {
-      const saved = await saveTimingNotesRemote(timingNotes);
+      const saved = await saveTimingNotesRemote(timingNotes, timingComments);
       setTimingNoteMeta((meta) => ({ ...meta, ...(saved.timingNoteMeta || {}) }));
+      setTimingComments((comments) => ({ ...comments, ...(saved.timingComments || {}) }));
       setRemoteSyncError("");
       setLateInvoiceFilter("not-reviewed");
       setSelectedLateReason("");
@@ -1165,6 +1318,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       "Days Late": invoice.daysLate,
       "Ageing Bucket": getLateAgeingBucket(invoice.daysLate),
       Reason: timingNotes[invoice.invoiceKey] || "No reason selected",
+      Owner: lateInvoiceReasonOwners[timingNotes[invoice.invoiceKey]] || "Review",
+      Comment: timingComments[invoice.invoiceKey] || "",
       "Reviewed By": timingNoteMeta[invoice.invoiceKey]?.updatedByName || timingNoteMeta[invoice.invoiceKey]?.updatedById || "",
       "Reviewed Date": normalizeDate(timingNoteMeta[invoice.invoiceKey]?.updatedAt || ""),
     }));
@@ -1178,8 +1333,14 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       Count: item.count,
       "Share %": formatPercent(item.percent, 1),
     }));
+    const ownerRows = lateInvoiceOwnerTrend.map((item) => ({
+      Owner: item.owner,
+      Count: item.count,
+      "Share %": formatPercent(item.percent, 1),
+    }));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(trendRows), "ReasonTrend");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(ownerRows), "OwnerTrend");
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(ageingRows), "Ageing");
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(detailRows), "LateInvoices");
     await XLSX.writeFile(workbook, `late_invoice_reason_report_${makeExportPeriodSlug(activeViewLabel)}.xlsx`);
@@ -1924,6 +2085,30 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
           </CardHeader>
           <CardContent className="p-0">
             <div className="border-b border-gray-100 bg-gray-50 p-5">
+              <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-card border border-gray-200 bg-white p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Top Late Reason</p>
+                  <p className="mt-1 text-base font-bold text-gray-900">{managerSummary.topReason?.reason || "No reviewed reasons"}</p>
+                  <p className="text-xs text-gray-500">{managerSummary.topReason ? `${formatNumber(managerSummary.topReason.count)} invoices | ${formatPercent(managerSummary.topReason.percent, 1)}` : "Add reasons to build the trend."}</p>
+                </div>
+                <div className="rounded-card border border-gray-200 bg-white p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Likely Owner</p>
+                  <p className="mt-1 text-base font-bold text-gray-900">{managerSummary.topOwner?.owner || "No owner trend"}</p>
+                  <p className="text-xs text-gray-500">{managerSummary.topOwner ? `${formatNumber(managerSummary.topOwner.count)} invoices | ${formatPercent(managerSummary.topOwner.percent, 1)}` : "Owner mapping follows selected reasons."}</p>
+                </div>
+                <div className="rounded-card border border-gray-200 bg-white p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Worst Ageing Bucket</p>
+                  <p className="mt-1 text-base font-bold text-gray-900">{managerSummary.worstAgeing?.bucket || "-"}</p>
+                  <p className="text-xs text-gray-500">{managerSummary.worstAgeing ? `${formatNumber(managerSummary.worstAgeing.count)} invoices | ${formatPercent(managerSummary.worstAgeing.percent, 1)}` : "No late invoices in view."}</p>
+                </div>
+                <div className={`rounded-card border bg-white p-3 ${managerSummary.isTargetMet ? "border-emerald-200" : "border-red-200"}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Late Invoice Target</p>
+                  <p className={`mt-1 text-base font-bold ${managerSummary.isTargetMet ? "text-emerald-700" : "text-red-700"}`}>
+                    {formatPercent(lateInvoiceRate, 1)} / {formatPercent(LATE_INVOICE_TARGET_PERCENT, 0)}
+                  </p>
+                  <p className="text-xs text-gray-500">{managerSummary.isTargetMet ? "On target for selected period." : "Above target for selected period."}</p>
+                </div>
+              </div>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold text-gray-900">Reason Trend</p>
@@ -1956,6 +2141,30 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   </button>
                 ))}
               </div>
+              {lateInvoiceOwnerTrend.length > 0 && (
+                <div className="mt-5">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">Owner Trend</p>
+                      <p className="text-xs text-gray-500">Mapped from saved late invoice reasons.</p>
+                    </div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(lateInvoiceOwnerTrend.length)} owners</p>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                    {lateInvoiceOwnerTrend.map((item) => (
+                      <div key={item.owner} className="rounded-card border border-gray-200 bg-white p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-semibold text-gray-800">{item.owner}</p>
+                          <p className="text-sm font-bold text-gray-900">{formatNumber(item.count)} | {formatPercent(item.percent, 1)}</p>
+                        </div>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
+                          <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.max(4, item.percent)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="mt-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
@@ -1978,11 +2187,46 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   ))}
                 </div>
               </div>
+              <div className="mt-5 rounded-card border border-gray-200 bg-white p-3">
+                <div className="grid gap-3 xl:grid-cols-[220px_1fr_1fr_auto] xl:items-end">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Bulk Reason Apply</p>
+                    <p className="text-sm font-bold text-gray-900">{formatNumber(selectedLateInvoiceKeys.size)} selected</p>
+                  </div>
+                  <select
+                    value={bulkLateReason}
+                    onChange={(event) => setBulkLateReason(event.target.value)}
+                    className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="">Select reason</option>
+                    {lateInvoiceReasonOptions.map((reason) => (
+                      <option key={reason} value={reason}>{reason}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={bulkLateComment}
+                    onChange={(event) => setBulkLateComment(event.target.value)}
+                    placeholder="Optional comment for selected rows"
+                    className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                  <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={applyBulkLateReason} disabled={selectedLateInvoiceKeys.size === 0}>
+                    Apply to Selected
+                  </Button>
+                </div>
+              </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1240px] text-sm">
+              <table className="w-full min-w-[1520px] text-sm">
                 <thead className="border-b border-gray-200 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">
                   <tr>
+                    <th className="w-[56px] px-4 py-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={visibleLateInvoiceKeys.length > 0 && selectedVisibleLateInvoiceCount === visibleLateInvoiceKeys.length}
+                        onChange={toggleAllVisibleLateInvoices}
+                        aria-label="Select all visible late invoices"
+                      />
+                    </th>
                     <th className="px-4 py-3 text-left">Invoice</th>
                     <th className="px-4 py-3 text-left">ASO</th>
                     <th className="px-4 py-3 text-left">Customer</th>
@@ -1992,18 +2236,28 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                     <th className="px-4 py-3 text-right">Days Late</th>
                     <th className="px-4 py-3 text-left">Ageing</th>
                     <th className="px-4 py-3 text-left">Late Reason / Note</th>
+                    <th className="px-4 py-3 text-left">Owner</th>
+                    <th className="px-4 py-3 text-left">Comment</th>
                     <th className="px-4 py-3 text-left">Reviewed</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredLateInvoiceReviews.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-500">
+                      <td colSpan={13} className="px-4 py-8 text-center text-sm text-gray-500">
                         {lateInvoiceFilter === "not-reviewed" ? "All late invoices in this view have saved reasons." : "No late invoices match this filter."}
                       </td>
                     </tr>
                   ) : filteredLateInvoiceReviews.map((invoice) => (
                     <tr key={invoice.invoiceKey} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedLateInvoiceKeys.has(invoice.invoiceKey)}
+                          onChange={() => toggleLateInvoiceSelection(invoice.invoiceKey)}
+                          aria-label={`Select ${invoice.invoiceNumber}`}
+                        />
+                      </td>
                       <td className="px-4 py-3 font-semibold text-gray-800">{invoice.invoiceNumber}</td>
                       <td className="px-4 py-3 text-gray-700">{invoice.aso || "-"}</td>
                       <td className="max-w-[220px] truncate px-4 py-3 text-gray-700" title={invoice.customer}>{invoice.customer || "-"}</td>
@@ -2023,6 +2277,20 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                             <option key={reason} value={reason}>{reason}</option>
                           ))}
                         </select>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">{lateInvoiceReasonOwners[timingNotes[invoice.invoiceKey]] || "-"}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          value={timingComments[invoice.invoiceKey] || ""}
+                          onChange={(event) => updateTimingComment(invoice.invoiceKey, event.target.value)}
+                          onBlur={() => {
+                            if (timingNotes[invoice.invoiceKey]) {
+                              void saveTimingNotesRemote({ [invoice.invoiceKey]: timingNotes[invoice.invoiceKey] }, { [invoice.invoiceKey]: timingComments[invoice.invoiceKey] || "" });
+                            }
+                          }}
+                          placeholder="Optional comment"
+                          className="w-full min-w-[220px] rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500">
                         {timingNoteMeta[invoice.invoiceKey]?.updatedAt ? (

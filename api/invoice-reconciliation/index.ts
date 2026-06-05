@@ -77,6 +77,13 @@ const formatNoteMap = (notes: { invoiceKey: string; note: string }[]) => (
   }, {})
 );
 
+const formatCommentMap = (notes: { invoiceKey: string; comment?: string | null }[]) => (
+  notes.reduce<Record<string, string>>((acc, note) => {
+    if (note.comment) acc[note.invoiceKey] = note.comment;
+    return acc;
+  }, {})
+);
+
 const formatNoteMetaMap = (notes: { invoiceKey: string; updatedById?: string | null; updatedAt?: Date | string | null }[], usersById = new Map<string, string>()) => (
   notes.reduce<Record<string, { updatedById: string; updatedByName: string; updatedAt: string }>>((acc, note) => {
     const updatedById = note.updatedById || "";
@@ -140,6 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           lines: lines.map(formatLine),
           reviews: formatReviewMap(reviews),
           timingNotes: formatNoteMap(notes),
+          timingComments: formatCommentMap(notes),
           timingNoteMeta: formatNoteMetaMap(notes, noteUsersById),
           uploadMeta: formatUpload(latestUpload),
           uploads: uploads.map(formatUpload),
@@ -211,6 +219,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!notes || typeof notes !== "object" || Array.isArray(notes)) {
           return res.status(400).json({ success: false, error: "Request body must include a notes object" });
         }
+        const comments = req.body?.comments && typeof req.body.comments === "object" && !Array.isArray(req.body.comments)
+          ? req.body.comments as Record<string, unknown>
+          : {};
         const entries = Object.entries(notes as Record<string, unknown>).filter(([invoiceKey]) => normalize(invoiceKey));
         if (entries.length > MAX_BATCH_SIZE) return res.status(400).json({ success: false, error: `Batch size cannot exceed ${MAX_BATCH_SIZE}` });
 
@@ -225,10 +236,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               invoiceKey: normalize(invoiceKey),
               invoiceNumber: normalize(invoiceKey).startsWith("invoice:") ? normalize(invoiceKey).slice(8) : null,
               note: normalize(note),
+              comment: normalize(comments[normalize(invoiceKey)]) || null,
               updatedById: user.id,
             },
             update: {
               note: normalize(note),
+              comment: normalize(comments[normalize(invoiceKey)]) || null,
               updatedById: user.id,
             },
           })),
@@ -245,8 +258,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               },
             })),
         ]);
-        const noteResult = result.filter((item) => "invoiceKey" in item) as { invoiceKey: string; note: string }[];
-        return res.status(201).json({ success: true, data: { notes: formatNoteMap(noteResult), timingNoteMeta: formatNoteMetaMap(noteResult, new Map([[user.id, user.username]])) } });
+        const noteResult = result.filter((item) => "invoiceKey" in item) as { invoiceKey: string; note: string; comment?: string | null }[];
+        return res.status(201).json({
+          success: true,
+          data: {
+            notes: formatNoteMap(noteResult),
+            timingComments: formatCommentMap(noteResult),
+            timingNoteMeta: formatNoteMetaMap(noteResult, new Map([[user.id, user.username]])),
+          },
+        });
       } catch (error) {
         console.error("Error saving invoice timing notes:", error);
         return res.status(500).json({ success: false, error: "Failed to save invoice timing notes" });

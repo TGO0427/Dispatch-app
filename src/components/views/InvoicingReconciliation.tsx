@@ -745,6 +745,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [selectedLateReason, setSelectedLateReason] = useState("");
   const [showAuditHistory, setShowAuditHistory] = useState(false);
   const [showAsoReconciliation, setShowAsoReconciliation] = useState(false);
+  const [showLateInvoiceDetails, setShowLateInvoiceDetails] = useState(false);
   const [selectedLateInvoiceKeys, setSelectedLateInvoiceKeys] = useState<Set<string>>(() => new Set());
   const [bulkLateReason, setBulkLateReason] = useState("");
   const [bulkLateComment, setBulkLateComment] = useState("");
@@ -1167,6 +1168,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const selectLateReason = (reason: string) => {
     setSelectedLateReason(reason);
     setLateInvoiceFilter("reviewed");
+    setShowLateInvoiceDetails(true);
   };
 
   const clearLateReasonFilter = () => {
@@ -2071,28 +2073,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                     <XCircle className="h-4 w-4" />
                   </Button>
                 )}
-                <select
-                  value={lateInvoiceFilter}
-                  onChange={(event) => {
-                    const nextFilter = event.target.value as LateInvoiceFilter;
-                    setLateInvoiceFilter(nextFilter);
-                    if (nextFilter === "not-reviewed") setSelectedLateReason("");
-                  }}
-                  className="h-9 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                >
-                  <option value="all">All Late</option>
-                  <option value="not-reviewed">Needs Reason</option>
-                  <option value="reviewed">Reviewed</option>
-                </select>
-                <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => void saveLateInvoiceReasons()} disabled={lateInvoicesWithReason.length === 0}>
-                  <CheckCircle2 className="h-4 w-4" />
-                  Save Reasons
-                </Button>
-                <Button variant="outline" size="sm" className="gap-2" onClick={() => void exportLateInvoiceReasons()}>
-                  <Download className="h-4 w-4" />
-                  Export Reasons
-                </Button>
                 <p className="text-xs font-semibold uppercase tracking-wide text-red-500">{formatNumber(lateInvoicesWithoutReason.length)} needs reason</p>
+                <Button variant="outline" size="sm" onClick={() => setShowLateInvoiceDetails((value) => !value)}>
+                  {showLateInvoiceDetails ? "Hide Details" : "Show Details"}
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -2200,7 +2184,32 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   ))}
                 </div>
               </div>
+              {showLateInvoiceDetails && (
               <div className="mt-5 rounded-card border border-gray-200 bg-white p-3">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <select
+                    value={lateInvoiceFilter}
+                    onChange={(event) => {
+                      const nextFilter = event.target.value as LateInvoiceFilter;
+                      setLateInvoiceFilter(nextFilter);
+                      if (nextFilter === "not-reviewed") setSelectedLateReason("");
+                    }}
+                    className="h-9 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="all">All Late</option>
+                    <option value="not-reviewed">Needs Reason</option>
+                    <option value="reviewed">Reviewed</option>
+                  </select>
+                  <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => void saveLateInvoiceReasons()} disabled={lateInvoicesWithReason.length === 0}>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Save Reasons
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => void exportLateInvoiceReasons()}>
+                    <Download className="h-4 w-4" />
+                    Export Reasons
+                  </Button>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(filteredLateInvoiceReviews.length)} rows in detail</p>
+                </div>
                 <div className="grid gap-3 xl:grid-cols-[220px_1fr_1fr_auto] xl:items-end">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Bulk Reason Apply</p>
@@ -2227,7 +2236,9 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                   </Button>
                 </div>
               </div>
+              )}
             </div>
+            {showLateInvoiceDetails && (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1520px] text-sm">
                 <thead className="border-b border-gray-200 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">
@@ -2318,6 +2329,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                 </tbody>
               </table>
             </div>
+            )}
           </CardContent>
         </Card>
       )}

@@ -77,6 +77,18 @@ const formatNoteMap = (notes: { invoiceKey: string; note: string }[]) => (
   }, {})
 );
 
+const formatNoteMetaMap = (notes: { invoiceKey: string; updatedById?: string | null; updatedAt?: Date | string | null }[], usersById = new Map<string, string>()) => (
+  notes.reduce<Record<string, { updatedById: string; updatedByName: string; updatedAt: string }>>((acc, note) => {
+    const updatedById = note.updatedById || "";
+    acc[note.invoiceKey] = {
+      updatedById,
+      updatedByName: updatedById ? usersById.get(updatedById) || "" : "",
+      updatedAt: note.updatedAt instanceof Date ? note.updatedAt.toISOString() : note.updatedAt || "",
+    };
+    return acc;
+  }, {})
+);
+
 const formatUpload = (upload: Record<string, unknown> | null) => upload ? ({
   filename: upload.filename || "",
   uploadedAt: upload.uploadedAt instanceof Date ? upload.uploadedAt.toISOString() : upload.uploadedAt || "",
@@ -116,12 +128,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         prisma.invoiceReconciliationUpload.findMany({ orderBy: { uploadedAt: "desc" }, take: 25 }),
         prisma.invoiceReconciliationAudit.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
       ]);
+      const noteUserIds = Array.from(new Set(notes.map((note) => note.updatedById).filter(Boolean))) as string[];
+      const noteUsers = noteUserIds.length > 0
+        ? await prisma.user.findMany({ where: { id: { in: noteUserIds } }, select: { id: true, username: true } })
+        : [];
+      const noteUsersById = new Map(noteUsers.map((noteUser) => [noteUser.id, noteUser.username]));
+
       return res.json({
         success: true,
         data: {
           lines: lines.map(formatLine),
           reviews: formatReviewMap(reviews),
           timingNotes: formatNoteMap(notes),
+          timingNoteMeta: formatNoteMetaMap(notes, noteUsersById),
           uploadMeta: formatUpload(latestUpload),
           uploads: uploads.map(formatUpload),
           audits: audits.map(formatAudit),
@@ -227,7 +246,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             })),
         ]);
         const noteResult = result.filter((item) => "invoiceKey" in item) as { invoiceKey: string; note: string }[];
-        return res.status(201).json({ success: true, data: formatNoteMap(noteResult) });
+        return res.status(201).json({ success: true, data: { notes: formatNoteMap(noteResult), timingNoteMeta: formatNoteMetaMap(noteResult, new Map([[user.id, user.username]])) } });
       } catch (error) {
         console.error("Error saving invoice timing notes:", error);
         return res.status(500).json({ success: false, error: "Failed to save invoice timing notes" });

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { formatNumber, formatPercent } from "../../utils/format";
 import { makeNewJob, type Job, type ServiceType } from "../../types";
-import { invoiceReconciliationAPI } from "../../services/api";
+import { invoiceReconciliationAPI, type InvoiceReconciliationTimingNoteMeta } from "../../services/api";
 
 type InvoiceStatus = "matched" | "not-invoiced" | "not-loaded" | "loaded-not-delivered" | "qty-mismatch";
 type ReviewStatus = "open" | "needs-order-load" | "needs-dispatch-review" | "needs-finance-review" | "historical-invoice" | "not-dispatch-related" | "resolved" | "ignored";
@@ -219,6 +219,15 @@ const getInvoiceKey = (line: InvoiceLine) => {
 const getInvoiceDisplayKey = (line: InvoiceLine) => line.invoiceNumber.trim() || getInvoiceKey(line);
 
 const getAuditDisplayKey = (audit: ReconciliationAudit) => audit.entityKey.replace(/^invoice:/i, "").trim();
+
+const getLateAgeingBucket = (daysLate: number) => {
+  if (daysLate <= 2) return "1-2 days";
+  if (daysLate <= 5) return "3-5 days";
+  if (daysLate <= 10) return "6-10 days";
+  return "10+ days";
+};
+
+const makeExportPeriodSlug = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "all";
 
 const mergeInvoiceLedger = (existingLines: InvoiceLine[], importedLines: InvoiceLine[]) => {
   const existingInvoiceNumbers = new Set(
@@ -508,7 +517,7 @@ const saveReviewStateRemote = async (state: Record<string, ReviewStatus>) => {
 };
 
 const saveTimingNotesRemote = async (state: Record<string, string>) => {
-  await invoiceReconciliationAPI.bulkUpsertTimingNotes(state);
+  return invoiceReconciliationAPI.bulkUpsertTimingNotes(state);
 };
 
 const buildLoadedSummaries = (jobs: Job[]) => {
@@ -676,13 +685,14 @@ interface InvoicingReconciliationProps {
 export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = ({ onNavigate }) => {
   const { jobs, addJob } = useDispatch();
   const { showSuccess, showError, showWarning, confirm } = useNotification();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const notLoadedFileInputRef = useRef<HTMLInputElement | null>(null);
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>(() => loadInvoiceLines());
   const [reviewState, setReviewState] = useState<Record<string, ReviewStatus>>(() => loadReviewState());
   const [timingNotes, setTimingNotes] = useState<Record<string, string>>(() => loadTimingNotes());
+  const [timingNoteMeta, setTimingNoteMeta] = useState<Record<string, InvoiceReconciliationTimingNoteMeta>>({});
   const [uploadMeta, setUploadMeta] = useState<InvoiceUploadMeta | null>(() => loadUploadMeta());
   const [uploadHistory, setUploadHistory] = useState<InvoiceUploadMeta[]>([]);
   const [auditHistory, setAuditHistory] = useState<ReconciliationAudit[]>([]);
@@ -700,6 +710,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [auditViewMode, setAuditViewMode] = useState<AuditViewMode>("week");
   const [selectedAuditMonth, setSelectedAuditMonth] = useState("");
   const [selectedAuditWeek, setSelectedAuditWeek] = useState("");
+  const [selectedLateReason, setSelectedLateReason] = useState("");
+  const [showAuditHistory, setShowAuditHistory] = useState(false);
   const [dirtyReviewCount, setDirtyReviewCount] = useState(0);
   const [confirmDeliveryRow, setConfirmDeliveryRow] = useState<ReconciliationRow | null>(null);
   const [confirmDeliveryDraft, setConfirmDeliveryDraft] = useState<ConfirmDeliveryDraft>({
@@ -738,8 +750,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         if (Object.keys(remoteTimingNotes).length > 0) {
           setTimingNotes(remoteTimingNotes);
           saveTimingNotes(remoteTimingNotes);
+          setTimingNoteMeta(remote.timingNoteMeta || {});
         } else if (Object.keys(timingNotes).length > 0) {
-          await saveTimingNotesRemote(timingNotes);
+          const saved = await saveTimingNotesRemote(timingNotes);
+          setTimingNoteMeta(saved.timingNoteMeta || {});
         }
 
         if (remote.uploadMeta) {
@@ -1036,10 +1050,11 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const lateInvoicesWithReason = useMemo(() => lateInvoiceReviews.filter((invoice) => Boolean(timingNotes[invoice.invoiceKey])), [lateInvoiceReviews, timingNotes]);
   const filteredLateInvoiceReviews = useMemo(() => lateInvoiceReviews.filter((invoice) => {
     const hasReason = Boolean(timingNotes[invoice.invoiceKey]);
+    if (selectedLateReason && timingNotes[invoice.invoiceKey] !== selectedLateReason) return false;
     if (lateInvoiceFilter === "reviewed") return hasReason;
     if (lateInvoiceFilter === "not-reviewed") return !hasReason;
     return true;
-  }), [lateInvoiceFilter, lateInvoiceReviews, timingNotes]);
+  }), [lateInvoiceFilter, lateInvoiceReviews, selectedLateReason, timingNotes]);
   const lateInvoiceReasonTrend = useMemo(() => {
     const total = lateInvoicesWithReason.length || 0;
     const counts = new Map<string, number>();
@@ -1056,12 +1071,47 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       }))
       .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
   }, [lateInvoicesWithReason, timingNotes]);
+  const lateInvoiceAgeing = useMemo(() => {
+    const total = lateInvoiceReviews.length;
+    const counts = new Map<string, number>([
+      ["1-2 days", 0],
+      ["3-5 days", 0],
+      ["6-10 days", 0],
+      ["10+ days", 0],
+    ]);
+    lateInvoiceReviews.forEach((invoice) => {
+      const bucket = getLateAgeingBucket(invoice.daysLate);
+      counts.set(bucket, (counts.get(bucket) || 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([bucket, count]) => ({
+      bucket,
+      count,
+      percent: total ? (count / total) * 100 : 0,
+    }));
+  }, [lateInvoiceReviews]);
+
+  const selectLateReason = (reason: string) => {
+    setSelectedLateReason(reason);
+    setLateInvoiceFilter("reviewed");
+  };
+
+  const clearLateReasonFilter = () => {
+    setSelectedLateReason("");
+  };
 
   const updateTimingNote = (invoiceKey: string, note: string) => {
     const previous = timingNotes[invoiceKey] || "";
     const next = { ...timingNotes, [invoiceKey]: note };
     setTimingNotes(next);
     saveTimingNotes(next);
+    setTimingNoteMeta((meta) => ({
+      ...meta,
+      [invoiceKey]: {
+        updatedById: user?.id || "",
+        updatedByName: user?.username || "",
+        updatedAt: new Date().toISOString(),
+      },
+    }));
     setAuditHistory((history) => [
       {
         id: `local-${invoiceKey}-${Date.now()}`,
@@ -1074,17 +1124,24 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       },
       ...history,
     ]);
-    void saveTimingNotesRemote({ [invoiceKey]: note }).catch((error) => {
-      console.warn("Failed to sync invoice timing note", error);
-      setRemoteSyncError("Database sync failed. Late invoice notes are saved in this browser and will retry when edited again.");
-    });
+    void saveTimingNotesRemote({ [invoiceKey]: note })
+      .then((saved) => {
+        setTimingNoteMeta((meta) => ({ ...meta, ...(saved.timingNoteMeta || {}) }));
+        setRemoteSyncError("");
+      })
+      .catch((error) => {
+        console.warn("Failed to sync invoice timing note", error);
+        setRemoteSyncError("Database sync failed. Late invoice notes are saved in this browser and will retry when edited again.");
+      });
   };
 
   const saveLateInvoiceReasons = async () => {
     try {
-      await saveTimingNotesRemote(timingNotes);
+      const saved = await saveTimingNotesRemote(timingNotes);
+      setTimingNoteMeta((meta) => ({ ...meta, ...(saved.timingNoteMeta || {}) }));
       setRemoteSyncError("");
       setLateInvoiceFilter("not-reviewed");
+      setSelectedLateReason("");
       showSuccess("Late invoice reasons saved. Reviewed invoices moved out of the active queue.");
     } catch (error) {
       console.warn("Failed to save late invoice reasons", error);
@@ -1106,17 +1163,26 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       "Document Date": invoice.invoiceDate,
       "Delivery / Due Date": invoice.deliveryDueDate,
       "Days Late": invoice.daysLate,
+      "Ageing Bucket": getLateAgeingBucket(invoice.daysLate),
       Reason: timingNotes[invoice.invoiceKey] || "No reason selected",
+      "Reviewed By": timingNoteMeta[invoice.invoiceKey]?.updatedByName || timingNoteMeta[invoice.invoiceKey]?.updatedById || "",
+      "Reviewed Date": normalizeDate(timingNoteMeta[invoice.invoiceKey]?.updatedAt || ""),
     }));
     const trendRows = lateInvoiceReasonTrend.map((item) => ({
       Reason: item.reason,
       Count: item.count,
       "Share %": formatPercent(item.percent, 1),
     }));
+    const ageingRows = lateInvoiceAgeing.map((item) => ({
+      Bucket: item.bucket,
+      Count: item.count,
+      "Share %": formatPercent(item.percent, 1),
+    }));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(trendRows), "ReasonTrend");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(ageingRows), "Ageing");
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(detailRows), "LateInvoices");
-    await XLSX.writeFile(workbook, "late_invoice_reason_report.xlsx");
+    await XLSX.writeFile(workbook, `late_invoice_reason_report_${makeExportPeriodSlug(activeViewLabel)}.xlsx`);
   };
 
   const importInvoices = async (file: File | undefined) => {
@@ -1825,9 +1891,19 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {selectedLateReason && (
+                  <Button variant="outline" size="sm" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50" onClick={clearLateReasonFilter}>
+                    Reason: {selectedLateReason}
+                    <XCircle className="h-4 w-4" />
+                  </Button>
+                )}
                 <select
                   value={lateInvoiceFilter}
-                  onChange={(event) => setLateInvoiceFilter(event.target.value as LateInvoiceFilter)}
+                  onChange={(event) => {
+                    const nextFilter = event.target.value as LateInvoiceFilter;
+                    setLateInvoiceFilter(nextFilter);
+                    if (nextFilter === "not-reviewed") setSelectedLateReason("");
+                  }}
                   className="h-9 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 >
                   <option value="all">All Late</option>
@@ -1861,21 +1937,50 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                     No late invoice reasons saved yet.
                   </div>
                 ) : lateInvoiceReasonTrend.map((item) => (
-                  <div key={item.reason} className="rounded-card border border-gray-200 bg-white p-3">
+                  <button
+                    key={item.reason}
+                    type="button"
+                    onClick={() => selectLateReason(item.reason)}
+                    className={`rounded-card border bg-white p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50 ${
+                      selectedLateReason === item.reason ? "border-emerald-500 ring-2 ring-emerald-100" : "border-gray-200"
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-sm font-semibold text-gray-800">{item.reason}</p>
-                      <p className="text-sm font-bold text-gray-900">{formatNumber(item.count)}</p>
+                      <p className="text-sm font-bold text-gray-900">{formatNumber(item.count)} | {formatPercent(item.percent, 1)}</p>
                     </div>
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
                       <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(4, item.percent)}%` }} />
                     </div>
-                    <p className="mt-1 text-xs font-semibold text-gray-500">{formatPercent(item.percent, 1)}</p>
-                  </div>
+                    <p className="mt-1 text-xs font-semibold text-gray-500">Click to filter review rows</p>
+                  </button>
                 ))}
+              </div>
+              <div className="mt-5">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Late Invoice Ageing</p>
+                    <p className="text-xs text-gray-500">Severity buckets for late invoices in {activeViewLabel.toLowerCase()}.</p>
+                  </div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(lateInvoiceReviews.length)} late invoices</p>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                  {lateInvoiceAgeing.map((item) => (
+                    <div key={item.bucket} className="rounded-card border border-gray-200 bg-white p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-semibold text-gray-800">{item.bucket}</p>
+                        <p className="text-sm font-bold text-gray-900">{formatNumber(item.count)} | {formatPercent(item.percent, 1)}</p>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-full rounded-full bg-red-500" style={{ width: `${item.count ? Math.max(4, item.percent) : 0}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] text-sm">
+              <table className="w-full min-w-[1240px] text-sm">
                 <thead className="border-b border-gray-200 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">
                   <tr>
                     <th className="px-4 py-3 text-left">Invoice</th>
@@ -1885,13 +1990,15 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                     <th className="px-4 py-3 text-left">Document Date</th>
                     <th className="px-4 py-3 text-left">Due Date</th>
                     <th className="px-4 py-3 text-right">Days Late</th>
+                    <th className="px-4 py-3 text-left">Ageing</th>
                     <th className="px-4 py-3 text-left">Late Reason / Note</th>
+                    <th className="px-4 py-3 text-left">Reviewed</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredLateInvoiceReviews.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
+                      <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-500">
                         {lateInvoiceFilter === "not-reviewed" ? "All late invoices in this view have saved reasons." : "No late invoices match this filter."}
                       </td>
                     </tr>
@@ -1904,6 +2011,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                       <td className="px-4 py-3 text-gray-600">{invoice.invoiceDate}</td>
                       <td className="px-4 py-3 text-gray-600">{invoice.deliveryDueDate}</td>
                       <td className="px-4 py-3 text-right font-semibold text-red-600">{formatNumber(invoice.daysLate)}</td>
+                      <td className="px-4 py-3 text-gray-700">{getLateAgeingBucket(invoice.daysLate)}</td>
                       <td className="px-4 py-3">
                         <select
                           value={timingNotes[invoice.invoiceKey] || ""}
@@ -1915,6 +2023,14 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                             <option key={reason} value={reason}>{reason}</option>
                           ))}
                         </select>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-500">
+                        {timingNoteMeta[invoice.invoiceKey]?.updatedAt ? (
+                          <>
+                            <p className="font-semibold text-gray-700">{timingNoteMeta[invoice.invoiceKey]?.updatedByName || timingNoteMeta[invoice.invoiceKey]?.updatedById || "Saved"}</p>
+                            <p>{normalizeDate(timingNoteMeta[invoice.invoiceKey]?.updatedAt)}</p>
+                          </>
+                        ) : "-"}
                       </td>
                     </tr>
                   ))}
@@ -1937,57 +2053,63 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                 <p className="text-sm text-gray-500">Database-tracked changes to late invoice reasons and ledger actions, grouped by period.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex rounded-card border border-gray-200 bg-gray-50 p-1">
-                  {[
-                    { id: "week" as AuditViewMode, label: "Week" },
-                    { id: "month" as AuditViewMode, label: "Month" },
-                    { id: "all" as AuditViewMode, label: "All" },
-                  ].map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setAuditViewMode(option.id)}
-                      className={`h-8 rounded px-3 text-xs font-bold transition ${
-                        auditViewMode === option.id ? "bg-white text-emerald-700 shadow-sm" : "text-gray-500 hover:text-gray-800"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-                {auditViewMode === "month" && (
-                  <select
-                    value={activeAuditMonth}
-                    onChange={(event) => setSelectedAuditMonth(event.target.value)}
-                    className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  >
-                    {auditPeriods.months.length === 0 ? (
-                      <option value="">No months</option>
-                    ) : auditPeriods.months.map((month) => (
-                      <option key={month} value={month}>{month}</option>
-                    ))}
-                  </select>
-                )}
-                {auditViewMode === "week" && (
-                  <select
-                    value={activeAuditWeek}
-                    onChange={(event) => setSelectedAuditWeek(event.target.value)}
-                    className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  >
-                    {auditPeriods.weeks.length === 0 ? (
-                      <option value="">No weeks</option>
-                    ) : auditPeriods.weeks.map((week) => (
-                      <option key={week} value={week}>Week from {week}</option>
-                    ))}
-                  </select>
-                )}
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   {formatNumber(filteredAuditHistory.length)} changes
                 </p>
+                <Button variant="outline" size="sm" onClick={() => setShowAuditHistory((value) => !value)}>
+                  {showAuditHistory ? "Hide History" : "Show History"}
+                </Button>
               </div>
             </div>
           </CardHeader>
+          {showAuditHistory && (
           <CardContent className="p-0">
+            <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-gray-50 px-5 py-3">
+              <div className="flex rounded-card border border-gray-200 bg-white p-1">
+                {[
+                  { id: "week" as AuditViewMode, label: "Week" },
+                  { id: "month" as AuditViewMode, label: "Month" },
+                  { id: "all" as AuditViewMode, label: "All" },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setAuditViewMode(option.id)}
+                    className={`h-8 rounded px-3 text-xs font-bold transition ${
+                      auditViewMode === option.id ? "bg-white text-emerald-700 shadow-sm" : "text-gray-500 hover:text-gray-800"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {auditViewMode === "month" && (
+                <select
+                  value={activeAuditMonth}
+                  onChange={(event) => setSelectedAuditMonth(event.target.value)}
+                  className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  {auditPeriods.months.length === 0 ? (
+                    <option value="">No months</option>
+                  ) : auditPeriods.months.map((month) => (
+                    <option key={month} value={month}>{month}</option>
+                  ))}
+                </select>
+              )}
+              {auditViewMode === "week" && (
+                <select
+                  value={activeAuditWeek}
+                  onChange={(event) => setSelectedAuditWeek(event.target.value)}
+                  className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  {auditPeriods.weeks.length === 0 ? (
+                    <option value="">No weeks</option>
+                  ) : auditPeriods.weeks.map((week) => (
+                    <option key={week} value={week}>Week from {week}</option>
+                  ))}
+                </select>
+              )}
+            </div>
             <div className="divide-y divide-gray-100">
               {filteredAuditHistory.length === 0 ? (
                 <div className="px-5 py-8 text-center text-sm text-gray-500">
@@ -2005,6 +2127,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
               ))}
             </div>
           </CardContent>
+          )}
         </Card>
       )}
 

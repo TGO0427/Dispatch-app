@@ -218,6 +218,8 @@ const getInvoiceKey = (line: InvoiceLine) => {
 
 const getInvoiceDisplayKey = (line: InvoiceLine) => line.invoiceNumber.trim() || getInvoiceKey(line);
 
+const getAuditDisplayKey = (audit: ReconciliationAudit) => audit.entityKey.replace(/^invoice:/i, "").trim();
+
 const mergeInvoiceLedger = (existingLines: InvoiceLine[], importedLines: InvoiceLine[]) => {
   const existingInvoiceNumbers = new Set(
     existingLines
@@ -798,13 +800,16 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       .slice()
       .sort((a, b) => (dateOnlyTime(b.createdAt) ?? 0) - (dateOnlyTime(a.createdAt) ?? 0))
       .forEach((audit) => {
-        const key = [
-          audit.entityType,
-          audit.entityKey.trim().toLowerCase(),
-          audit.action.trim().toLowerCase(),
-          String(audit.fromValue || "").trim().toLowerCase(),
-          String(audit.toValue || "").trim().toLowerCase(),
-        ].join("|");
+        const displayKey = getAuditDisplayKey(audit).toLowerCase();
+        const key = audit.entityType === "late-invoice-reason"
+          ? [audit.entityType, displayKey, audit.action.trim().toLowerCase()].join("|")
+          : [
+            audit.entityType,
+            displayKey,
+            audit.action.trim().toLowerCase(),
+            String(audit.toValue || "").trim().toLowerCase(),
+            normalizeDate(audit.createdAt),
+          ].join("|");
         if (!unique.has(key) || unique.get(key)?.id.startsWith("local-")) {
           unique.set(key, audit);
         }
@@ -1989,7 +1994,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                 <div key={audit.id} className="grid gap-2 px-5 py-3 text-sm md:grid-cols-[180px_1fr_180px]">
                   <p className="font-semibold text-gray-800">{audit.action}</p>
                   <p className="text-gray-600">
-                    {audit.entityKey.replace(/^invoice:/, "")}
+                    {getAuditDisplayKey(audit)}
                     {audit.toValue ? ` - ${audit.toValue}` : ""}
                   </p>
                   <p className="text-xs font-semibold text-gray-400 md:text-right">{normalizeDate(audit.createdAt)}</p>

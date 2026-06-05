@@ -744,6 +744,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   const [selectedAuditWeek, setSelectedAuditWeek] = useState("");
   const [selectedLateReason, setSelectedLateReason] = useState("");
   const [showAuditHistory, setShowAuditHistory] = useState(false);
+  const [showAsoReconciliation, setShowAsoReconciliation] = useState(false);
   const [selectedLateInvoiceKeys, setSelectedLateInvoiceKeys] = useState<Set<string>>(() => new Set());
   const [bulkLateReason, setBulkLateReason] = useState("");
   const [bulkLateComment, setBulkLateComment] = useState("");
@@ -1043,6 +1044,13 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       }).length,
     };
   }, [deliveredByAso.size, invoiceLinesInView, reconciliationRows, reviewState]);
+  const asoSummaryCards = useMemo(() => [
+    { label: "Open Exceptions", value: stats.openExceptions, tone: "border-l-slate-500", helper: "Rows still needing action", status: "all" as const },
+    { label: "Delivered Not Invoiced", value: stats.notInvoiced, tone: "border-l-red-500", helper: `${formatNumber(stats.notInvoicedQty)} qty`, status: "not-invoiced" as const },
+    { label: "Invoiced Not Loaded", value: stats.notLoaded, tone: "border-l-amber-500", helper: "Needs order confirmation", status: "not-loaded" as const },
+    { label: "Loaded Not Delivered", value: stats.loadedNotDelivered, tone: "border-l-yellow-500", helper: "Loaded, no delivery close", status: "loaded-not-delivered" as const },
+    { label: "Matched", value: stats.matched, tone: "border-l-emerald-500", helper: "No action required", status: "matched" as const },
+  ], [stats]);
 
   const creatorWorkload = useMemo<CreatorWorkload[]>(() => {
     const statusByAso = new Map(reconciliationRows.map((row) => [row.aso, row.status]));
@@ -1664,6 +1672,11 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     });
   };
 
+  const setAsoStatusFilter = (status: InvoiceStatus | "all") => {
+    setActiveStatus(status);
+    setShowAsoReconciliation(true);
+  };
+
   const downloadTemplate = async () => {
     const data = [
       ["Invoice No", "Source Sales Order", "Document Date", "Delivery / Due Date", "Customer", "Created By", "Delivery Status", "Status", "Posted Date", "Invoice Qty"],
@@ -1966,7 +1979,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
             </>
           );
           return isFilterCard ? (
-            <button key={card.label} type="button" onClick={() => setActiveStatus(card.status)} className={className}>
+            <button key={card.label} type="button" onClick={() => setAsoStatusFilter(card.status)} className={className}>
               {content}
             </button>
           ) : (
@@ -2407,48 +2420,72 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
               <p className="mt-1 text-sm text-gray-600">Delivered data comes from Order Management. Invoiced data comes from the saved invoice ledger.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  className="w-80 rounded-card border border-gray-300 py-2 pl-10 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  placeholder="Search ASO, customer, invoice..."
-                />
-              </div>
-              <select
-                value={activeStatus}
-                onChange={(event) => setActiveStatus(event.target.value as InvoiceStatus | "all")}
-                className="rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              >
-                <option value="all">All statuses</option>
-                {Object.entries(statusLabel).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-              <Button variant="outline" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => void saveAllReviews()}>
-                <CheckCircle2 className="h-4 w-4" />
-                Save All Reviews
-                {dirtyReviewCount > 0 && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
-                    {dirtyReviewCount}
-                  </span>
-                )}
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                {formatNumber(stats.openExceptions)} open exceptions
+              </p>
+              <Button variant="outline" onClick={() => setShowAsoReconciliation((value) => !value)}>
+                {showAsoReconciliation ? "Hide Details" : "Show Details"}
               </Button>
-              <div className="flex gap-1 rounded-card border border-gray-200 bg-gray-50 p-1">
-                <button type="button" className="flex h-8 items-center gap-1 rounded bg-white px-2 text-xs font-semibold text-gray-600 shadow-sm hover:text-emerald-700" onClick={() => scrollTable("left")}>
-                  <ChevronLeft className="h-4 w-4" />
-                  Left
-                </button>
-                <button type="button" className="flex h-8 items-center gap-1 rounded bg-white px-2 text-xs font-semibold text-gray-600 shadow-sm hover:text-emerald-700" onClick={() => scrollTable("right")}>
-                  Right
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="grid gap-3 border-b border-gray-100 bg-gray-50 p-5 md:grid-cols-2 xl:grid-cols-5">
+            {asoSummaryCards.map((card) => (
+              <button
+                key={card.label}
+                type="button"
+                onClick={() => setAsoStatusFilter(card.status)}
+                className={`rounded-card border border-gray-200 border-l-[3px] ${card.tone} bg-white p-3 text-left transition hover:border-gray-300 hover:shadow-sm`}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{card.label}</p>
+                <p className="mt-1 text-xl font-bold text-gray-900">{formatNumber(card.value)}</p>
+                <p className="text-xs text-gray-500">{card.helper}</p>
+              </button>
+            ))}
+          </div>
+          {showAsoReconciliation && (
+            <>
+          <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-white p-5">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="w-80 rounded-card border border-gray-300 py-2 pl-10 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                placeholder="Search ASO, customer, invoice..."
+              />
+            </div>
+            <select
+              value={activeStatus}
+              onChange={(event) => setActiveStatus(event.target.value as InvoiceStatus | "all")}
+              className="rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            >
+              <option value="all">All statuses</option>
+              {Object.entries(statusLabel).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            <Button variant="outline" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => void saveAllReviews()}>
+              <CheckCircle2 className="h-4 w-4" />
+              Save All Reviews
+              {dirtyReviewCount > 0 && (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                  {dirtyReviewCount}
+                </span>
+              )}
+            </Button>
+            <div className="flex gap-1 rounded-card border border-gray-200 bg-gray-50 p-1">
+              <button type="button" className="flex h-8 items-center gap-1 rounded bg-white px-2 text-xs font-semibold text-gray-600 shadow-sm hover:text-emerald-700" onClick={() => scrollTable("left")}>
+                <ChevronLeft className="h-4 w-4" />
+                Left
+              </button>
+              <button type="button" className="flex h-8 items-center gap-1 rounded bg-white px-2 text-xs font-semibold text-gray-600 shadow-sm hover:text-emerald-700" onClick={() => scrollTable("right")}>
+                Right
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
           {invoiceLines.length === 0 && (
             <div className="m-5 flex items-start gap-3 rounded-card border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
               <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -2567,6 +2604,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
               </tbody>
             </table>
           </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

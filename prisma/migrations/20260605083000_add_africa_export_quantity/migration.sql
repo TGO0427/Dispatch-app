@@ -1,0 +1,1 @@
+ALTER TABLE "africa_export_shipments" ADD COLUMN "quantity" DOUBLE PRECISION NOT NULL DEFAULT 0;

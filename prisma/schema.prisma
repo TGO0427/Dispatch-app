@@ -98,6 +98,7 @@ model AfricaExportShipment {
   preferenceScheme      String   @default("To confirm") @db.VarChar(100)
   destinationAgent      String?  @db.Text
   eta                   String?  @db.VarChar(255)
+  quantity              Float    @default(0)
   pallets               Int      @default(0)
   status                String   @default("pending") @db.VarChar(50)
   assignedTransporterId String?  @db.VarChar(255)

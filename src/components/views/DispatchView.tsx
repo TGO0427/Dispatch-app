@@ -544,6 +544,7 @@ export const DispatchView: React.FC<DispatchViewProps> = ({ onOpenAlerts, initia
         preferenceScheme: "To confirm",
         destinationAgent: "",
         eta: job.eta || "",
+        quantity: totalQty,
         pallets: orderPallets,
         status: getAfricaExportStatus(job.status),
         lastCheckedAt: "",

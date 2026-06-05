@@ -71,6 +71,7 @@ interface ExportShipment {
   preferenceScheme: string;
   destinationAgent: string;
   eta: string;
+  quantity: number;
   pallets: number;
   status: ExportStatus;
   assignedTransporterId?: string;
@@ -366,6 +367,7 @@ const DEFAULT_SHIPMENT: ExportShipment = {
   preferenceScheme: "To confirm",
   destinationAgent: "",
   eta: "",
+  quantity: 0,
   pallets: 0,
   status: "pending",
   lastCheckedAt: "",
@@ -580,6 +582,7 @@ const mergeShipmentLines = (shipments: ExportShipment[]) => {
       incoterm: existing.incoterm || shipment.incoterm,
       transportMode: existing.transportMode || shipment.transportMode,
       eta: existing.eta || shipment.eta,
+      quantity: (existing.quantity || 0) + (shipment.quantity || 0),
       pallets: Math.max(existing.pallets || 0, shipment.pallets || 0),
       notes: mergeUniqueTextList(existing.notes, shipment.notes),
     });
@@ -619,6 +622,7 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
       incoterm: String(findValue(headers, row, ["incoterm", "inco term"]) ?? "FCA").trim() || "FCA",
       transportMode: String(findValue(headers, row, ["transport mode", "mode"]) ?? "Road").trim() || "Road",
       eta: normalizeDate(findValue(headers, row, ["eta", "delivery date", "dispatch date", "shipment date"])),
+      quantity: parseNumber(findValue(headers, row, ["qty", "quantity", "order qty", "invoice qty", "dispatch qty"])),
       pallets: parseNumber(findValue(headers, row, ["pallets", "pallet qty", "pallet quantity"])),
       notes: String(findValue(headers, row, ["notes", "remarks", "comment"]) ?? "").trim(),
       status: "pending" as ExportStatus,
@@ -1297,6 +1301,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       ["Product Type", shipment.productType],
       ["Incoterm", shipment.incoterm],
       ["Transport Mode", shipment.transportMode],
+      ["Quantity", shipment.quantity],
       ["Pallets", shipment.pallets],
       ["Readiness", readiness.label],
       ["Dispatch Approved", shipment.dispatchApprovedAt || "No"],
@@ -1433,8 +1438,8 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
   const downloadTemplate = async () => {
     const data = [
-      ["Reference", "Customer", "Destination Country", "HS Code", "Product Type", "Incoterm", "Transport Mode", "ETA", "Pallets", "Notes"],
-      ["AFX-0001", "Africa Client", "Botswana", "2106.90", "Food ingredient blend", "FCA", "Road", "2026-06-15", "4", "Confirm import permit before dispatch"],
+      ["Reference", "Customer", "Destination Country", "HS Code", "Product Type", "Incoterm", "Transport Mode", "ETA", "Qty", "Pallets", "Notes"],
+      ["AFX-0001", "Africa Client", "Botswana", "2106.90", "Food ingredient blend", "FCA", "Road", "2026-06-15", "1250", "4", "Confirm import permit before dispatch"],
     ];
     const worksheet = XLSX.utils.aoa_to_sheet(data);
     const workbook = XLSX.utils.book_new();
@@ -1939,6 +1944,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                       </select>
                     </label>
                     <Field label="ETA / Dispatch Date" value={shipment.eta} onChange={(value) => updateShipment({ eta: value })} type="date" />
+                    <Field label="Qty" value={String(shipment.quantity || "")} onChange={(value) => updateShipment({ quantity: parseNumber(value) })} type="number" />
                     <Field label="Pallets" value={String(shipment.pallets || "")} onChange={(value) => updateShipment({ pallets: parseNumber(value) })} type="number" />
                     <label className="space-y-2">
                       <span className="text-sm font-semibold text-gray-700">Origin Preference</span>
@@ -1986,6 +1992,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Selected export</p>
                     <p className="mt-1 truncate text-sm font-bold text-gray-900">{shipment.ref || "No export selected"}</p>
                     <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                      <span>{shipment.quantity || "-"} qty</span>
                       <span>{shipment.pallets || "-"} pallets</span>
                       <span>{shipment.status}</span>
                       <span className={`col-span-2 rounded border px-2 py-1 font-bold ${readiness.tone}`}>Readiness: {readiness.label}</span>
@@ -2357,7 +2364,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                   <Upload className="mx-auto mb-3 h-10 w-10 text-gray-300" />
                   <p className="text-sm font-semibold text-gray-700">Upload a CSV, XLSX, or XLS file</p>
                   <p className="mt-1 text-xs text-gray-400">
-                    Supported columns: Reference, Customer, Destination Country, HS Code, Product Type, Incoterm, Transport Mode, ETA, Pallets, Notes.
+                    Supported columns: Reference, Customer, Destination Country, HS Code, Product Type, Incoterm, Transport Mode, ETA, Qty, Pallets, Notes.
                   </p>
                 </div>
               ) : (
@@ -2372,7 +2379,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50">
                         <tr>
-                          {["Reference", "Client", "Country", "HS Code", "Product", "Incoterm", "Pallets"].map((heading) => (
+                          {["Reference", "Client", "Country", "HS Code", "Product", "Incoterm", "Qty", "Pallets"].map((heading) => (
                             <th key={heading} className="p-3 text-left font-semibold text-gray-700">{heading}</th>
                           ))}
                         </tr>
@@ -2386,6 +2393,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                             <td className="p-3 text-gray-700">{item.hsCode || "-"}</td>
                             <td className="p-3 text-gray-700">{item.productType || "-"}</td>
                             <td className="p-3 text-gray-700">{item.incoterm}</td>
+                            <td className="p-3 text-gray-700">{item.quantity || "-"}</td>
                             <td className="p-3 text-gray-700">{item.pallets || "-"}</td>
                           </tr>
                         ))}

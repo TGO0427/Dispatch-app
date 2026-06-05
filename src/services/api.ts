@@ -168,6 +168,7 @@ export interface AfricaExportShipment {
   preferenceScheme: string;
   destinationAgent: string;
   eta: string;
+  quantity: number;
   pallets: number;
   status: "pending" | "assigned" | "in-transit" | "delivered";
   assignedTransporterId?: string;

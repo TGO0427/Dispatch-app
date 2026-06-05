@@ -37,6 +37,7 @@ const toShipmentData = (body: Record<string, unknown>, createdById?: string) => 
     preferenceScheme: body.preferenceScheme ? String(body.preferenceScheme) : "To confirm",
     destinationAgent: body.destinationAgent ? String(body.destinationAgent) : null,
     eta: body.eta ? String(body.eta) : null,
+    quantity: Number.isFinite(Number(body.quantity)) ? Math.max(0, Number(body.quantity)) : 0,
     pallets: Number.isFinite(Number(body.pallets)) ? Math.max(0, Math.round(Number(body.pallets))) : 0,
     status,
     assignedTransporterId: body.assignedTransporterId ? String(body.assignedTransporterId) : null,

@@ -1512,7 +1512,10 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   };
 
   const openExistingOrder = (row: ReconciliationRow) => {
-    const targetTab = row.status === "not-invoiced" ? "delivered" : "open";
+    const targetTab =
+      row.status === "not-invoiced" ? "delivered" :
+      row.status === "loaded-not-delivered" ? "in-transit" :
+      "open";
     onNavigate?.("clipboard", targetTab, row.aso);
   };
 
@@ -2547,7 +2550,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                     return (
                       <tr key={row.aso} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="sticky left-0 z-10 bg-white px-4 py-3 font-semibold text-resilinc-primary shadow-[8px_0_12px_-12px_rgba(15,23,42,0.35)]">
-                          {row.status === "not-invoiced" && onNavigate ? (
+                          {(row.status === "not-invoiced" || row.status === "loaded-not-delivered") && onNavigate ? (
                             <button
                               type="button"
                               onClick={() => openExistingOrder(row)}

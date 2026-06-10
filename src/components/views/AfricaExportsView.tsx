@@ -418,6 +418,11 @@ const PRE_DISPATCH_CHECKS = [
   "Full proof of export pack is retained for SARS and VAT audit.",
 ];
 
+const UNIVERSAL_EXPORT_RULES = [
+  "ALL SADC MUST BE STAMPED AT NEAREST SARS OFFICE",
+  ...PRE_DISPATCH_CHECKS.filter((rule) => !rule.toLowerCase().includes("sadc certificate of origin must be stamped")),
+];
+
 const AGENT_QUESTION =
   "Please confirm, based on the HS code and product description, whether any import permit, standards approval, COC/PVOC, health certificate, phytosanitary/veterinary certificate, or original certificate of origin is required before shipment.";
 
@@ -2126,8 +2131,15 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         </div>
       </div>
 
-      <div className="rounded-card border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold uppercase tracking-wide text-red-800">
-        ALL SADC MUST BE STAMPED AT NEAREST SARS OFFICE
+      <div className="overflow-hidden rounded-card border border-red-200 bg-red-50 py-3 text-sm font-bold uppercase tracking-wide text-red-800" aria-label="Universal Africa export rules">
+        <div className="flex min-w-max animate-africa-export-rules gap-8 whitespace-nowrap">
+          {[...UNIVERSAL_EXPORT_RULES, ...UNIVERSAL_EXPORT_RULES].map((rule, index) => (
+            <span key={`${rule}-${index}`} className="inline-flex items-center gap-8">
+              <span>{rule}</span>
+              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+            </span>
+          ))}
+        </div>
       </div>
 
       {remoteSyncError && (

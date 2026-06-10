@@ -68,6 +68,19 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes africa-export-rules-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-africa-export-rules {
+  animation: africa-export-rules-marquee 55s linear infinite;
+}
+
 * {
   margin: 0;
   padding: 0;

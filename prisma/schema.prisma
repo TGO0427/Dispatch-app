@@ -100,6 +100,7 @@ model AfricaExportShipment {
   etd                   String?  @db.VarChar(255)
   eta                   String?  @db.VarChar(255)
   customsBufferDays     Int      @default(2)
+  queuePosition         Int      @default(0)
   quantity              Float    @default(0)
   pallets               Int      @default(0)
   status                String   @default("pending") @db.VarChar(50)
@@ -124,6 +125,7 @@ model AfricaExportShipment {
   @@index([assignedTransporterId])
   @@index([etd])
   @@index([eta])
+  @@index([queuePosition])
   @@index([createdAt])
   @@map("africa_export_shipments")
 }

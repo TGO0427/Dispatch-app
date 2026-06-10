@@ -170,6 +170,7 @@ export interface AfricaExportShipment {
   etd: string;
   eta: string;
   customsBufferDays?: number;
+  queuePosition?: number;
   quantity: number;
   pallets: number;
   status: "pending" | "assigned" | "in-transit" | "delivered" | "cancelled";

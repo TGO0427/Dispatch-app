@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  DndContext,
+  DragEndEvent,
+  closestCenter,
+} from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   AlertTriangle,
   Archive,
@@ -11,6 +18,7 @@ import {
   FileCheck2,
   FileText,
   Globe2,
+  GripVertical,
   History,
   Package,
   Plane,
@@ -87,6 +95,7 @@ interface ExportShipment {
   etd: string;
   eta: string;
   customsBufferDays?: number;
+  queuePosition?: number;
   quantity: number;
   pallets: number;
   status: ExportStatus;
@@ -527,6 +536,7 @@ const DEFAULT_SHIPMENT: ExportShipment = {
   etd: "",
   eta: "",
   customsBufferDays: 2,
+  queuePosition: 0,
   quantity: 0,
   pallets: 0,
   status: "pending",
@@ -579,6 +589,7 @@ const normalizeShipment = (shipment: Partial<ExportShipment> = {}): ExportShipme
     etd: asText(shipment.etd),
     eta: asText(shipment.eta),
     customsBufferDays: parseNumber(shipment.customsBufferDays) || 2,
+    queuePosition: parseNumber(shipment.queuePosition),
     quantity: parseNumber(shipment.quantity),
     pallets: parseNumber(shipment.pallets),
     status: validStatus,
@@ -990,6 +1001,42 @@ interface AfricaExportsViewProps {
   initialFilter?: string;
 }
 
+const SortableAfricaQueueItem: React.FC<{ id: string; children: (handle: ReactNode, isDragging: boolean) => ReactNode }> = ({ id, children }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 20 : undefined,
+  };
+
+  const handle = (
+    <span
+      {...attributes}
+      {...listeners}
+      className="inline-flex h-8 w-8 flex-shrink-0 cursor-grab items-center justify-center rounded border border-gray-200 bg-white text-gray-400 active:cursor-grabbing"
+      title="Drag to reorder"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <GripVertical className="h-4 w-4" />
+    </span>
+  );
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children(handle, isDragging)}
+    </div>
+  );
+};
+
 export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef, initialFilter }) => {
   const { showSuccess, showError, showWarning, confirm } = useNotification();
   const { user } = useAuth();
@@ -1181,7 +1228,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   }, [countryRules, shipment.destinationCountry]);
 
   const trackedShipments = useMemo(
-    () => [...shipments].sort((a, b) => (a.etd || a.eta || "9999").localeCompare(b.etd || b.eta || "9999")),
+    () => [...shipments].sort((a, b) => {
+      const aPosition = a.queuePosition || Number.MAX_SAFE_INTEGER;
+      const bPosition = b.queuePosition || Number.MAX_SAFE_INTEGER;
+      if (aPosition !== bPosition) return aPosition - bPosition;
+      return (a.etd || a.eta || "9999").localeCompare(b.etd || b.eta || "9999");
+    }),
     [shipments],
   );
   const activeShipments = useMemo(() => trackedShipments.filter((item) => !item.archived && item.status !== "cancelled"), [trackedShipments]);
@@ -1289,6 +1341,32 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         .includes(query)),
     );
   }, [activeShipments, approvedShipments, archivedShipments, cancelledShipments, countryFilter, etaFilter, missingDocsShipments, pendingApprovalShipments, queueFilter, readyShipments, riskyShipments, searchQuery, statusFilter, transporterFilter]);
+
+  const handleQueueDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const visibleRefs = filteredShipments.map((item) => item.ref);
+    const oldIndex = visibleRefs.indexOf(String(active.id));
+    const newIndex = visibleRefs.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const reorderedRefs = [...visibleRefs];
+    const [movedRef] = reorderedRefs.splice(oldIndex, 1);
+    reorderedRefs.splice(newIndex, 0, movedRef);
+    const positionByRef = new Map(reorderedRefs.map((ref, index) => [ref, (index + 1) * 1000]));
+
+    setShipments((current) => current.map((item) => (
+      positionByRef.has(item.ref)
+        ? {
+          ...item,
+          queuePosition: positionByRef.get(item.ref),
+          history: item.ref === movedRef ? appendHistory(item.history, "Queue reordered", `Moved to position ${newIndex + 1}`) : item.history,
+        }
+        : item
+    )));
+    showSuccess(`${movedRef} moved to queue position ${newIndex + 1}.`);
+  };
 
   const requiredItems = getRequiredItemsForShipment(shipment);
   const requiredDone = requiredItems.filter((item) => shipment.documents?.[item.id]).length;
@@ -2348,49 +2426,62 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     </p>
                   </div>
                 ) : (
-                  filteredShipments.map((item) => {
-                    const active = selectedRef === item.ref;
-                    const itemReadiness = getReadiness(item);
-                    const itemRequired = getRequiredItemsForShipment(item);
-                    const itemRequiredDone = itemRequired.filter((doc) => item.documents?.[doc.id]).length;
-                    const itemRequiredPercent = itemRequired.length ? Math.round((itemRequiredDone / itemRequired.length) * 100) : 0;
-                    const dateMeta = getShipmentDateMeta(item);
-                    return (
-                      <button
-                        key={item.ref}
-                        onClick={() => setSelectedRef(item.ref)}
-                        className={`w-full rounded-card border p-3 text-left transition-colors ${
-                          active ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-sm font-bold text-gray-900">{item.ref}</span>
-                          <span className="text-xs font-semibold text-emerald-700">{itemRequiredPercent}%</span>
-                        </div>
-                        <p className="mt-1 truncate text-xs text-gray-600">{item.customer}</p>
-                        <p className="mt-1 truncate text-xs text-gray-400">
-                          {item.destinationCountry || "Country to confirm"} - {item.status}
-                        </p>
-                        <div className={`mt-2 flex items-center justify-between gap-2 rounded-card border px-2 py-1.5 ${dateMeta.tone}`}>
-                          <span className="flex min-w-0 items-center gap-1.5 text-xs font-bold">
-                            <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-                            <span className="truncate">ETD {formatExportDate(item.etd)}</span>
-                          </span>
-                          <span className="flex-shrink-0 text-[10px] font-bold uppercase">{dateMeta.label}</span>
-                        </div>
-                        <p className="mt-1 truncate text-[11px] font-semibold text-gray-500">ETA {formatExportDate(item.eta)}</p>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                          <div
-                            className="h-full rounded-full bg-emerald-500"
-                            style={{ width: `${itemRequired.length ? (itemRequiredDone / itemRequired.length) * 100 : 0}%` }}
-                          />
-                        </div>
-                        <span className={`mt-2 inline-flex rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${itemReadiness.tone}`}>
-                          {itemReadiness.label} - docs {itemRequiredDone}/{itemRequired.length}
-                        </span>
-                      </button>
-                    );
-                  })
+                  <DndContext collisionDetection={closestCenter} onDragEnd={handleQueueDragEnd}>
+                    <SortableContext items={filteredShipments.map((item) => item.ref)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {filteredShipments.map((item) => {
+                          const active = selectedRef === item.ref;
+                          const itemReadiness = getReadiness(item);
+                          const itemRequired = getRequiredItemsForShipment(item);
+                          const itemRequiredDone = itemRequired.filter((doc) => item.documents?.[doc.id]).length;
+                          const itemRequiredPercent = itemRequired.length ? Math.round((itemRequiredDone / itemRequired.length) * 100) : 0;
+                          const dateMeta = getShipmentDateMeta(item);
+                          return (
+                            <SortableAfricaQueueItem key={item.ref} id={item.ref}>
+                              {(dragHandle) => (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedRef(item.ref)}
+                                  className={`w-full rounded-card border p-3 text-left transition-colors ${
+                                    active ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="flex min-w-0 items-center gap-2">
+                                      {dragHandle}
+                                      <span className="truncate text-sm font-bold text-gray-900">{item.ref}</span>
+                                    </span>
+                                    <span className="text-xs font-semibold text-emerald-700">{itemRequiredPercent}%</span>
+                                  </div>
+                                  <p className="mt-1 truncate text-xs text-gray-600">{item.customer}</p>
+                                  <p className="mt-1 truncate text-xs text-gray-400">
+                                    {item.destinationCountry || "Country to confirm"} - {item.status}
+                                  </p>
+                                  <div className={`mt-2 flex items-center justify-between gap-2 rounded-card border px-2 py-1.5 ${dateMeta.tone}`}>
+                                    <span className="flex min-w-0 items-center gap-1.5 text-xs font-bold">
+                                      <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+                                      <span className="truncate">ETD {formatExportDate(item.etd)}</span>
+                                    </span>
+                                    <span className="flex-shrink-0 text-[10px] font-bold uppercase">{dateMeta.label}</span>
+                                  </div>
+                                  <p className="mt-1 truncate text-[11px] font-semibold text-gray-500">ETA {formatExportDate(item.eta)}</p>
+                                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                                    <div
+                                      className="h-full rounded-full bg-emerald-500"
+                                      style={{ width: `${itemRequired.length ? (itemRequiredDone / itemRequired.length) * 100 : 0}%` }}
+                                    />
+                                  </div>
+                                  <span className={`mt-2 inline-flex rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${itemReadiness.tone}`}>
+                                    {itemReadiness.label} - docs {itemRequiredDone}/{itemRequired.length}
+                                  </span>
+                                </button>
+                              )}
+                            </SortableAfricaQueueItem>
+                          );
+                        })}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                 )}
               </div>
             </CardContent>

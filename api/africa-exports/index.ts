@@ -55,6 +55,7 @@ const toShipmentData = (body: Record<string, unknown>, createdById?: string) => 
     etd: body.etd ? String(body.etd) : null,
     eta: body.eta ? String(body.eta) : null,
     customsBufferDays: Number.isFinite(Number(body.customsBufferDays)) ? Math.max(0, Math.round(Number(body.customsBufferDays))) : 2,
+    queuePosition: Number.isFinite(Number(body.queuePosition)) ? Math.max(0, Math.round(Number(body.queuePosition))) : 0,
     quantity: Number.isFinite(Number(body.quantity)) ? Math.max(0, Number(body.quantity)) : 0,
     pallets: Number.isFinite(Number(body.pallets)) ? Math.max(0, Math.round(Number(body.pallets))) : 0,
     status,
@@ -134,7 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "GET") {
     try {
-      const shipments = await prisma.africaExportShipment.findMany({ orderBy: [{ eta: "asc" }, { createdAt: "desc" }] });
+      const shipments = await prisma.africaExportShipment.findMany({ orderBy: [{ queuePosition: "asc" }, { eta: "asc" }, { createdAt: "desc" }] });
       return res.json({ success: true, data: shipments.map(formatShipment) });
     } catch (error) {
       console.error("Error fetching Africa export shipments:", error);

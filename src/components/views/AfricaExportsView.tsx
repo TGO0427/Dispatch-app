@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Archive,
+  CalendarDays,
   CheckCircle2,
   ClipboardCheck,
   Download,
@@ -529,6 +530,51 @@ const getDaysUntil = (dateValue: string) => {
   today.setHours(0, 0, 0, 0);
   date.setHours(0, 0, 0, 0);
   return Math.ceil((date.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+};
+
+const formatExportDate = (dateValue: string) => {
+  if (!dateValue) return "No ETD / ETA";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return dateValue;
+  return date.toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const getShipmentDateMeta = (shipment: ExportShipment) => {
+  const daysUntil = getDaysUntil(shipment.eta);
+  if (daysUntil === null) {
+    return {
+      label: "No date",
+      tone: "border-gray-200 bg-gray-50 text-gray-600",
+    };
+  }
+  if (shipment.status === "delivered") {
+    return {
+      label: "Delivered",
+      tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    };
+  }
+  if (daysUntil < 0) {
+    return {
+      label: `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? "" : "s"} overdue`,
+      tone: "border-red-200 bg-red-50 text-red-700",
+    };
+  }
+  if (daysUntil === 0) {
+    return {
+      label: "Today",
+      tone: "border-orange-200 bg-orange-50 text-orange-700",
+    };
+  }
+  if (daysUntil <= 7) {
+    return {
+      label: `${daysUntil} day${daysUntil === 1 ? "" : "s"} out`,
+      tone: "border-amber-200 bg-amber-50 text-amber-700",
+    };
+  }
+  return {
+    label: `${daysUntil} days out`,
+    tone: "border-blue-200 bg-blue-50 text-blue-700",
+  };
 };
 
 const isEtaThisWeek = (dateValue: string) => {
@@ -1967,6 +2013,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     const itemReadiness = getReadiness(item);
                     const itemRequired = getRequiredItemsForShipment(item);
                     const itemRequiredDone = itemRequired.filter((doc) => item.documents?.[doc.id]).length;
+                    const dateMeta = getShipmentDateMeta(item);
                     return (
                       <button
                         key={item.ref}
@@ -1983,6 +2030,13 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                         <p className="mt-1 truncate text-xs text-gray-400">
                           {item.destinationCountry || "Country to confirm"} - {item.status}
                         </p>
+                        <div className={`mt-2 flex items-center justify-between gap-2 rounded-card border px-2 py-1.5 ${dateMeta.tone}`}>
+                          <span className="flex min-w-0 items-center gap-1.5 text-xs font-bold">
+                            <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+                            <span className="truncate">ETD / ETA {formatExportDate(item.eta)}</span>
+                          </span>
+                          <span className="flex-shrink-0 text-[10px] font-bold uppercase">{dateMeta.label}</span>
+                        </div>
                         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
                           <div
                             className="h-full rounded-full bg-emerald-500"

@@ -81,6 +81,12 @@
   animation: africa-export-rules-marquee 55s linear infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-africa-export-rules {
+    animation-play-state: paused;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;

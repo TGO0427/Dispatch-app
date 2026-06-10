@@ -2131,12 +2131,19 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-card border border-red-200 bg-red-50 py-3 text-sm font-bold uppercase tracking-wide text-red-800" aria-label="Universal Africa export rules">
-        <div className="flex min-w-max animate-africa-export-rules gap-8 whitespace-nowrap">
+      <div
+        className="group flex overflow-hidden rounded-card border-2 border-amber-500 bg-amber-100 py-3 text-sm font-bold uppercase tracking-wide text-amber-950 shadow-sm ring-1 ring-amber-200"
+        aria-label="Universal Africa export rules"
+        tabIndex={0}
+      >
+        <div className="flex shrink-0 items-center bg-amber-600 px-4 text-xs text-white">
+          Universal rules
+        </div>
+        <div className="flex min-w-max animate-africa-export-rules gap-8 whitespace-nowrap px-5 group-hover:[animation-play-state:paused] group-focus:[animation-play-state:paused]">
           {[...UNIVERSAL_EXPORT_RULES, ...UNIVERSAL_EXPORT_RULES].map((rule, index) => (
             <span key={`${rule}-${index}`} className="inline-flex items-center gap-8">
               <span>{rule}</span>
-              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
             </span>
           ))}
         </div>

@@ -483,15 +483,6 @@ const isSyncableShipment = (shipment: ExportShipment) => Boolean(shipment.ref?.t
 
 const getSyncableShipments = (shipments: ExportShipment[]) => shipments.filter(isSyncableShipment);
 
-const getCompletion = (shipment: ExportShipment) => {
-  const total = CHECKLIST_GROUPS.reduce((sum, group) => sum + group.items.length, 0);
-  const complete = CHECKLIST_GROUPS.reduce(
-    (sum, group) => sum + group.items.filter((item) => shipment.documents[item.id]).length,
-    0,
-  );
-  return { total, complete, percent: total ? Math.round((complete / total) * 100) : 0 };
-};
-
 const appendHistory = (
   history: ShipmentHistoryEntry[] | undefined,
   action: string,
@@ -956,8 +947,8 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const baseRequiredIds = useMemo(() => new Set(allChecklistItems.filter((item) => item.required).map((item) => item.id)), [allChecklistItems]);
 
   const getRequiredItemsForShipment = (item: ExportShipment) => {
-    const countryRequiredIds = countryRules[item.destinationCountry]?.requiredDocumentIds || [];
-    const ids = new Set([...baseRequiredIds, ...countryRequiredIds]);
+    const countryRequiredIds = countryRules[item.destinationCountry]?.requiredDocumentIds;
+    const ids = countryRequiredIds ? new Set(countryRequiredIds) : baseRequiredIds;
     return allChecklistItems.filter((doc) => ids.has(doc.id));
   };
 
@@ -970,12 +961,16 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     if (!item.ref || !item.customer) return { label: "Draft", detail: "Reference and client are still needed", tone: "border-gray-200 bg-gray-50 text-gray-600" };
 
     const missingRequired = getMissingRequiredDocs(item);
-    if (missingRequired.length > 0 || !item.lastCheckedAt) {
+    if (missingRequired.length > 0) {
       return {
         label: "At Risk",
-        detail: missingRequired.length > 0 ? `${missingRequired.length} required document${missingRequired.length === 1 ? "" : "s"} missing` : "Destination agent check not marked",
+        detail: `${missingRequired.length} required document${missingRequired.length === 1 ? "" : "s"} missing`,
         tone: "border-red-200 bg-red-50 text-red-700",
       };
+    }
+
+    if (!item.lastCheckedAt) {
+      return { label: "Needs Agent Check", detail: "Destination agent check not marked", tone: "border-amber-200 bg-amber-50 text-amber-700" };
     }
 
     if (!item.assignedTransporterId) {
@@ -988,7 +983,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const riskyShipments = useMemo(() => {
     return activeShipments.filter((item) => {
       if (item.status === "delivered") return false;
-      return getMissingRequiredDocs(item).length > 0 || !item.lastCheckedAt;
+      return getMissingRequiredDocs(item).length > 0;
     });
   }, [activeShipments, countryRules, allChecklistItems, baseRequiredIds]);
   const missingDocsShipments = useMemo(() => {
@@ -1044,9 +1039,9 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     );
   }, [activeShipments, approvedShipments, archivedShipments, countryFilter, etaFilter, missingDocsShipments, pendingApprovalShipments, queueFilter, readyShipments, riskyShipments, searchQuery, statusFilter, transporterFilter]);
 
-  const completion = getCompletion(shipment);
   const requiredItems = getRequiredItemsForShipment(shipment);
   const requiredDone = requiredItems.filter((item) => shipment.documents?.[item.id]).length;
+  const requiredCompletionPercent = requiredItems.length ? Math.round((requiredDone / requiredItems.length) * 100) : 0;
   const complianceAlerts = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1148,9 +1143,9 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     })).filter((group) => group.items.length > 0);
   }, [searchQuery]);
 
-  const statusTone = completion.percent >= 85
+  const statusTone = requiredCompletionPercent >= 85
     ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-    : completion.percent >= 45
+    : requiredCompletionPercent >= 45
       ? "bg-amber-50 text-amber-700 border-amber-200"
       : "bg-red-50 text-red-700 border-red-200";
 
@@ -1865,7 +1860,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate text-sm font-bold text-gray-900">{shipment.ref}</span>
                   <span className={`rounded border px-2 py-1 text-xs font-bold ${statusTone}`}>
-                    {completion.percent}% complete
+                    {requiredCompletionPercent}% required docs
                   </span>
                   <span className={`rounded border px-2 py-1 text-xs font-bold ${readiness.tone}`}>
                     {readiness.label}
@@ -2009,10 +2004,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                 ) : (
                   filteredShipments.map((item) => {
                     const active = selectedRef === item.ref;
-                    const itemCompletion = getCompletion(item);
                     const itemReadiness = getReadiness(item);
                     const itemRequired = getRequiredItemsForShipment(item);
                     const itemRequiredDone = itemRequired.filter((doc) => item.documents?.[doc.id]).length;
+                    const itemRequiredPercent = itemRequired.length ? Math.round((itemRequiredDone / itemRequired.length) * 100) : 0;
                     const dateMeta = getShipmentDateMeta(item);
                     return (
                       <button
@@ -2024,7 +2019,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="truncate text-sm font-bold text-gray-900">{item.ref}</span>
-                          <span className="text-xs font-semibold text-emerald-700">{itemCompletion.percent}%</span>
+                          <span className="text-xs font-semibold text-emerald-700">{itemRequiredPercent}%</span>
                         </div>
                         <p className="mt-1 truncate text-xs text-gray-600">{item.customer}</p>
                         <p className="mt-1 truncate text-xs text-gray-400">

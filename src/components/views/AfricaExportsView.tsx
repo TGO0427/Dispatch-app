@@ -1008,7 +1008,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     return activeShipments.flatMap((item) => {
       if (item.status === "delivered") return [];
 
-      const missingRequired = requiredItems.filter((doc) => !item.documents?.[doc.id]);
+      const missingRequired = getMissingRequiredDocs(item);
       const alerts: {
         ref: string;
         title: string;
@@ -1211,6 +1211,28 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     });
   };
 
+  const markRequiredDocuments = (checked: boolean) => {
+    if (!shipment.ref) {
+      showWarning("Create or select an Africa export shipment first.");
+      return;
+    }
+
+    if (requiredItems.length === 0) {
+      showWarning("No required documents are defined for this shipment.");
+      return;
+    }
+
+    const documents = {
+      ...shipment.documents,
+      ...Object.fromEntries(requiredItems.map((item) => [item.id, checked])),
+    };
+    updateShipment({ documents }, {
+      action: checked ? "Required documents completed" : "Required documents reopened",
+      detail: `${requiredItems.length} required document${requiredItems.length === 1 ? "" : "s"} ${checked ? "marked complete" : "reopened"}`,
+    });
+    showSuccess(`${requiredItems.length} required document${requiredItems.length === 1 ? "" : "s"} ${checked ? "marked complete" : "reopened"}.`);
+  };
+
   const updateDocumentDetail = (id: string, field: "reference" | "expiry" | "notes", value: string) => {
     const item = CHECKLIST_GROUPS.flatMap((group) => group.items).find((doc) => doc.id === id);
     updateShipment({
@@ -1261,6 +1283,32 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       { lastCheckedAt: new Date().toISOString().slice(0, 10) },
       { action: "Agent check marked", detail: "Destination agent pre-dispatch question confirmed" },
     );
+  };
+
+  const saveShipmentSetup = async () => {
+    if (!shipment.ref.trim() || !shipment.customer.trim()) {
+      showWarning("Reference and Africa client / consignee are required before saving setup.");
+      return;
+    }
+
+    const nextShipment = {
+      ...shipment,
+      history: appendHistory(shipment.history, "Shipment setup saved", "Shipment setup details confirmed"),
+    };
+
+    setShipments((prev) => prev.map((item) => (item.ref === shipment.ref ? nextShipment : item)));
+    try {
+      const [saved] = await africaExportsAPI.bulkUpsert([nextShipment]);
+      if (saved) {
+        setShipments((prev) => prev.map((item) => (item.ref === shipment.ref ? saved : item)));
+      }
+      setRemoteSyncError("");
+      showSuccess(`${shipment.ref} setup saved.`);
+    } catch (error) {
+      console.warn("Failed to sync Africa export shipment setup", error);
+      setRemoteSyncError("Database sync failed. Shipment setup is saved in this browser and will retry while this page is open.");
+      showWarning(`${shipment.ref} setup saved in this browser. Database sync will retry.`);
+    }
   };
 
   const assignShipment = async (transporter: ExportTransporter) => {
@@ -1979,8 +2027,16 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
               <Card className="overflow-hidden xl:col-span-2">
                 <CardHeader className="border-b border-gray-100 p-5">
-                  <CardTitle>Shipment Setup</CardTitle>
-                  <p className="text-sm text-gray-600">Africa client, destination, tariff, Incoterm, and product details.</p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <CardTitle>Shipment Setup</CardTitle>
+                      <p className="text-sm text-gray-600">Africa client, destination, tariff, Incoterm, and product details.</p>
+                    </div>
+                    <Button className="gap-2" onClick={() => void saveShipmentSetup()} disabled={!shipment.ref.trim() || !shipment.customer.trim()}>
+                      <Save className="h-4 w-4" />
+                      Save Setup
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-5">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -2161,7 +2217,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                         <Truck className="h-5 w-5 text-gray-600" />
                         Export Transporters
                       </CardTitle>
-                      <p className="mt-1 text-sm text-gray-600">Separate from local order transporters.</p>
+                      <p className="mt-1 text-sm text-gray-600">Select a transporter, then use Assign to confirm this shipment.</p>
                     </div>
                     <Button size="sm" variant="outline" onClick={() => setShowAddTransporter(true)}>
                       <Plus className="h-4 w-4" />
@@ -2215,6 +2271,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                             <span className="truncate">{transporter.route || "Route to confirm"}</span>
                             <span>{transporter.capacity || 0} pallets</span>
                           </div>
+                          <div className="mt-3 flex items-center justify-between gap-2 border-t border-gray-100 pt-2">
+                            <span className="truncate text-xs text-gray-500">{transporter.contact || "No contact captured"}</span>
+                            <span className={`rounded px-2 py-1 text-xs font-bold ${isAssigned ? "bg-emerald-100 text-emerald-700" : "bg-gray-900 text-white"}`}>
+                              {isAssigned ? "Assigned" : "Assign"}
+                            </span>
+                          </div>
                         </button>
                       );
                     })}
@@ -2226,6 +2288,28 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
           {activeTab === "documents" && (
             <div className="space-y-4">
+              <Card className="overflow-hidden">
+                <CardContent className="p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">Required Documents</p>
+                      <p className="text-sm text-gray-600">
+                        {requiredDone}/{requiredItems.length} required documents complete for {shipment.ref || "the selected shipment"}.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button className="gap-2" onClick={() => markRequiredDocuments(true)} disabled={!shipment.ref || requiredItems.length === 0 || requiredDone === requiredItems.length}>
+                        <CheckCircle2 className="h-4 w-4" />
+                        Mark Required Complete
+                      </Button>
+                      <Button variant="outline" className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50" onClick={() => markRequiredDocuments(false)} disabled={!shipment.ref || requiredDone === 0}>
+                        <RotateCcw className="h-4 w-4" />
+                        Reopen Required
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
               {filteredGroups.map((group) => (
                 <Card key={group.title} className="overflow-hidden">
                   <CardHeader className="border-b border-gray-100 p-5">

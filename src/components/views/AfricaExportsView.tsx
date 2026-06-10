@@ -2132,11 +2132,11 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       </div>
 
       <div
-        className="group flex overflow-hidden rounded-card border-2 border-amber-500 bg-amber-100 py-3 text-sm font-bold uppercase tracking-wide text-amber-950 shadow-sm ring-1 ring-amber-200"
+        className="group relative overflow-hidden rounded-card border-2 border-amber-500 bg-amber-100 pb-3 pt-7 text-sm font-bold uppercase tracking-wide text-amber-950 shadow-sm ring-1 ring-amber-200"
         aria-label="Universal Africa export rules"
         tabIndex={0}
       >
-        <div className="flex shrink-0 items-center bg-amber-600 px-4 text-xs text-white">
+        <div className="absolute left-0 top-0 z-10 flex h-5 items-center rounded-br-md bg-amber-600 px-4 text-xs text-white">
           Universal rules
         </div>
         <div className="flex min-w-max animate-africa-export-rules gap-8 whitespace-nowrap px-5 group-hover:[animation-play-state:paused] group-focus:[animation-play-state:paused]">

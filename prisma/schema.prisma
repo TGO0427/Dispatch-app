@@ -97,7 +97,9 @@ model AfricaExportShipment {
   transportMode         String   @default("Road") @db.VarChar(50)
   preferenceScheme      String   @default("To confirm") @db.VarChar(100)
   destinationAgent      String?  @db.Text
+  etd                   String?  @db.VarChar(255)
   eta                   String?  @db.VarChar(255)
+  customsBufferDays     Int      @default(2)
   quantity              Float    @default(0)
   pallets               Int      @default(0)
   status                String   @default("pending") @db.VarChar(50)
@@ -120,6 +122,7 @@ model AfricaExportShipment {
   @@index([archived])
   @@index([destinationCountry])
   @@index([assignedTransporterId])
+  @@index([etd])
   @@index([eta])
   @@index([createdAt])
   @@map("africa_export_shipments")

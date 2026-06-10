@@ -84,7 +84,9 @@ interface ExportShipment {
   transportMode: string;
   preferenceScheme: string;
   destinationAgent: string;
+  etd: string;
   eta: string;
+  customsBufferDays?: number;
   quantity: number;
   pallets: number;
   status: ExportStatus;
@@ -274,6 +276,30 @@ const normalizeLeadTimeCountry = (country: string) => {
 const getLeadTimeGuide = (country: string) => EXPORT_LEAD_TIME_GUIDE[normalizeLeadTimeCountry(country)];
 
 const isLeadTimePractical = (leadTime: string) => !/not practical|not possible/i.test(leadTime);
+
+const getLeadTimeModeForTransportMode = (transportMode: string): LeadTimeMode | "" =>
+  transportMode === "Air" || transportMode === "Courier" ? "air" :
+  transportMode === "Sea" ? "sea" :
+  transportMode === "Road" ? "road" :
+  "";
+
+const getLeadTimeMaxDays = (leadTime: string) => {
+  if (!isLeadTimePractical(leadTime)) return null;
+  const matches = leadTime.match(/\d+/g);
+  if (!matches?.length) return null;
+  return Math.max(...matches.map((value) => Number(value)));
+};
+
+const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+
+const calculateEtdFromEta = (eta: string, leadTime: string, bufferDays: number) => {
+  const maxLeadDays = getLeadTimeMaxDays(leadTime);
+  if (!eta || maxLeadDays === null) return "";
+  const etaDate = new Date(eta);
+  if (Number.isNaN(etaDate.getTime())) return "";
+  etaDate.setDate(etaDate.getDate() - maxLeadDays - Math.max(0, Math.round(bufferDays || 0)));
+  return toDateInputValue(etaDate);
+};
 
 const CORE_DOCUMENTS: ChecklistItem[] = [
   { id: "proforma-invoice", label: "Proforma Invoice", purpose: "Pre-shipment quote document used by the buyer or destination agent to apply for import permits, approvals, or foreign payment where required.", conditional: "Prepare before shipment when the importer, bank, or destination authority needs it." },
@@ -473,7 +499,9 @@ const DEFAULT_SHIPMENT: ExportShipment = {
   transportMode: "Road",
   preferenceScheme: "To confirm",
   destinationAgent: "",
+  etd: "",
   eta: "",
+  customsBufferDays: 2,
   quantity: 0,
   pallets: 0,
   status: "pending",
@@ -626,7 +654,7 @@ const formatExportDate = (dateValue: string) => {
 };
 
 const getShipmentDateMeta = (shipment: ExportShipment) => {
-  const daysUntil = getDaysUntil(shipment.eta);
+  const daysUntil = getDaysUntil(shipment.etd || shipment.eta);
   if (daysUntil === null) {
     return {
       label: "No date",
@@ -641,24 +669,24 @@ const getShipmentDateMeta = (shipment: ExportShipment) => {
   }
   if (daysUntil < 0) {
     return {
-      label: `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? "" : "s"} overdue`,
+      label: `ETD ${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? "" : "s"} overdue`,
       tone: "border-red-200 bg-red-50 text-red-700",
     };
   }
   if (daysUntil === 0) {
     return {
-      label: "Today",
+      label: "ETD today",
       tone: "border-orange-200 bg-orange-50 text-orange-700",
     };
   }
   if (daysUntil <= 7) {
     return {
-      label: `${daysUntil} day${daysUntil === 1 ? "" : "s"} out`,
+      label: `ETD ${daysUntil} day${daysUntil === 1 ? "" : "s"} out`,
       tone: "border-amber-200 bg-amber-50 text-amber-700",
     };
   }
   return {
-    label: `${daysUntil} days out`,
+    label: `ETD ${daysUntil} days out`,
     tone: "border-blue-200 bg-blue-50 text-blue-700",
   };
 };
@@ -680,9 +708,10 @@ const isEtaThisWeek = (dateValue: string) => {
 
 const matchesEtaFilter = (shipment: ExportShipment, filter: ExportEtaFilter) => {
   if (filter === "all") return true;
-  if (filter === "no-date") return !shipment.eta;
-  const daysUntil = getDaysUntil(shipment.eta);
-  if (filter === "this-week") return isEtaThisWeek(shipment.eta);
+  const planningDate = shipment.etd || shipment.eta;
+  if (filter === "no-date") return !planningDate;
+  const daysUntil = getDaysUntil(planningDate);
+  if (filter === "this-week") return isEtaThisWeek(planningDate);
   if (filter === "next-30") return daysUntil !== null && daysUntil >= 0 && daysUntil <= 30;
   if (filter === "overdue") return daysUntil !== null && daysUntil < 0 && shipment.status !== "delivered";
   return true;
@@ -769,6 +798,8 @@ const mergeShipmentLines = (shipments: ExportShipment[]) => {
       incoterm: existing.incoterm || shipment.incoterm,
       transportMode: existing.transportMode || shipment.transportMode,
       eta: existing.eta || shipment.eta,
+      etd: existing.etd || shipment.etd,
+      customsBufferDays: existing.customsBufferDays ?? shipment.customsBufferDays,
       quantity: (existing.quantity || 0) + (shipment.quantity || 0),
       pallets: Math.max(existing.pallets || 0, shipment.pallets || 0),
       notes: existing.notes || shipment.notes,
@@ -809,7 +840,9 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
       productType: String(findValue(headers, row, ["product type", "inventory description", "description", "product"]) ?? "").trim(),
       incoterm: String(findValue(headers, row, ["incoterm", "inco term"]) ?? "FCA").trim() || "FCA",
       transportMode: String(findValue(headers, row, ["transport mode", "mode"]) ?? "Road").trim() || "Road",
+      etd: normalizeDate(findValue(headers, row, ["etd", "departure date", "planned dispatch date"])),
       eta: normalizeDate(findValue(headers, row, ["eta", "delivery date", "dispatch date", "shipment date"])),
+      customsBufferDays: parseNumber(findValue(headers, row, ["customs buffer days", "buffer days", "border buffer days"])) || 2,
       quantity: parseNumber(findValue(headers, row, ["qty", "quantity", "order qty", "invoice qty", "dispatch qty"])),
       pallets: parseNumber(findValue(headers, row, ["pallets", "pallet qty", "pallet quantity"])),
       notes: getImportShipmentNote(headers, row),
@@ -819,6 +852,12 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
       history: appendHistory([], "Imported", `Imported from ${file.name}`),
       archived: false,
     };
+    const importedLeadTimeGuide = getLeadTimeGuide(shipment.destinationCountry);
+    const importedMode = getLeadTimeModeForTransportMode(shipment.transportMode);
+    const importedLeadTime = importedMode && importedLeadTimeGuide ? importedLeadTimeGuide[importedMode] : "";
+    if (!shipment.etd && importedLeadTime) {
+      shipment.etd = calculateEtdFromEta(shipment.eta, importedLeadTime, shipment.customsBufferDays || 2);
+    }
     const lineNote = String(findValue(headers, row, ["line notes", "product notes", "notes", "remarks", "comment"]) ?? "").trim();
     const productLine = createProductLine({ ...shipment, notes: lineNote });
     return {
@@ -1029,7 +1068,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   }, [countryRules, shipment.destinationCountry]);
 
   const trackedShipments = useMemo(
-    () => [...shipments].sort((a, b) => (a.eta || "9999").localeCompare(b.eta || "9999")),
+    () => [...shipments].sort((a, b) => (a.etd || a.eta || "9999").localeCompare(b.etd || b.eta || "9999")),
     [shipments],
   );
   const activeShipments = useMemo(() => trackedShipments.filter((item) => !item.archived), [trackedShipments]);
@@ -1102,7 +1141,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     assigned: activeShipments.filter((item) => item.status === "assigned").length,
     inTransit: activeShipments.filter((item) => item.status === "in-transit").length,
     delivered: activeShipments.filter((item) => item.status === "delivered").length,
-    thisWeek: activeShipments.filter((item) => isEtaThisWeek(item.eta)).length,
+    thisWeek: activeShipments.filter((item) => isEtaThisWeek(item.etd || item.eta)).length,
     ready: readyShipments.length,
     missingDocs: missingDocsShipments.length,
   }), [activeShipments, missingDocsShipments.length, readyShipments.length]);
@@ -1113,7 +1152,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       queueFilter === "assigned" ? activeShipments.filter((item) => item.status === "assigned") :
       queueFilter === "in-transit" ? activeShipments.filter((item) => item.status === "in-transit") :
       queueFilter === "delivered" ? activeShipments.filter((item) => item.status === "delivered") :
-      queueFilter === "this-week" ? activeShipments.filter((item) => isEtaThisWeek(item.eta)) :
+      queueFilter === "this-week" ? activeShipments.filter((item) => isEtaThisWeek(item.etd || item.eta)) :
       queueFilter === "ready" ? readyShipments :
       queueFilter === "missing-docs" ? missingDocsShipments :
       queueFilter === "risks" ? riskyShipments :
@@ -1176,14 +1215,15 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         });
       }
 
-      if (item.eta) {
-        const etaDate = new Date(item.eta);
-        etaDate.setHours(0, 0, 0, 0);
-        const daysUntil = Math.ceil((etaDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+      const planningDate = item.etd || item.eta;
+      if (planningDate) {
+        const dispatchDate = new Date(planningDate);
+        dispatchDate.setHours(0, 0, 0, 0);
+        const daysUntil = Math.ceil((dispatchDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
         if (daysUntil >= 0 && daysUntil <= 7 && (missingRequired.length > 0 || !item.lastCheckedAt)) {
           alerts.push({
             ref: item.ref,
-            title: daysUntil === 0 ? "Dispatch date is today" : `Dispatch in ${daysUntil} day${daysUntil === 1 ? "" : "s"}`,
+            title: daysUntil === 0 ? "ETD is today" : `ETD in ${daysUntil} day${daysUntil === 1 ? "" : "s"}`,
             detail: `${item.ref} still has export checks outstanding`,
             tone: "border-orange-200 bg-orange-50 text-orange-800",
             tab: missingRequired.length > 0 ? "documents" : "permits",
@@ -1217,11 +1257,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   }, [countryRules, shipment.destinationCountry]);
   const destinationRequirement = countryRules[shipment.destinationCountry];
   const leadTimeGuide = getLeadTimeGuide(shipment.destinationCountry);
-  const selectedLeadTimeMode: LeadTimeMode | "" =
-    shipment.transportMode === "Air" || shipment.transportMode === "Courier" ? "air" :
-    shipment.transportMode === "Sea" ? "sea" :
-    shipment.transportMode === "Road" ? "road" :
-    "";
+  const selectedLeadTimeMode = getLeadTimeModeForTransportMode(shipment.transportMode);
+  const customsBufferDays = shipment.customsBufferDays ?? 2;
+  const selectedLeadTime = selectedLeadTimeMode && leadTimeGuide ? leadTimeGuide[selectedLeadTimeMode] : "";
+  const calculatedEtd = selectedLeadTime ? calculateEtdFromEta(shipment.eta, selectedLeadTime, customsBufferDays) : "";
   const readiness = getReadiness(shipment);
   const missingRequiredDocs = getMissingRequiredDocs(shipment);
   const isDispatchApproved = Boolean(shipment.dispatchApprovedAt);
@@ -1277,7 +1316,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     queueFilter === "assigned" ? "Assigned Africa export shipments will appear here." :
     queueFilter === "in-transit" ? "In-transit Africa export shipments will appear here." :
     queueFilter === "delivered" ? "Delivered Africa export shipments will appear here." :
-    queueFilter === "this-week" ? "Shipments with an ETA in the current week will appear here." :
+    queueFilter === "this-week" ? "Shipments with an ETD or ETA in the current week will appear here." :
     queueFilter === "ready" ? "Shipments with required docs, transporter, and agent check will appear here." :
     queueFilter === "missing-docs" ? "Shipments with outstanding required documents will appear here." :
     queueFilter === "risks" ? "Required documents and agent checks are clear for this filter." :
@@ -1425,6 +1464,32 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       { lastCheckedAt: new Date().toISOString().slice(0, 10) },
       { action: "Agent check marked", detail: "Destination agent pre-dispatch question confirmed" },
     );
+  };
+
+  const updateEtaTarget = (eta: string) => {
+    const nextEtd = selectedLeadTime ? calculateEtdFromEta(eta, selectedLeadTime, customsBufferDays) : shipment.etd;
+    updateShipment({ eta, etd: nextEtd });
+  };
+
+  const updateCustomsBuffer = (value: string) => {
+    const nextBuffer = parseNumber(value);
+    const nextEtd = selectedLeadTime ? calculateEtdFromEta(shipment.eta, selectedLeadTime, nextBuffer) : shipment.etd;
+    updateShipment(
+      { customsBufferDays: nextBuffer, etd: nextEtd },
+      { action: "Lead time buffer updated", detail: `${nextBuffer} working day${nextBuffer === 1 ? "" : "s"} buffer applied` },
+    );
+  };
+
+  const applyCalculatedEtd = () => {
+    if (!calculatedEtd) {
+      showWarning("Select destination, service, and ETA before calculating ETD.");
+      return;
+    }
+    updateShipment(
+      { etd: calculatedEtd },
+      { action: "ETD calculated", detail: `ETD set to ${calculatedEtd} from ETA ${shipment.eta}, ${selectedLeadTime || "selected service"}, and ${customsBufferDays} buffer day${customsBufferDays === 1 ? "" : "s"}` },
+    );
+    showSuccess(`ETD set to ${calculatedEtd}.`);
   };
 
   const saveShipmentSetup = async () => {
@@ -1580,6 +1645,9 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       ["Product Type", shipment.productType],
       ["Incoterm", shipment.incoterm],
       ["Transport Mode", shipment.transportMode],
+      ["ETD", shipment.etd || calculatedEtd || ""],
+      ["ETA", shipment.eta],
+      ["Customs / Docs Buffer Days", customsBufferDays],
       ["Quantity", shipment.quantity],
       ["Pallets", shipment.pallets],
       ["Readiness", readiness.label],
@@ -1624,7 +1692,9 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         "Agent Check": item.lastCheckedAt,
         "Required Docs": `${completed}/${required.length}`,
         "Dispatch Approved": item.dispatchApprovedAt || "No",
+        ETD: item.etd,
         ETA: item.eta,
+        "Customs / Docs Buffer Days": item.customsBufferDays ?? 2,
       };
     });
     const lineRows = readyShipments.flatMap((item) => (item.productLines || []).map((line) => ({
@@ -1764,8 +1834,8 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
   const downloadTemplate = async () => {
     const data = [
-      ["Reference", "Customer", "Destination Country", "HS Code", "Product Type", "Incoterm", "Transport Mode", "ETA", "Qty", "Pallets", "Notes"],
-      ["AFX-0001", "Africa Client", "Botswana", "2106.90", "Food ingredient blend", "FCA", "Road", "2026-06-15", "1250", "4", "Confirm import permit before dispatch"],
+      ["Reference", "Customer", "Destination Country", "HS Code", "Product Type", "Incoterm", "Transport Mode", "ETD", "ETA", "Customs Buffer Days", "Qty", "Pallets", "Notes"],
+      ["AFX-0001", "Africa Client", "Botswana", "2106.90", "Food ingredient blend", "FCA", "Road", "2026-06-10", "2026-06-15", "2", "1250", "4", "Confirm import permit before dispatch"],
     ];
     const worksheet = XLSX.utils.aoa_to_sheet(data);
     const workbook = XLSX.utils.book_new();
@@ -1941,10 +2011,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
               className="h-10 rounded-card border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             >
               <option value="all">All Dates</option>
-              <option value="this-week">ETA This Week</option>
+              <option value="this-week">ETD / ETA This Week</option>
               <option value="next-30">Next 30 Days</option>
               <option value="overdue">Overdue</option>
-              <option value="no-date">No ETA</option>
+              <option value="no-date">No ETD / ETA</option>
             </select>
             <Button variant="outline" size="icon" className="h-10 w-10 border-emerald-200 text-emerald-700" onClick={resetQueueControls} title="Clear filters" aria-label="Clear Africa export filters">
               <X className="h-4 w-4" />
@@ -2129,10 +2199,11 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                         <div className={`mt-2 flex items-center justify-between gap-2 rounded-card border px-2 py-1.5 ${dateMeta.tone}`}>
                           <span className="flex min-w-0 items-center gap-1.5 text-xs font-bold">
                             <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-                            <span className="truncate">ETD / ETA {formatExportDate(item.eta)}</span>
+                            <span className="truncate">ETD {formatExportDate(item.etd)}</span>
                           </span>
                           <span className="flex-shrink-0 text-[10px] font-bold uppercase">{dateMeta.label}</span>
                         </div>
+                        <p className="mt-1 truncate text-[11px] font-semibold text-gray-500">ETA {formatExportDate(item.eta)}</p>
                         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
                           <div
                             className="h-full rounded-full bg-emerald-500"
@@ -2303,9 +2374,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                                   showWarning(`${service.label} is ${leadTime.toLowerCase()} for ${shipment.destinationCountry}.`);
                                   return;
                                 }
+                                const nextEtd = calculateEtdFromEta(shipment.eta, leadTime, customsBufferDays);
                                 updateShipment(
-                                  { transportMode: service.transportMode },
-                                  { action: "Transport lead time selected", detail: `${service.label}: ${leadTime}` },
+                                  { transportMode: service.transportMode, etd: nextEtd || shipment.etd },
+                                  { action: "Transport lead time selected", detail: `${service.label}: ${leadTime}${nextEtd ? `, ETD ${nextEtd}` : ""}` },
                                 );
                               }}
                               className={`min-h-[92px] rounded-card border p-3 text-center transition-colors ${
@@ -2344,7 +2416,24 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                         ))}
                       </select>
                     </label>
-                    <Field label="ETA / Dispatch Date" value={shipment.eta} onChange={(value) => updateShipment({ eta: value })} type="date" />
+                    <div className="space-y-3 md:col-span-2">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                        <Field label="Target ETA" value={shipment.eta} onChange={updateEtaTarget} type="date" />
+                        <Field label="Calculated ETD" value={shipment.etd || calculatedEtd} onChange={(value) => updateShipment({ etd: value })} type="date" />
+                        <Field label="Customs / Docs Buffer Days" value={String(customsBufferDays)} onChange={updateCustomsBuffer} type="number" />
+                      </div>
+                      <div className="flex flex-col gap-2 rounded-card border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 md:flex-row md:items-center md:justify-between">
+                        <span>
+                          ETD is calculated from ETA minus the selected service lead time
+                          {selectedLeadTime ? ` (${selectedLeadTime})` : ""}
+                          {` plus ${customsBufferDays} buffer day${customsBufferDays === 1 ? "" : "s"}.`}
+                        </span>
+                        <Button type="button" size="sm" variant="outline" className="h-8 flex-shrink-0 gap-2" onClick={applyCalculatedEtd} disabled={!calculatedEtd}>
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          Use Calculated ETD
+                        </Button>
+                      </div>
+                    </div>
                     <Field label="Qty" value={String(shipment.quantity || "")} onChange={(value) => updateShipment({ quantity: parseNumber(value) })} type="number" />
                     <Field label="Pallets" value={String(shipment.pallets || "")} onChange={(value) => updateShipment({ pallets: parseNumber(value) })} type="number" />
                     <div className="space-y-2 md:col-span-2">
@@ -2834,7 +2923,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                   <Upload className="mx-auto mb-3 h-10 w-10 text-gray-300" />
                   <p className="text-sm font-semibold text-gray-700">Upload a CSV, XLSX, or XLS file</p>
                   <p className="mt-1 text-xs text-gray-400">
-                    Supported columns: Reference, Customer, Destination Country, HS Code, Product Type, Incoterm, Transport Mode, ETA, Qty, Pallets, Notes.
+                    Supported columns: Reference, Customer, Destination Country, HS Code, Product Type, Incoterm, Transport Mode, ETD, ETA, Customs Buffer Days, Qty, Pallets, Notes.
                   </p>
                 </div>
               ) : (
@@ -2849,7 +2938,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50">
                         <tr>
-                          {["Reference", "Client", "Country", "HS Code", "Product", "Incoterm", "Qty", "Pallets"].map((heading) => (
+                          {["Reference", "Client", "Country", "HS Code", "Product", "Incoterm", "ETD", "ETA", "Qty", "Pallets"].map((heading) => (
                             <th key={heading} className="p-3 text-left font-semibold text-gray-700">{heading}</th>
                           ))}
                         </tr>
@@ -2863,6 +2952,8 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                             <td className="p-3 text-gray-700">{item.hsCode || "-"}</td>
                             <td className="p-3 text-gray-700">{item.productType || "-"}</td>
                             <td className="p-3 text-gray-700">{item.incoterm}</td>
+                            <td className="p-3 text-gray-700">{item.etd || "-"}</td>
+                            <td className="p-3 text-gray-700">{item.eta || "-"}</td>
                             <td className="p-3 text-gray-700">{item.quantity || "-"}</td>
                             <td className="p-3 text-gray-700">{item.pallets || "-"}</td>
                           </tr>

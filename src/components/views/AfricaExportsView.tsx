@@ -689,6 +689,13 @@ const countryRulesToList = (rules: Record<string, CountryRule>) => Object.values
   requiredDocumentIds: rule.requiredDocumentIds || [],
 }));
 
+const isLiveExportShipment = (shipment: ExportShipment) => !shipment.archived && shipment.status !== "cancelled";
+
+const getFirstLiveShipmentRef = (shipments: ExportShipment[]) => shipments.find(isLiveExportShipment)?.ref || "";
+
+const hasLiveSelectedShipment = (shipments: ExportShipment[], ref: string) =>
+  shipments.some((shipment) => shipment.ref === ref && isLiveExportShipment(shipment));
+
 const rulesListToRecord = (rules: CountryRule[]) => rules.reduce<Record<string, CountryRule>>((acc, rule) => {
   if (!rule.country) return acc;
   acc[rule.country] = {
@@ -1078,7 +1085,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     const loadedTransporters = loadList<ExportTransporter>(TRANSPORTERS_KEY, DEFAULT_TRANSPORTERS);
     setShipments(loadedShipments);
     setTransporters(loadedTransporters);
-    setSelectedRef(loadedShipments[0]?.ref || "");
+    setSelectedRef(getFirstLiveShipmentRef(loadedShipments));
 
     let cancelled = false;
     const loadRemoteData = async () => {
@@ -1117,7 +1124,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         setTransporters(nextTransporters);
         setShipments(nextShipments.length > 0 ? nextShipments : loadedShipments);
         setCountryRules(nextCountryRules);
-        setSelectedRef((current) => current || nextShipments[0]?.ref || "");
+        setSelectedRef((current) => {
+          if (hasLiveSelectedShipment(nextShipments, current)) return current;
+          return getFirstLiveShipmentRef(nextShipments);
+        });
         saveList(TRANSPORTERS_KEY, nextTransporters);
         saveList(SHIPMENTS_KEY, nextShipments);
         saveCountryRules(nextCountryRules);

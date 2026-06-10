@@ -347,7 +347,7 @@ const CORE_DOCUMENTS: ChecklistItem[] = [
 
 const ORIGIN_DOCUMENTS: ChecklistItem[] = [
   { id: "general-coo", label: "Certificate of Origin - General COO", purpose: "Proof of origin when requested by the buyer or destination customs.", conditional: "Use when destination or customer asks for origin proof without preference." },
-  { id: "sadc-coo", label: "SADC Certificate of Origin", purpose: "Supports preferential or reduced duty claims in SADC countries.", conditional: "Needed when the importer wants to claim SADC preference and the product qualifies. SADC COO must be stamped at the nearest SARS office before dispatch." },
+  { id: "sadc-coo", label: "SADC Certificate of Origin", purpose: "Supports preferential or reduced duty claims in SADC countries.", conditional: "Needed when the importer wants to claim SADC preference and the product qualifies. SARS has confirmed SADC COO does not need to be stamped at a SARS office until further notice." },
   { id: "afcfta-coo", label: "AfCFTA Certificate of Origin", purpose: "Supports AfCFTA preferential duty claims where the country and goods qualify.", conditional: "Use only for participating AfCFTA preference movements." },
   { id: "producer-declaration", label: "Producer / Manufacturer Declaration", purpose: "Supports origin qualification, especially when exporter is not the manufacturer." },
   { id: "local-content", label: "Costing / Local Content Support", purpose: "Evidence that the product qualifies under SADC or AfCFTA rules of origin." },
@@ -410,7 +410,7 @@ const PRE_DISPATCH_CHECKS = [
   "Correct HS code agreed between exporter, forwarder, and destination clearing agent.",
   "Destination country confirms whether an import permit is required.",
   "SADC or AfCFTA COO need is confirmed for duty preference.",
-  "SADC Certificate of Origin must be stamped at the nearest SARS office before dispatch.",
+  "SARS has confirmed SADC COO does not need to be stamped at a SARS office until further notice.",
   "COC, PVOC, SGS, Bureau Veritas, or Intertek inspection requirement is confirmed.",
   "Health, phytosanitary, veterinary, or food safety certificate need is confirmed.",
   "Invoice and packing list match exactly: description, quantity, weights, batch numbers, and Incoterm.",
@@ -419,8 +419,8 @@ const PRE_DISPATCH_CHECKS = [
 ];
 
 const UNIVERSAL_EXPORT_RULES = [
-  "ALL SADC MUST BE STAMPED AT NEAREST SARS OFFICE",
-  ...PRE_DISPATCH_CHECKS.filter((rule) => !rule.toLowerCase().includes("sadc certificate of origin must be stamped")),
+  "SARS CONFIRMED SADC COO DOES NOT NEED TO BE STAMPED AT SARS OFFICE UNTIL FURTHER NOTICE",
+  ...PRE_DISPATCH_CHECKS.filter((rule) => !rule.toLowerCase().includes("sadc coo does not need")),
 ];
 
 const AGENT_QUESTION =

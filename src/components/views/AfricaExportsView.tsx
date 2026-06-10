@@ -668,17 +668,42 @@ const formatExportDate = (dateValue: string) => {
 };
 
 const getShipmentDateMeta = (shipment: ExportShipment) => {
-  const daysUntil = getDaysUntil(shipment.etd || shipment.eta);
-  if (daysUntil === null) {
-    return {
-      label: "No date",
-      tone: "border-gray-200 bg-gray-50 text-gray-600",
-    };
-  }
   if (shipment.status === "delivered") {
     return {
       label: "Delivered",
       tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    };
+  }
+  const etaDaysUntil = getDaysUntil(shipment.eta);
+  if (etaDaysUntil !== null) {
+    if (etaDaysUntil < 0) {
+      return {
+        label: `ETA missed ${Math.abs(etaDaysUntil)}d`,
+        tone: "border-red-200 bg-red-50 text-red-700",
+      };
+    }
+    if (etaDaysUntil === 0) {
+      return {
+        label: "ETA today",
+        tone: "border-orange-200 bg-orange-50 text-orange-700",
+      };
+    }
+    if (etaDaysUntil <= 7) {
+      return {
+        label: `ETA ${etaDaysUntil}d out`,
+        tone: "border-amber-200 bg-amber-50 text-amber-700",
+      };
+    }
+    return {
+      label: `ETA ${etaDaysUntil}d out`,
+      tone: "border-blue-200 bg-blue-50 text-blue-700",
+    };
+  }
+  const daysUntil = getDaysUntil(shipment.etd);
+  if (daysUntil === null) {
+    return {
+      label: "No date",
+      tone: "border-gray-200 bg-gray-50 text-gray-600",
     };
   }
   if (daysUntil < 0) {
@@ -1276,8 +1301,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const selectedLeadTime = selectedLeadTimeMode && leadTimeGuide ? leadTimeGuide[selectedLeadTimeMode] : "";
   const calculatedEtd = selectedLeadTime ? calculateEtdFromEta(shipment.eta, selectedLeadTime, customsBufferDays) : "";
   const effectiveEtd = shipment.etd || calculatedEtd;
+  const etaDaysUntil = getDaysUntil(shipment.eta);
   const etdDaysUntil = getDaysUntil(effectiveEtd);
-  const etdMissedDays = shipment.status !== "delivered" && etdDaysUntil !== null && etdDaysUntil < 0 ? Math.abs(etdDaysUntil) : 0;
+  const showEtaRiskWarning = shipment.status !== "delivered" && etaDaysUntil !== null && etaDaysUntil < 0;
+  const etdMissedDays = showEtaRiskWarning && etdDaysUntil !== null && etdDaysUntil < 0 ? Math.abs(etdDaysUntil) : 0;
   const etaFromToday = selectedLeadTime ? calculateEtaFromEtd(todayDateInput(), selectedLeadTime, customsBufferDays) : "";
   const readiness = getReadiness(shipment);
   const missingRequiredDocs = getMissingRequiredDocs(shipment);

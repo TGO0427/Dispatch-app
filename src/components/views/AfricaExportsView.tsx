@@ -2477,7 +2477,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                       {etdMissedDays > 0 && (
                         <div className="flex flex-col gap-3 rounded-card border border-red-200 bg-red-50 p-3 text-xs text-red-800 md:flex-row md:items-center md:justify-between">
                           <span className="font-semibold">
-                            Target ETA is at risk: ETD was missed by {etdMissedDays} day{etdMissedDays === 1 ? "" : "s"}.
+                            Target ETA is at risk: calculated ETD was {formatExportDate(effectiveEtd)}, missed by {etdMissedDays} day{etdMissedDays === 1 ? "" : "s"}.
                             {etaFromToday ? ` Dispatching today moves ETA to ${formatExportDate(etaFromToday)}.` : " Replan the ETA after selecting a practical service."}
                           </span>
                           <div className="flex flex-wrap gap-2">

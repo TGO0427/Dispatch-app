@@ -139,6 +139,7 @@ const TIMING_NOTES_STORAGE_KEY = "dispatch_invoice_reconciliation_timing_notes_v
 const TIMING_COMMENTS_STORAGE_KEY = "dispatch_invoice_reconciliation_timing_comments_v1";
 const UPLOAD_META_STORAGE_KEY = "dispatch_invoice_reconciliation_upload_meta_v1";
 const LATE_INVOICE_TARGET_PERCENT = 5;
+const LATE_AGEING_BUCKETS = ["1-2 days", "3-5 days", "6-10 days", "10+ days"];
 
 const lateInvoiceReasonOptions = [
   "System error",
@@ -1105,17 +1106,32 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   }), [lateInvoiceFilter, lateInvoiceReviews, selectedLateReason, timingNotes]);
   const lateInvoiceReasonTrend = useMemo(() => {
     const total = lateInvoicesWithReason.length || 0;
-    const counts = new Map<string, number>();
+    const counts = new Map<string, { count: number; ageing: Map<string, number> }>();
     lateInvoicesWithReason.forEach((invoice) => {
       const reason = timingNotes[invoice.invoiceKey];
-      counts.set(reason, (counts.get(reason) || 0) + 1);
+      const existing = counts.get(reason) || {
+        count: 0,
+        ageing: new Map(LATE_AGEING_BUCKETS.map((bucket) => [bucket, 0])),
+      };
+      const ageingBucket = getLateAgeingBucket(invoice.daysLate);
+      existing.count += 1;
+      existing.ageing.set(ageingBucket, (existing.ageing.get(ageingBucket) || 0) + 1);
+      counts.set(reason, existing);
     });
 
     return Array.from(counts.entries())
-      .map(([reason, count]) => ({
+      .map(([reason, item]) => ({
         reason,
-        count,
-        percent: total ? (count / total) * 100 : 0,
+        count: item.count,
+        percent: total ? (item.count / total) * 100 : 0,
+        ageing: LATE_AGEING_BUCKETS.map((bucket) => {
+          const count = item.ageing.get(bucket) || 0;
+          return {
+            bucket,
+            count,
+            percent: item.count ? (count / item.count) * 100 : 0,
+          };
+        }),
       }))
       .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
   }, [lateInvoicesWithReason, timingNotes]);
@@ -1136,12 +1152,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
   }, [lateInvoicesWithReason, timingNotes]);
   const lateInvoiceAgeing = useMemo(() => {
     const total = lateInvoiceReviews.length;
-    const counts = new Map<string, number>([
-      ["1-2 days", 0],
-      ["3-5 days", 0],
-      ["6-10 days", 0],
-      ["10+ days", 0],
-    ]);
+    const counts = new Map<string, number>(LATE_AGEING_BUCKETS.map((bucket) => [bucket, 0]));
     lateInvoiceReviews.forEach((invoice) => {
       const bucket = getLateAgeingBucket(invoice.daysLate);
       counts.set(bucket, (counts.get(bucket) || 0) + 1);
@@ -1337,6 +1348,8 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       Reason: item.reason,
       Count: item.count,
       "Share %": formatPercent(item.percent, 1),
+      ...Object.fromEntries(item.ageing.map((bucket) => [`${bucket.bucket} Count`, bucket.count])),
+      ...Object.fromEntries(item.ageing.map((bucket) => [`${bucket.bucket} Share`, formatPercent(bucket.percent, 1)])),
     }));
     const ageingRows = lateInvoiceAgeing.map((item) => ({
       Bucket: item.bucket,
@@ -2112,7 +2125,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold text-gray-900">Reason Trend</p>
-                  <p className="text-xs text-gray-500">Grouped by saved late invoice reasons for {activeViewLabel.toLowerCase()}.</p>
+                  <p className="text-xs text-gray-500">Grouped by saved late invoice reasons with ageing severity for {activeViewLabel.toLowerCase()}.</p>
                 </div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{formatNumber(lateInvoicesWithReason.length)} reviewed</p>
               </div>
@@ -2137,7 +2150,24 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
                       <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(4, item.percent)}%` }} />
                     </div>
-                    <p className="mt-1 text-xs font-semibold text-gray-500">Click to filter review rows</p>
+                    <div className="mt-3 border-t border-gray-100 pt-2">
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ageing mix</p>
+                        <p className="text-[11px] font-semibold text-gray-500">within reason</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        {item.ageing.map((bucket) => (
+                          <div key={`${item.reason}-${bucket.bucket}`} className="grid grid-cols-[64px_minmax(0,1fr)_54px] items-center gap-2">
+                            <p className="text-xs font-medium text-gray-600">{bucket.bucket}</p>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                              <div className="h-full rounded-full bg-red-500" style={{ width: `${bucket.count ? Math.max(4, bucket.percent) : 0}%` }} />
+                            </div>
+                            <p className="text-right text-xs font-semibold text-gray-700">{formatNumber(bucket.count)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-gray-500">Click to filter review rows</p>
                   </button>
                 ))}
               </div>

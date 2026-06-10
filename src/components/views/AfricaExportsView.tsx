@@ -2126,6 +2126,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         </div>
       </div>
 
+      <div className="rounded-card border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold uppercase tracking-wide text-red-800">
+        ALL SADC MUST BE STAMPED AT NEAREST SARS OFFICE
+      </div>
+
       {remoteSyncError && (
         <div className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
           {remoteSyncError}

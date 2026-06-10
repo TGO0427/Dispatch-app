@@ -290,7 +290,12 @@ const getLeadTimeMaxDays = (leadTime: string) => {
   return Math.max(...matches.map((value) => Number(value)));
 };
 
-const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+const toDateInputValue = (date: Date) => {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 10);
+};
+
+const todayDateInput = () => toDateInputValue(new Date());
 
 const calculateEtdFromEta = (eta: string, leadTime: string, bufferDays: number) => {
   const maxLeadDays = getLeadTimeMaxDays(leadTime);
@@ -299,6 +304,15 @@ const calculateEtdFromEta = (eta: string, leadTime: string, bufferDays: number) 
   if (Number.isNaN(etaDate.getTime())) return "";
   etaDate.setDate(etaDate.getDate() - maxLeadDays - Math.max(0, Math.round(bufferDays || 0)));
   return toDateInputValue(etaDate);
+};
+
+const calculateEtaFromEtd = (etd: string, leadTime: string, bufferDays: number) => {
+  const maxLeadDays = getLeadTimeMaxDays(leadTime);
+  if (!etd || maxLeadDays === null) return "";
+  const etdDate = new Date(etd);
+  if (Number.isNaN(etdDate.getTime())) return "";
+  etdDate.setDate(etdDate.getDate() + maxLeadDays + Math.max(0, Math.round(bufferDays || 0)));
+  return toDateInputValue(etdDate);
 };
 
 const CORE_DOCUMENTS: ChecklistItem[] = [
@@ -669,7 +683,7 @@ const getShipmentDateMeta = (shipment: ExportShipment) => {
   }
   if (daysUntil < 0) {
     return {
-      label: `ETD ${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? "" : "s"} overdue`,
+      label: `ETD missed ${Math.abs(daysUntil)}d`,
       tone: "border-red-200 bg-red-50 text-red-700",
     };
   }
@@ -1261,6 +1275,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const customsBufferDays = shipment.customsBufferDays ?? 2;
   const selectedLeadTime = selectedLeadTimeMode && leadTimeGuide ? leadTimeGuide[selectedLeadTimeMode] : "";
   const calculatedEtd = selectedLeadTime ? calculateEtdFromEta(shipment.eta, selectedLeadTime, customsBufferDays) : "";
+  const effectiveEtd = shipment.etd || calculatedEtd;
+  const etdDaysUntil = getDaysUntil(effectiveEtd);
+  const etdMissedDays = shipment.status !== "delivered" && etdDaysUntil !== null && etdDaysUntil < 0 ? Math.abs(etdDaysUntil) : 0;
+  const etaFromToday = selectedLeadTime ? calculateEtaFromEtd(todayDateInput(), selectedLeadTime, customsBufferDays) : "";
   const readiness = getReadiness(shipment);
   const missingRequiredDocs = getMissingRequiredDocs(shipment);
   const isDispatchApproved = Boolean(shipment.dispatchApprovedAt);
@@ -1490,6 +1508,29 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       { action: "ETD calculated", detail: `ETD set to ${calculatedEtd} from ETA ${shipment.eta}, ${selectedLeadTime || "selected service"}, and ${customsBufferDays} buffer day${customsBufferDays === 1 ? "" : "s"}` },
     );
     showSuccess(`ETD set to ${calculatedEtd}.`);
+  };
+
+  const setEtdToday = () => {
+    const today = todayDateInput();
+    updateShipment(
+      { etd: today },
+      { action: "ETD replanned", detail: `ETD moved to today (${today}) after missed calculated dispatch date` },
+    );
+    showSuccess(`ETD moved to ${today}.`);
+  };
+
+  const replanEtaFromToday = () => {
+    const today = todayDateInput();
+    const nextEta = selectedLeadTime ? calculateEtaFromEtd(today, selectedLeadTime, customsBufferDays) : "";
+    if (!nextEta) {
+      showWarning("Select destination, service, and buffer before replanning ETA.");
+      return;
+    }
+    updateShipment(
+      { etd: today, eta: nextEta },
+      { action: "ETA replanned", detail: `ETD ${today}, ETA ${nextEta} based on ${selectedLeadTime} and ${customsBufferDays} buffer day${customsBufferDays === 1 ? "" : "s"}` },
+    );
+    showSuccess(`ETA replanned to ${nextEta}.`);
   };
 
   const saveShipmentSetup = async () => {
@@ -2433,6 +2474,24 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                           Use Calculated ETD
                         </Button>
                       </div>
+                      {etdMissedDays > 0 && (
+                        <div className="flex flex-col gap-3 rounded-card border border-red-200 bg-red-50 p-3 text-xs text-red-800 md:flex-row md:items-center md:justify-between">
+                          <span className="font-semibold">
+                            Target ETA is at risk: ETD was missed by {etdMissedDays} day{etdMissedDays === 1 ? "" : "s"}.
+                            {etaFromToday ? ` Dispatching today moves ETA to ${formatExportDate(etaFromToday)}.` : " Replan the ETA after selecting a practical service."}
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="button" size="sm" variant="outline" className="h-8 flex-shrink-0 gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50" onClick={setEtdToday}>
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              Set ETD Today
+                            </Button>
+                            <Button type="button" size="sm" className="h-8 flex-shrink-0 gap-2" onClick={replanEtaFromToday} disabled={!etaFromToday}>
+                              <Clock className="h-3.5 w-3.5" />
+                              Replan ETA
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <Field label="Qty" value={String(shipment.quantity || "")} onChange={(value) => updateShipment({ quantity: parseNumber(value) })} type="number" />
                     <Field label="Pallets" value={String(shipment.pallets || "")} onChange={(value) => updateShipment({ pallets: parseNumber(value) })} type="number" />

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { prisma, requireAuth, setCors, validateOrigin, MAX_BATCH_SIZE } from "../_lib.js";
 
-const VALID_STATUSES = ["pending", "assigned", "in-transit", "delivered"];
+const VALID_STATUSES = ["pending", "assigned", "in-transit", "delivered", "cancelled"];
 const MAX_STRING = 1000;
 const MAX_TEXT = 5000;
 

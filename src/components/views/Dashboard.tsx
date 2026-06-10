@@ -35,7 +35,7 @@ interface DashboardAfricaExport {
   ref: string;
   customer: string;
   destinationCountry: string;
-  status: "pending" | "assigned" | "in-transit" | "delivered";
+  status: "pending" | "assigned" | "in-transit" | "delivered" | "cancelled";
   pallets: number;
   eta: string;
   lastCheckedAt?: string;
@@ -337,18 +337,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
   }, [orderJobs]);
 
   const africaExportStats = useMemo(() => {
-    const activeAfricaExports = africaExports.filter((shipment) => !shipment.archived);
+    const activeAfricaExports = africaExports.filter((shipment) => !shipment.archived && shipment.status !== "cancelled");
     const open = activeAfricaExports.filter((shipment) => shipment.status !== "delivered").length;
     const assigned = activeAfricaExports.filter((shipment) => shipment.status === "assigned" || shipment.status === "in-transit").length;
     const delivered = activeAfricaExports.filter((shipment) => shipment.status === "delivered").length;
     const pallets = activeAfricaExports.reduce((sum, shipment) => sum + (Number(shipment.pallets) || 0), 0);
     const atRisk = activeAfricaExports.filter((shipment) => {
-      if (shipment.status === "delivered") return false;
+      if (shipment.status === "delivered" || shipment.status === "cancelled") return false;
       const missingDocs = DASHBOARD_AFRICA_REQUIRED_DOCUMENT_IDS.some((id) => !shipment.documents?.[id]);
       return missingDocs || !shipment.lastCheckedAt;
     }).length;
     const approved = activeAfricaExports.filter((shipment) => Boolean(shipment.dispatchApprovedAt)).length;
-    const pendingApproval = activeAfricaExports.filter((shipment) => shipment.status !== "delivered" && !shipment.dispatchApprovedAt).length;
+    const pendingApproval = activeAfricaExports.filter((shipment) => shipment.status !== "delivered" && shipment.status !== "cancelled" && !shipment.dispatchApprovedAt).length;
     return {
       total: activeAfricaExports.length,
       open,
@@ -363,7 +363,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
 
   const africaDestinationData = useMemo(() => {
     const byCountry: Record<string, { name: string; shipments: number; pallets: number }> = {};
-    africaExports.filter((shipment) => !shipment.archived).forEach((shipment) => {
+    africaExports.filter((shipment) => !shipment.archived && shipment.status !== "cancelled").forEach((shipment) => {
       const name = shipment.destinationCountry || "To confirm";
       if (!byCountry[name]) byCountry[name] = { name, shipments: 0, pallets: 0 };
       byCountry[name].shipments += 1;

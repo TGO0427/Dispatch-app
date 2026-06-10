@@ -43,7 +43,7 @@ interface AfricaExportShipment {
   destinationAgent: string;
   eta: string;
   pallets: number;
-  status: "pending" | "assigned" | "in-transit" | "delivered";
+  status: "pending" | "assigned" | "in-transit" | "delivered" | "cancelled";
   lastCheckedAt: string;
   notes: string;
   documents: Record<string, boolean>;
@@ -618,6 +618,7 @@ export const AdvancedAnalytics: React.FC = () => {
       assigned: "Assigned",
       "in-transit": "In Transit",
       delivered: "Delivered",
+      cancelled: "Cancelled",
     };
 
     return (Object.keys(labels) as AfricaExportShipment["status"][]).map((status) => ({

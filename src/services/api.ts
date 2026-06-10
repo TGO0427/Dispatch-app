@@ -172,7 +172,7 @@ export interface AfricaExportShipment {
   customsBufferDays?: number;
   quantity: number;
   pallets: number;
-  status: "pending" | "assigned" | "in-transit" | "delivered";
+  status: "pending" | "assigned" | "in-transit" | "delivered" | "cancelled";
   assignedTransporterId?: string;
   lastCheckedAt: string;
   notes: string;

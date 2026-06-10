@@ -26,7 +26,7 @@ interface AfricaExportShipment {
   destinationAgent: string;
   eta: string;
   pallets: number;
-  status: "pending" | "assigned" | "in-transit" | "delivered";
+  status: "pending" | "assigned" | "in-transit" | "delivered" | "cancelled";
   assignedTransporterId?: string;
   lastCheckedAt: string;
   notes: string;
@@ -1237,7 +1237,7 @@ export const AnalyticsView: React.FC = () => {
   const reportRecordCount = isAfricaExportReport ? filteredAfricaExports.length : filteredJobs.length;
 
   useEffect(() => {
-    const africaStatuses = ["all", "pending", "assigned", "in-transit", "delivered"];
+    const africaStatuses = ["all", "pending", "assigned", "in-transit", "delivered", "cancelled"];
     const localStatuses = ["all", "pending", "assigned", "en-route", "delivered", "exception", "cancelled"];
     const validStatuses = isAfricaExportReport ? africaStatuses : localStatuses;
 
@@ -1303,6 +1303,7 @@ export const AnalyticsView: React.FC = () => {
               <option value="en-route">En Route</option>
             )}
             <option value="delivered">Delivered</option>
+            {isAfricaExportReport && <option value="cancelled">Cancelled</option>}
             {!isAfricaExportReport && <option value="exception">Exception</option>}
             {!isAfricaExportReport && <option value="cancelled">Cancelled</option>}
           </Select>

@@ -9,7 +9,7 @@ interface AfricaExportSearchItem {
   destinationCountry: string;
   hsCode: string;
   productType: string;
-  status: "pending" | "assigned" | "in-transit" | "delivered";
+  status: "pending" | "assigned" | "in-transit" | "delivered" | "cancelled";
   eta: string;
   archived?: boolean;
 }
@@ -133,7 +133,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectJob, onSelec
     });
 
     // Search Africa exports
-    africaExports.filter((shipment) => !shipment.archived).forEach((shipment) => {
+    africaExports.filter((shipment) => !shipment.archived && shipment.status !== "cancelled").forEach((shipment) => {
       const match =
         shipment.ref?.toLowerCase().includes(q) ||
         shipment.customer?.toLowerCase().includes(q) ||

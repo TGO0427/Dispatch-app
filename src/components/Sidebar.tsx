@@ -58,7 +58,7 @@ interface NavSection {
 interface SidebarAfricaExport {
   ref: string;
   destinationCountry?: string;
-  status: "pending" | "assigned" | "in-transit" | "delivered";
+  status: "pending" | "assigned" | "in-transit" | "delivered" | "cancelled";
   eta: string;
   lastCheckedAt: string;
   documents: Record<string, boolean>;
@@ -151,7 +151,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
       pendingCount: orderJobs.filter((j) => j.status === "pending").length,
       ibtPendingCount: ibtJobs.filter((j) => j.status === "pending").length,
       africaExportRiskCount: africaExports.filter((shipment) => {
-        if (shipment.archived || shipment.status === "delivered") return false;
+        if (shipment.archived || shipment.status === "delivered" || shipment.status === "cancelled") return false;
         const requiredIds = new Set([
           ...REQUIRED_AFRICA_DOCUMENT_IDS,
           ...(shipment.destinationCountry ? africaExportCountryRules[shipment.destinationCountry] || [] : []),

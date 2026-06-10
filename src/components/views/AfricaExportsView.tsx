@@ -34,7 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 
 type ExportTab = "overview" | "documents" | "permits" | "incoterms" | "history";
-type ExportStatus = "pending" | "assigned" | "in-transit" | "delivered";
+type ExportStatus = "pending" | "assigned" | "in-transit" | "delivered" | "cancelled";
 type DocumentStatus = Record<string, boolean>;
 type DocumentDetails = Record<string, { reference: string; expiry: string; notes: string }>;
 
@@ -267,6 +267,9 @@ const EXPORT_LEAD_TIME_SERVICES: {
   { id: "road", label: "Export Road", transportMode: "Road", icon: Truck },
   { id: "sea", label: "Export Seafreight", transportMode: "Sea", icon: Ship },
 ];
+
+const EXPORT_STATUSES: ExportStatus[] = ["pending", "assigned", "in-transit", "delivered", "cancelled"];
+const CLOSED_EXPORT_STATUSES: ExportStatus[] = ["delivered", "cancelled"];
 
 const asText = (value: unknown, fallback = "") => (value === undefined || value === null ? fallback : String(value));
 
@@ -538,7 +541,7 @@ const DEFAULT_SHIPMENT: ExportShipment = {
 
 const normalizeShipment = (shipment: Partial<ExportShipment> = {}): ExportShipment => {
   const status = asText(shipment.status, "pending") as ExportStatus;
-  const validStatus: ExportStatus = ["pending", "assigned", "in-transit", "delivered"].includes(status) ? status : "pending";
+  const validStatus: ExportStatus = EXPORT_STATUSES.includes(status) ? status : "pending";
   const documents = shipment.documents && typeof shipment.documents === "object" && !Array.isArray(shipment.documents)
     ? shipment.documents as DocumentStatus
     : {};
@@ -738,6 +741,12 @@ const getShipmentDateMeta = (shipment: ExportShipment) => {
       tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
     };
   }
+  if (shipment.status === "cancelled") {
+    return {
+      label: "Cancelled",
+      tone: "border-gray-200 bg-gray-100 text-gray-700",
+    };
+  }
   const etaDaysUntil = getDaysUntil(shipment.eta);
   if (etaDaysUntil !== null) {
     if (etaDaysUntil < 0) {
@@ -816,7 +825,7 @@ const matchesEtaFilter = (shipment: ExportShipment, filter: ExportEtaFilter) => 
   const daysUntil = getDaysUntil(planningDate);
   if (filter === "this-week") return isEtaThisWeek(planningDate);
   if (filter === "next-30") return daysUntil !== null && daysUntil >= 0 && daysUntil <= 30;
-  if (filter === "overdue") return daysUntil !== null && daysUntil < 0 && shipment.status !== "delivered";
+  if (filter === "overdue") return daysUntil !== null && daysUntil < 0 && !CLOSED_EXPORT_STATUSES.includes(shipment.status);
   return true;
 };
 
@@ -973,7 +982,7 @@ const parseShipmentRows = async (file: File): Promise<ExportShipment[]> => {
   return mergeShipmentLines(parsedRows);
 };
 
-type ExportQueueFilter = "all" | "open" | "assigned" | "in-transit" | "delivered" | "this-week" | "ready" | "missing-docs" | "risks" | "approved" | "pending-approval" | "archived";
+type ExportQueueFilter = "all" | "open" | "assigned" | "in-transit" | "delivered" | "cancelled" | "this-week" | "ready" | "missing-docs" | "risks" | "approved" | "pending-approval" | "archived";
 type ExportEtaFilter = "all" | "this-week" | "next-30" | "overdue" | "no-date";
 
 interface AfricaExportsViewProps {
@@ -1082,7 +1091,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   }, [initialRef]);
 
   useEffect(() => {
-    const allowedFilters: ExportQueueFilter[] = ["all", "risks", "approved", "pending-approval", "archived"];
+    const allowedFilters: ExportQueueFilter[] = ["all", "risks", "approved", "pending-approval", "archived", "cancelled"];
     if (initialFilter && allowedFilters.includes(initialFilter as ExportQueueFilter)) {
       setQueueFilter(initialFilter as ExportQueueFilter);
     }
@@ -1175,8 +1184,9 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     () => [...shipments].sort((a, b) => (a.etd || a.eta || "9999").localeCompare(b.etd || b.eta || "9999")),
     [shipments],
   );
-  const activeShipments = useMemo(() => trackedShipments.filter((item) => !item.archived), [trackedShipments]);
+  const activeShipments = useMemo(() => trackedShipments.filter((item) => !item.archived && item.status !== "cancelled"), [trackedShipments]);
   const archivedShipments = useMemo(() => trackedShipments.filter((item) => item.archived), [trackedShipments]);
+  const cancelledShipments = useMemo(() => trackedShipments.filter((item) => item.status === "cancelled"), [trackedShipments]);
 
   const allChecklistItems = useMemo(
     () => CHECKLIST_GROUPS.flatMap((group) => group.items),
@@ -1194,6 +1204,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
   const getReadiness = (item: ExportShipment) => {
     if (item.archived) return { label: "Archived", detail: "Hidden from live export work", tone: "border-gray-200 bg-gray-100 text-gray-700" };
+    if (item.status === "cancelled") return { label: "Cancelled", detail: "Removed from live export queue", tone: "border-gray-200 bg-gray-100 text-gray-700" };
     if (item.dispatchApprovedAt) return { label: "Approved", detail: `Dispatch approved ${item.dispatchApprovedAt}`, tone: "border-emerald-300 bg-emerald-100 text-emerald-800" };
     if (item.status === "delivered") return { label: "Delivered", detail: "Shipment has been completed", tone: "border-emerald-200 bg-emerald-50 text-emerald-700" };
     if (!item.ref || !item.customer) return { label: "Draft", detail: "Reference and client are still needed", tone: "border-gray-200 bg-gray-50 text-gray-600" };
@@ -1220,23 +1231,23 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
   const riskyShipments = useMemo(() => {
     return activeShipments.filter((item) => {
-      if (item.status === "delivered") return false;
+      if (CLOSED_EXPORT_STATUSES.includes(item.status)) return false;
       return getMissingRequiredDocs(item).length > 0;
     });
   }, [activeShipments, countryRules, allChecklistItems, baseRequiredIds]);
   const missingDocsShipments = useMemo(() => {
-    return activeShipments.filter((item) => item.status !== "delivered" && getMissingRequiredDocs(item).length > 0);
+    return activeShipments.filter((item) => !CLOSED_EXPORT_STATUSES.includes(item.status) && getMissingRequiredDocs(item).length > 0);
   }, [activeShipments, countryRules, allChecklistItems, baseRequiredIds]);
   const readyShipments = useMemo(() => {
     return activeShipments.filter((item) =>
-      item.status !== "delivered" &&
+      !CLOSED_EXPORT_STATUSES.includes(item.status) &&
       getMissingRequiredDocs(item).length === 0 &&
       Boolean(item.lastCheckedAt) &&
       Boolean(item.assignedTransporterId),
     );
   }, [activeShipments, countryRules, allChecklistItems, baseRequiredIds]);
   const approvedShipments = useMemo(() => activeShipments.filter((item) => Boolean(item.dispatchApprovedAt)), [activeShipments]);
-  const pendingApprovalShipments = useMemo(() => activeShipments.filter((item) => item.status !== "delivered" && !item.dispatchApprovedAt), [activeShipments]);
+  const pendingApprovalShipments = useMemo(() => activeShipments.filter((item) => !CLOSED_EXPORT_STATUSES.includes(item.status) && !item.dispatchApprovedAt), [activeShipments]);
   const exportCountries = useMemo(() => Array.from(new Set(trackedShipments.map((item) => item.destinationCountry).filter(Boolean))).sort(), [trackedShipments]);
 
   const tabCounts = useMemo(() => ({
@@ -1245,10 +1256,11 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     assigned: activeShipments.filter((item) => item.status === "assigned").length,
     inTransit: activeShipments.filter((item) => item.status === "in-transit").length,
     delivered: activeShipments.filter((item) => item.status === "delivered").length,
+    cancelled: cancelledShipments.length,
     thisWeek: activeShipments.filter((item) => isEtaThisWeek(item.etd || item.eta)).length,
     ready: readyShipments.length,
     missingDocs: missingDocsShipments.length,
-  }), [activeShipments, missingDocsShipments.length, readyShipments.length]);
+  }), [activeShipments, cancelledShipments.length, missingDocsShipments.length, readyShipments.length]);
 
   const filteredShipments = useMemo(() => {
     const baseShipments =
@@ -1256,6 +1268,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       queueFilter === "assigned" ? activeShipments.filter((item) => item.status === "assigned") :
       queueFilter === "in-transit" ? activeShipments.filter((item) => item.status === "in-transit") :
       queueFilter === "delivered" ? activeShipments.filter((item) => item.status === "delivered") :
+      queueFilter === "cancelled" ? cancelledShipments :
       queueFilter === "this-week" ? activeShipments.filter((item) => isEtaThisWeek(item.etd || item.eta)) :
       queueFilter === "ready" ? readyShipments :
       queueFilter === "missing-docs" ? missingDocsShipments :
@@ -1275,7 +1288,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         .toLowerCase()
         .includes(query)),
     );
-  }, [activeShipments, approvedShipments, archivedShipments, countryFilter, etaFilter, missingDocsShipments, pendingApprovalShipments, queueFilter, readyShipments, riskyShipments, searchQuery, statusFilter, transporterFilter]);
+  }, [activeShipments, approvedShipments, archivedShipments, cancelledShipments, countryFilter, etaFilter, missingDocsShipments, pendingApprovalShipments, queueFilter, readyShipments, riskyShipments, searchQuery, statusFilter, transporterFilter]);
 
   const requiredItems = getRequiredItemsForShipment(shipment);
   const requiredDone = requiredItems.filter((item) => shipment.documents?.[item.id]).length;
@@ -1285,7 +1298,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     today.setHours(0, 0, 0, 0);
 
     return activeShipments.flatMap((item) => {
-      if (item.status === "delivered") return [];
+      if (CLOSED_EXPORT_STATUSES.includes(item.status)) return [];
 
       const missingRequired = getMissingRequiredDocs(item);
       const alerts: {
@@ -1368,7 +1381,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const effectiveEtd = shipment.etd || calculatedEtd;
   const etaDaysUntil = getDaysUntil(shipment.eta);
   const etdDaysUntil = getDaysUntil(effectiveEtd);
-  const showEtaRiskWarning = shipment.status !== "delivered" && etaDaysUntil !== null && etaDaysUntil < 0;
+  const showEtaRiskWarning = !CLOSED_EXPORT_STATUSES.includes(shipment.status) && etaDaysUntil !== null && etaDaysUntil < 0;
   const etdMissedDays = showEtaRiskWarning && etdDaysUntil !== null && etdDaysUntil < 0 ? Math.abs(etdDaysUntil) : 0;
   const etaFromToday = selectedLeadTime ? calculateEtaFromEtd(todayDateInput(), selectedLeadTime, customsBufferDays) : "";
   const readiness = getReadiness(shipment);
@@ -1377,6 +1390,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   const canApproveDispatch = Boolean(
     shipment.ref &&
     !shipment.archived &&
+    !CLOSED_EXPORT_STATUSES.includes(shipment.status) &&
     missingRequiredDocs.length === 0 &&
     shipment.lastCheckedAt &&
     shipment.assignedTransporterId,
@@ -1412,6 +1426,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     queueFilter === "assigned" ? "No assigned exports" :
     queueFilter === "in-transit" ? "No exports in transit" :
     queueFilter === "delivered" ? "No delivered exports" :
+    queueFilter === "cancelled" ? "No cancelled exports" :
     queueFilter === "this-week" ? "No exports this week" :
     queueFilter === "ready" ? "No shipments are ready to dispatch" :
     queueFilter === "missing-docs" ? "No shipments are missing required documents" :
@@ -1426,6 +1441,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     queueFilter === "assigned" ? "Assigned Africa export shipments will appear here." :
     queueFilter === "in-transit" ? "In-transit Africa export shipments will appear here." :
     queueFilter === "delivered" ? "Delivered Africa export shipments will appear here." :
+    queueFilter === "cancelled" ? "Cancelled Africa export shipments will appear here." :
     queueFilter === "this-week" ? "Shipments with an ETD or ETA in the current week will appear here." :
     queueFilter === "ready" ? "Shipments with required docs, transporter, and agent check will appear here." :
     queueFilter === "missing-docs" ? "Shipments with outstanding required documents will appear here." :
@@ -1588,6 +1604,28 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       { customsBufferDays: nextBuffer, etd: nextEtd },
       { action: "Lead time buffer updated", detail: `${nextBuffer} working day${nextBuffer === 1 ? "" : "s"} buffer applied` },
     );
+  };
+
+  const updateShipmentStatus = (status: ExportStatus) => {
+    const wasCancelled = shipment.status === "cancelled";
+    updateShipment(
+      { status },
+      { action: "Status changed", detail: `Shipment status set to ${status}` },
+    );
+
+    if (status === "cancelled") {
+      const nextLive = activeShipments.find((item) => item.ref !== shipment.ref);
+      setQueueFilter("all");
+      setSelectedRef(nextLive?.ref || "");
+      showSuccess(`${shipment.ref} cancelled and moved out of the live queue.`);
+      return;
+    }
+
+    if (wasCancelled) {
+      setQueueFilter("all");
+      setSelectedRef(shipment.ref);
+      showSuccess(`${shipment.ref} returned to the live queue.`);
+    }
   };
 
   const applyCalculatedEtd = () => {
@@ -2066,13 +2104,14 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
       <Card className="overflow-hidden">
         <CardContent className="p-3">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-9">
             {[
               { id: "all" as ExportQueueFilter, label: "All Exports", count: tabCounts.all, dot: "bg-gray-400" },
               { id: "open" as ExportQueueFilter, label: "Open", count: tabCounts.open, dot: "bg-yellow-500" },
               { id: "assigned" as ExportQueueFilter, label: "Assigned", count: tabCounts.assigned, dot: "bg-blue-500" },
               { id: "in-transit" as ExportQueueFilter, label: "In Transit", count: tabCounts.inTransit, dot: "bg-indigo-500" },
               { id: "delivered" as ExportQueueFilter, label: "Delivered", count: tabCounts.delivered, dot: "bg-emerald-500" },
+              { id: "cancelled" as ExportQueueFilter, label: "Cancelled", count: tabCounts.cancelled, dot: "bg-gray-500" },
               { id: "ready" as ExportQueueFilter, label: "Ready", count: tabCounts.ready, dot: "bg-green-500" },
               { id: "missing-docs" as ExportQueueFilter, label: "Missing Docs", count: tabCounts.missingDocs, dot: "bg-red-500" },
               { id: "this-week" as ExportQueueFilter, label: "This Week", count: tabCounts.thisWeek, dot: "bg-purple-500" },
@@ -2128,6 +2167,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
               <option value="assigned">Assigned</option>
               <option value="in-transit">In Transit</option>
               <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
             </select>
             <select
               value={transporterFilter}
@@ -2281,6 +2321,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                   { id: "risks" as ExportQueueFilter, label: "Risks", count: riskyShipments.length, activeClass: "bg-red-50 text-red-700" },
                   { id: "approved" as ExportQueueFilter, label: "Approved", count: approvedShipments.length, activeClass: "bg-emerald-50 text-emerald-700" },
                   { id: "pending-approval" as ExportQueueFilter, label: "Pending", count: pendingApprovalShipments.length, activeClass: "bg-amber-50 text-amber-700" },
+                  { id: "cancelled" as ExportQueueFilter, label: "Cancelled", count: cancelledShipments.length, activeClass: "bg-gray-200 text-gray-800" },
                   { id: "archived" as ExportQueueFilter, label: "Archive", count: archivedShipments.length, activeClass: "bg-gray-200 text-gray-800" },
                 ].map((filter) => (
                   <button
@@ -2539,13 +2580,10 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                       <span className="text-sm font-semibold text-gray-700">Status</span>
                       <select
                         value={shipment.status}
-                        onChange={(event) => updateShipment(
-                          { status: event.target.value as ExportStatus },
-                          { action: "Status changed", detail: `Shipment status set to ${event.target.value}` },
-                        )}
+                        onChange={(event) => updateShipmentStatus(event.target.value as ExportStatus)}
                         className="w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       >
-                        {["pending", "assigned", "in-transit", "delivered"].map((status) => (
+                        {EXPORT_STATUSES.map((status) => (
                           <option key={status} value={status}>{status}</option>
                         ))}
                       </select>

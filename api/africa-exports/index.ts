@@ -5,8 +5,24 @@ const VALID_STATUSES = ["pending", "assigned", "in-transit", "delivered"];
 const MAX_STRING = 1000;
 const MAX_TEXT = 5000;
 
+const textOrEmpty = (value: unknown) => (value === undefined || value === null ? "" : String(value));
+
 const formatShipment = (shipment: Record<string, unknown>) => ({
   ...shipment,
+  destinationCountry: textOrEmpty(shipment.destinationCountry),
+  hsCode: textOrEmpty(shipment.hsCode),
+  productType: textOrEmpty(shipment.productType),
+  incoterm: textOrEmpty(shipment.incoterm) || "FCA",
+  transportMode: textOrEmpty(shipment.transportMode) || "Road",
+  preferenceScheme: textOrEmpty(shipment.preferenceScheme) || "To confirm",
+  destinationAgent: textOrEmpty(shipment.destinationAgent),
+  etd: textOrEmpty(shipment.etd),
+  eta: textOrEmpty(shipment.eta),
+  assignedTransporterId: shipment.assignedTransporterId || undefined,
+  lastCheckedAt: textOrEmpty(shipment.lastCheckedAt),
+  notes: textOrEmpty(shipment.notes),
+  dispatchApprovedAt: shipment.dispatchApprovedAt || undefined,
+  dispatchApprovedBy: shipment.dispatchApprovedBy || undefined,
   createdAt: shipment.createdAt instanceof Date ? shipment.createdAt.toISOString() : shipment.createdAt,
   updatedAt: shipment.updatedAt instanceof Date ? shipment.updatedAt.toISOString() : shipment.updatedAt,
 });

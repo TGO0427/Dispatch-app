@@ -268,19 +268,26 @@ const EXPORT_LEAD_TIME_SERVICES: {
   { id: "sea", label: "Export Seafreight", transportMode: "Sea", icon: Ship },
 ];
 
-const normalizeLeadTimeCountry = (country: string) => {
-  const trimmed = country.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\u2019/g, "'");
+const asText = (value: unknown, fallback = "") => (value === undefined || value === null ? fallback : String(value));
+
+const asOptionalText = (value: unknown) => {
+  const text = asText(value);
+  return text || undefined;
+};
+
+const normalizeLeadTimeCountry = (country: unknown) => {
+  const trimmed = asText(country).trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\u2019/g, "'");
   return EXPORT_LEAD_TIME_GUIDE[trimmed] ? trimmed : EXPORT_LEAD_TIME_ALIASES[trimmed] || trimmed;
 };
 
-const getLeadTimeGuide = (country: string) => EXPORT_LEAD_TIME_GUIDE[normalizeLeadTimeCountry(country)];
+const getLeadTimeGuide = (country: unknown) => EXPORT_LEAD_TIME_GUIDE[normalizeLeadTimeCountry(country)];
 
 const isLeadTimePractical = (leadTime: string) => !/not practical|not possible/i.test(leadTime);
 
-const getLeadTimeModeForTransportMode = (transportMode: string): LeadTimeMode | "" =>
-  transportMode === "Air" || transportMode === "Courier" ? "air" :
-  transportMode === "Sea" ? "sea" :
-  transportMode === "Road" ? "road" :
+const getLeadTimeModeForTransportMode = (transportMode: unknown): LeadTimeMode | "" =>
+  asText(transportMode) === "Air" || asText(transportMode) === "Courier" ? "air" :
+  asText(transportMode) === "Sea" ? "sea" :
+  asText(transportMode) === "Road" ? "road" :
   "";
 
 const getLeadTimeMaxDays = (leadTime: string) => {
@@ -526,6 +533,62 @@ const DEFAULT_SHIPMENT: ExportShipment = {
   productLines: [],
   history: [],
   archived: false,
+};
+
+const normalizeShipment = (shipment: Partial<ExportShipment> = {}): ExportShipment => {
+  const status = asText(shipment.status, "pending") as ExportStatus;
+  const validStatus: ExportStatus = ["pending", "assigned", "in-transit", "delivered"].includes(status) ? status : "pending";
+  const documents = shipment.documents && typeof shipment.documents === "object" && !Array.isArray(shipment.documents)
+    ? shipment.documents as DocumentStatus
+    : {};
+  const documentDetails = shipment.documentDetails && typeof shipment.documentDetails === "object" && !Array.isArray(shipment.documentDetails)
+    ? shipment.documentDetails as DocumentDetails
+    : {};
+  const productLines = Array.isArray(shipment.productLines)
+    ? shipment.productLines.map((line) => {
+      const item = line && typeof line === "object" ? line as Partial<ProductLine> : {};
+      return {
+        id: asText(item.id, `line-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+        product: asText(item.product),
+        hsCode: asText(item.hsCode),
+        quantity: parseNumber(item.quantity),
+        pallets: parseNumber(item.pallets),
+        batch: asText(item.batch),
+        notes: asText(item.notes),
+      };
+    })
+    : [];
+
+  return {
+    ...DEFAULT_SHIPMENT,
+    ...shipment,
+    id: asOptionalText(shipment.id),
+    ref: asText(shipment.ref),
+    customer: asText(shipment.customer),
+    destinationCountry: asText(shipment.destinationCountry),
+    hsCode: asText(shipment.hsCode),
+    productType: asText(shipment.productType),
+    incoterm: asText(shipment.incoterm, "FCA") || "FCA",
+    transportMode: asText(shipment.transportMode, "Road") || "Road",
+    preferenceScheme: asText(shipment.preferenceScheme, "To confirm") || "To confirm",
+    destinationAgent: asText(shipment.destinationAgent),
+    etd: asText(shipment.etd),
+    eta: asText(shipment.eta),
+    customsBufferDays: parseNumber(shipment.customsBufferDays) || 2,
+    quantity: parseNumber(shipment.quantity),
+    pallets: parseNumber(shipment.pallets),
+    status: validStatus,
+    assignedTransporterId: asOptionalText(shipment.assignedTransporterId),
+    lastCheckedAt: asText(shipment.lastCheckedAt),
+    notes: asText(shipment.notes),
+    documents,
+    documentDetails,
+    productLines,
+    history: Array.isArray(shipment.history) ? shipment.history : [],
+    archived: Boolean(shipment.archived),
+    dispatchApprovedAt: asOptionalText(shipment.dispatchApprovedAt),
+    dispatchApprovedBy: asOptionalText(shipment.dispatchApprovedBy),
+  };
 };
 
 const DEFAULT_TRANSPORTERS: ExportTransporter[] = [
@@ -949,7 +1012,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   });
 
   useEffect(() => {
-    const loadedShipments = loadList<ExportShipment>(SHIPMENTS_KEY, []);
+    const loadedShipments = loadList<ExportShipment>(SHIPMENTS_KEY, []).map((item) => normalizeShipment(item));
     const loadedTransporters = loadList<ExportTransporter>(TRANSPORTERS_KEY, DEFAULT_TRANSPORTERS);
     setShipments(loadedShipments);
     setTransporters(loadedTransporters);
@@ -958,12 +1021,13 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     let cancelled = false;
     const loadRemoteData = async () => {
       try {
-        const [remoteShipments, remoteTransporters, remoteCountryRules] = await Promise.all([
+        const [rawRemoteShipments, remoteTransporters, remoteCountryRules] = await Promise.all([
           africaExportsAPI.getAll(),
           africaExportTransportersAPI.getAll(),
           africaExportCountryRulesAPI.getAll(),
         ]);
         if (cancelled) return;
+        const remoteShipments = rawRemoteShipments.map((item) => normalizeShipment(item));
 
         const nextTransporters = remoteTransporters.length > 0
           ? remoteTransporters
@@ -975,7 +1039,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         const syncedLocalShipments = remoteShipments.length > 0
           ? []
           : localSyncableShipments.length > 0
-            ? await africaExportsAPI.bulkUpsert(localSyncableShipments)
+            ? (await africaExportsAPI.bulkUpsert(localSyncableShipments)).map((item) => normalizeShipment(item))
             : [];
         const localDraftShipments = loadedShipments.filter((item) => !isSyncableShipment(item));
         const nextShipments = remoteShipments.length > 0
@@ -1041,7 +1105,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
       try {
         const syncableShipments = getSyncableShipments(shipments);
         if (syncableShipments.length > 0) {
-          const saved = await africaExportsAPI.bulkUpsert(syncableShipments);
+          const saved = (await africaExportsAPI.bulkUpsert(syncableShipments)).map((item) => normalizeShipment(item));
           setShipments((current) => {
             if (current.filter(isSyncableShipment).every((item) => item.id)) return current;
             const byRef = new Map(saved.map((item) => [item.ref, item]));
@@ -1575,7 +1639,8 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     try {
       const [saved] = await africaExportsAPI.bulkUpsert([nextShipment]);
       if (saved) {
-        setShipments((prev) => prev.map((item) => (item.ref === shipment.ref ? saved : item)));
+        const normalizedSaved = normalizeShipment(saved);
+        setShipments((prev) => prev.map((item) => (item.ref === shipment.ref ? normalizedSaved : item)));
       }
       setRemoteSyncError("");
       showSuccess(`${shipment.ref} setup saved.`);

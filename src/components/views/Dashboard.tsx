@@ -201,6 +201,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
       alertRefMap.set(j.ref, group);
     });
     alertRefMap.forEach((group) => {
+      const hasException = group.some((j) => j.status === "exception");
       const openLines = group.filter((j) => j.status !== "delivered" && j.status !== "returned" && j.status !== "cancelled");
       const latestEtd = openLines
         .map((j) => calculateRevisedETD(j) || j.etd)
@@ -211,12 +212,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAlerts, onNavigate }
         .filter((value): value is string => !!value && !Number.isNaN(new Date(value).getTime()))
         .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
       const overdueDate = new Date(latestEtd || latestEta || "");
-      if (group.some((j) => j.status === "exception")) alertCount++;
-      if (openLines.length > 0 && !Number.isNaN(overdueDate.getTime())) {
+      if (hasException) alertCount++;
+      if (!hasException && openLines.length > 0 && !Number.isNaN(overdueDate.getTime())) {
         overdueDate.setHours(0, 0, 0, 0);
         if (overdueDate < now) alertCount++;
       }
-      if (latestEtd && openLines.some((j) => j.status !== "en-route")) {
+      if (!hasException && latestEtd && openLines.some((j) => j.status !== "en-route")) {
         const etd = new Date(latestEtd); etd.setHours(0, 0, 0, 0);
         if (Math.floor((etd.getTime() - now.getTime()) / 86400000) <= 1) alertCount++;
       }

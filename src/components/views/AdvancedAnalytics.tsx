@@ -865,6 +865,7 @@ export const AdvancedAnalytics: React.FC = () => {
       j.eta &&
       j.status !== "delivered" &&
       j.status !== "cancelled" &&
+      j.status !== "exception" &&
       new Date(j.eta) < today
     )).length;
     const deliveryRateBase = deliveredJobs + overdueJobs;

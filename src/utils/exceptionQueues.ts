@@ -71,6 +71,7 @@ export function buildExceptionQueues(jobs: Job[]): Record<ExceptionQueueKey, Exc
         job: exceptionLine,
         date: exceptionLine.updatedAt,
       });
+      return;
     }
 
     if (openLines.length > 0 && dueDate) {

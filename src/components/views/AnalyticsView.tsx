@@ -431,7 +431,7 @@ export const AnalyticsView: React.FC = () => {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         data = filteredJobs
-          .filter(job => job.eta && job.status !== "delivered" && job.status !== "cancelled" && new Date(job.eta) < now)
+          .filter(job => job.eta && job.status !== "delivered" && job.status !== "cancelled" && job.status !== "exception" && new Date(job.eta) < now)
           .map(job => {
             const eta = new Date(job.eta!);
             eta.setHours(0, 0, 0, 0);
@@ -1143,7 +1143,7 @@ export const AnalyticsView: React.FC = () => {
         const overdueNow = new Date();
         overdueNow.setHours(0, 0, 0, 0);
         const overdueJobs = filteredJobs
-          .filter(job => job.eta && job.status !== "delivered" && job.status !== "cancelled" && new Date(job.eta) < overdueNow)
+          .filter(job => job.eta && job.status !== "delivered" && job.status !== "cancelled" && job.status !== "exception" && new Date(job.eta) < overdueNow)
           .map(job => {
             const eta = new Date(job.eta!); eta.setHours(0, 0, 0, 0);
             return { ...job, daysOverdue: Math.floor((overdueNow.getTime() - eta.getTime()) / 86400000) };

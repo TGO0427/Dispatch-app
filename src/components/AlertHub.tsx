@@ -84,13 +84,14 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
 
     refMap.forEach((group) => {
       const job = group.find((item) => item.status === "exception") || group[0];
+      const exceptionLine = group.find((item) => item.status === "exception");
       const openLines = group.filter((item) => !CLOSED_STATUSES.has(item.status));
       const latestEtd = getLatestDateString(openLines.map((item) => calculateRevisedETD(item) || item.etd));
       const latestEta = getLatestDateString(openLines.map((item) => item.eta));
       const overdueDateString = latestEtd || latestEta;
       const overdueDate = toDayStart(overdueDateString);
       // 1. Overdue dispatch/delivery - use latest confirmed ETD, fallback to ETA
-      if (openLines.length > 0 && overdueDate) {
+      if (!exceptionLine && openLines.length > 0 && overdueDate) {
         const daysOverdue = Math.floor((now.getTime() - overdueDate.getTime()) / 86400000);
         if (daysOverdue > 0) {
           const reasonText = job.overdueReason ? ` - Reason: ${job.overdueReason}` : " - No reason provided";
@@ -111,7 +112,6 @@ export const AlertHub: React.FC<AlertHubProps> = ({ open, onClose, onSelectJob }
       }
 
       // 2. Exception status
-      const exceptionLine = group.find((item) => item.status === "exception");
       if (exceptionLine) {
         result.push({
           id: `exception-${exceptionLine.ref}`,

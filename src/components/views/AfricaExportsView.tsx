@@ -4,6 +4,7 @@ import {
   Archive,
   CalendarDays,
   CheckCircle2,
+  Clock,
   ClipboardCheck,
   Download,
   ExternalLink,
@@ -12,11 +13,13 @@ import {
   Globe2,
   History,
   Package,
+  Plane,
   Plus,
   RotateCcw,
   Save,
   Search,
   ShieldCheck,
+  Ship,
   Trash2,
   Truck,
   Upload,
@@ -179,6 +182,98 @@ const AFRICA_COUNTRIES = [
   "Zambia",
   "Zimbabwe",
 ];
+
+type LeadTimeMode = "air" | "road" | "sea";
+
+interface ExportLeadTimeGuide {
+  air: string;
+  road: string;
+  sea: string;
+}
+
+const EXPORT_LEAD_TIME_GUIDE: Record<string, ExportLeadTimeGuide> = {
+  Algeria: { air: "4-8 days", road: "Not practical", sea: "30-50 days" },
+  Angola: { air: "3-6 days", road: "10-18 days", sea: "20-35 days" },
+  Benin: { air: "4-8 days", road: "Not practical", sea: "30-45 days" },
+  Botswana: { air: "1-3 days", road: "2-5 days", sea: "Not practical" },
+  "Burkina Faso": { air: "5-10 days", road: "Not practical", sea: "35-55 days via Ghana/Togo/Benin + inland" },
+  Burundi: { air: "4-7 days", road: "16-26 days", sea: "28-45 days via Dar/Mombasa + road" },
+  "Cabo Verde": { air: "5-10 days", road: "Not possible", sea: "40-60 days" },
+  Cameroon: { air: "4-8 days", road: "Not practical / difficult", sea: "30-50 days via Douala" },
+  "Central African Republic": { air: "5-10 days", road: "Not practical", sea: "40-65 days via Douala + inland" },
+  Chad: { air: "5-10 days", road: "Not practical", sea: "35-60 days via Douala + inland" },
+  Comoros: { air: "5-10 days", road: "Not possible", sea: "30-50 days" },
+  "Cote d'Ivoire": { air: "4-8 days", road: "Not practical", sea: "28-45 days" },
+  "Democratic Republic of the Congo": { air: "4-8 days", road: "12-25 days", sea: "25-45 days via Matadi/Durban/Dar + inland" },
+  Djibouti: { air: "4-7 days", road: "Not practical", sea: "25-40 days" },
+  Egypt: { air: "3-6 days", road: "Not practical", sea: "25-40 days" },
+  "Equatorial Guinea": { air: "5-9 days", road: "Not practical", sea: "35-55 days" },
+  Eritrea: { air: "5-8 days", road: "Not practical", sea: "30-50 days" },
+  Eswatini: { air: "1-2 days", road: "1-3 days", sea: "Not practical" },
+  Ethiopia: { air: "4-7 days", road: "Not practical", sea: "28-45 days via Djibouti + inland" },
+  Gabon: { air: "5-9 days", road: "Not practical", sea: "35-55 days" },
+  Gambia: { air: "5-9 days", road: "Not practical", sea: "35-50 days" },
+  Ghana: { air: "4-8 days", road: "Not practical", sea: "28-45 days" },
+  Guinea: { air: "5-9 days", road: "Not practical", sea: "35-50 days" },
+  "Guinea-Bissau": { air: "5-10 days", road: "Not practical", sea: "35-55 days" },
+  Kenya: { air: "3-6 days", road: "12-20 days", sea: "18-35 days via Mombasa" },
+  Lesotho: { air: "1-2 days", road: "1-3 days", sea: "Not practical" },
+  Liberia: { air: "5-9 days", road: "Not practical", sea: "35-50 days" },
+  Libya: { air: "5-9 days", road: "Not practical", sea: "35-55 days" },
+  Madagascar: { air: "4-8 days", road: "Not possible", sea: "25-40 days" },
+  Malawi: { air: "2-5 days", road: "6-10 days", sea: "18-30 days via Beira/Durban + road" },
+  Mali: { air: "5-10 days", road: "Not practical", sea: "35-60 days via Dakar/Abidjan + inland" },
+  Mauritania: { air: "5-9 days", road: "Not practical", sea: "35-55 days" },
+  Mauritius: { air: "3-6 days", road: "Not possible", sea: "18-30 days" },
+  Morocco: { air: "4-8 days", road: "Not practical", sea: "30-50 days" },
+  Mozambique: { air: "1-4 days", road: "3-7 days", sea: "10-21 days coastal / port dependent" },
+  Namibia: { air: "1-4 days", road: "4-8 days", sea: "12-24 days" },
+  Niger: { air: "5-10 days", road: "Not practical", sea: "35-60 days via Cotonou/Lome + inland" },
+  Nigeria: { air: "4-8 days", road: "Not practical", sea: "30-50 days" },
+  "Republic of the Congo": { air: "5-9 days", road: "Not practical", sea: "35-55 days" },
+  Rwanda: { air: "3-6 days", road: "14-24 days", sea: "25-40 days via Mombasa/Dar + road" },
+  "Sao Tome and Principe": { air: "5-10 days", road: "Not possible", sea: "40-60 days" },
+  Senegal: { air: "4-8 days", road: "Not practical", sea: "30-45 days" },
+  Seychelles: { air: "4-8 days", road: "Not possible", sea: "25-40 days" },
+  "Sierra Leone": { air: "5-9 days", road: "Not practical", sea: "35-50 days" },
+  Somalia: { air: "5-10 days", road: "Not practical", sea: "30-55 days" },
+  "South Sudan": { air: "5-10 days", road: "20-35 days, difficult", sea: "35-55 days via Mombasa/Djibouti + inland" },
+  Sudan: { air: "5-9 days", road: "Not practical", sea: "35-55 days" },
+  Tanzania: { air: "3-6 days", road: "10-18 days", sea: "18-32 days" },
+  Togo: { air: "4-8 days", road: "Not practical", sea: "30-45 days" },
+  Tunisia: { air: "4-7 days", road: "Not practical", sea: "30-45 days" },
+  Uganda: { air: "3-6 days", road: "14-24 days", sea: "25-40 days via Mombasa/Dar + road" },
+  Zambia: { air: "2-5 days", road: "5-9 days", sea: "18-30 days via Durban/Beira/Dar + road" },
+  Zimbabwe: { air: "1-4 days", road: "3-6 days", sea: "14-25 days via Durban/Beira + road" },
+};
+
+const EXPORT_LEAD_TIME_ALIASES: Record<string, string> = {
+  "Cape Verde": "Cabo Verde",
+  "Cote dIvoire": "Cote d'Ivoire",
+  "DR Congo": "Democratic Republic of the Congo",
+  "DRC": "Democratic Republic of the Congo",
+  "Sao Tome & Principe": "Sao Tome and Principe",
+};
+
+const EXPORT_LEAD_TIME_SERVICES: {
+  id: LeadTimeMode;
+  label: string;
+  transportMode: string;
+  icon: React.FC<any>;
+}[] = [
+  { id: "air", label: "Export Airfreight", transportMode: "Air", icon: Plane },
+  { id: "road", label: "Export Road", transportMode: "Road", icon: Truck },
+  { id: "sea", label: "Export Seafreight", transportMode: "Sea", icon: Ship },
+];
+
+const normalizeLeadTimeCountry = (country: string) => {
+  const trimmed = country.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\u2019/g, "'");
+  return EXPORT_LEAD_TIME_GUIDE[trimmed] ? trimmed : EXPORT_LEAD_TIME_ALIASES[trimmed] || trimmed;
+};
+
+const getLeadTimeGuide = (country: string) => EXPORT_LEAD_TIME_GUIDE[normalizeLeadTimeCountry(country)];
+
+const isLeadTimePractical = (leadTime: string) => !/not practical|not possible/i.test(leadTime);
 
 const CORE_DOCUMENTS: ChecklistItem[] = [
   { id: "proforma-invoice", label: "Proforma Invoice", purpose: "Pre-shipment quote document used by the buyer or destination agent to apply for import permits, approvals, or foreign payment where required.", conditional: "Prepare before shipment when the importer, bank, or destination authority needs it." },
@@ -1121,6 +1216,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
     return [shipment.destinationCountry, ...countries];
   }, [countryRules, shipment.destinationCountry]);
   const destinationRequirement = countryRules[shipment.destinationCountry];
+  const leadTimeGuide = getLeadTimeGuide(shipment.destinationCountry);
+  const selectedLeadTimeMode: LeadTimeMode | "" =
+    shipment.transportMode === "Air" || shipment.transportMode === "Courier" ? "air" :
+    shipment.transportMode === "Sea" ? "sea" :
+    shipment.transportMode === "Road" ? "road" :
+    "";
   const readiness = getReadiness(shipment);
   const missingRequiredDocs = getMissingRequiredDocs(shipment);
   const isDispatchApproved = Boolean(shipment.dispatchApprovedAt);
@@ -2173,6 +2274,61 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
                         ))}
                       </select>
                     </label>
+                    <div className="space-y-3 md:col-span-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                          <Clock className="h-4 w-4 text-gray-500" />
+                          Transport Lead Time from Johannesburg
+                        </span>
+                        {!leadTimeGuide && (
+                          <span className="rounded bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase text-amber-700">Select country</span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                        {EXPORT_LEAD_TIME_SERVICES.map((service) => {
+                          const Icon = service.icon;
+                          const leadTime = leadTimeGuide?.[service.id] || "Select destination";
+                          const selected = selectedLeadTimeMode === service.id;
+                          const practical = leadTimeGuide ? isLeadTimePractical(leadTime) : false;
+                          return (
+                            <button
+                              key={service.id}
+                              type="button"
+                              onClick={() => {
+                                if (!leadTimeGuide) {
+                                  showWarning("Select a destination country before choosing a lead time.");
+                                  return;
+                                }
+                                if (!practical) {
+                                  showWarning(`${service.label} is ${leadTime.toLowerCase()} for ${shipment.destinationCountry}.`);
+                                  return;
+                                }
+                                updateShipment(
+                                  { transportMode: service.transportMode },
+                                  { action: "Transport lead time selected", detail: `${service.label}: ${leadTime}` },
+                                );
+                              }}
+                              className={`min-h-[92px] rounded-card border p-3 text-center transition-colors ${
+                                selected && practical
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100"
+                                  : selected
+                                    ? "border-amber-300 bg-amber-50 text-amber-800 ring-1 ring-amber-100"
+                                  : practical
+                                    ? "border-gray-200 bg-white text-gray-800 hover:border-emerald-200 hover:bg-emerald-50"
+                                    : "border-gray-200 bg-gray-50 text-gray-500"
+                              }`}
+                            >
+                              <Icon className={`mx-auto mb-2 h-5 w-5 ${selected && practical ? "text-emerald-600" : selected ? "text-amber-600" : "text-gray-500"}`} />
+                              <p className="text-sm font-bold">{service.label}</p>
+                              <p className="mt-1 text-xs font-semibold">{leadTime}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="rounded-card border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900">
+                        Estimated transit time depends on carrier routing, border clearance, port congestion and documentation readiness. Add a 2-5 working day customs/border buffer, and more where SGS/COC, permits, health certificates or importer approvals are required.
+                      </div>
+                    </div>
                     <label className="space-y-2">
                       <span className="text-sm font-semibold text-gray-700">Status</span>
                       <select

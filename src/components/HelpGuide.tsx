@@ -3,7 +3,7 @@ import {
   X, ChevronRight,
   LayoutDashboard, Home, ClipboardList, Calendar, Grid3x3, Clock,
   BarChart3, ArrowRightLeft, Truck, Users, Search, Settings, Package, Mail,
-  Globe2,
+  Globe2, AlertTriangle, FileText,
 } from "lucide-react";
 
 interface HelpGuideProps {
@@ -36,6 +36,22 @@ const guideSections: GuideSection[] = [
     tips: [
       "The progress bar at the top shows your overall delivery completion rate.",
       "Stats update automatically every 15 seconds.",
+    ],
+  },
+  {
+    id: "exceptions",
+    icon: AlertTriangle,
+    title: "Exceptions",
+    description: "Focused queue for orders that need attention, including overdue work, dispatch-due items, priority jobs, and operational exceptions.",
+    steps: [
+      { title: "Review Exception Queues", detail: "Use the queue tabs to move between overdue orders, dispatch-due orders, priority work, and exception items without changing the main dispatch filters." },
+      { title: "Open the Source Order", detail: "Select an exception to jump back into Order Management with the related order or open its details for investigation." },
+      { title: "Clear the Cause", detail: "Resolve the underlying issue by updating dates, status, transporter assignment, pallets, workflow checks, or notes on the order itself." },
+      { title: "Watch the Sidebar Badge", detail: "The Exceptions badge in the sidebar counts active exception-queue items, so it drops when the order data no longer matches an exception rule." },
+    ],
+    tips: [
+      "Use Exceptions as the daily control list before dispatching trucks.",
+      "The Dashboard alerts and sidebar badge use the same exception logic, so the counts stay aligned.",
     ],
   },
   {
@@ -85,15 +101,20 @@ const guideSections: GuideSection[] = [
     steps: [
       { title: "Import or Create Exports", detail: "Use Import Africa Orders for CSV/XLSX uploads or New Export for one shipment. These exports do not appear in local customer orders." },
       { title: "Complete Shipment Setup", detail: "Capture the Africa client, destination country, HS code, product type, Incoterm, transport mode, ETA, pallet count, preference scheme, and destination agent." },
+      { title: "Plan Lead Times", detail: "Use the country lead-time guide for air, road, and sea movements. Zambia road exports show a 5-9 day guide, with customs buffer days used to calculate ETD and ETA planning dates." },
       { title: "Assign Export Transporters", detail: "Use the Africa export transporter list on the right. These transporters are separate from local dispatch transporters." },
-      { title: "Tick the Document Pack", detail: "The Document Pack tab tracks core export documents, origin documents, food ingredient documents, permits, and destination customs items per shipment." },
-      { title: "Run Destination Checks", detail: "Use Destination Checks before dispatch. Egypt shows NAFEZA/CargoX/ACID guidance and Cameroon shows SGS conformity guidance when selected." },
+      { title: "Capture Product Lines", detail: "Add product lines with product name, HS code, quantity, pallets, batch, and notes. This supports batch traceability, COA checks, best-before details, and multi-product export packs." },
+      { title: "Tick the Document Pack", detail: "The Document Pack tab tracks core export documents, origin documents, food ingredient documents, permits, destination customs items, and country-specific required documents per shipment." },
+      { title: "Use Zambia Road Rules", detail: "For Zambia, the checklist includes Commercial Invoice, Packing List, SAD 500, transport document, road manifest, SADC Certificate of Origin, COAs, TDS, SDS, allergen, GMO/Non-GMO, food grade, TPIN, ZCSA, labelling, HS confirmation, and final clearance checks." },
+      { title: "Run Destination Checks", detail: "Use Destination Checks before dispatch. Botswana, Egypt, Cameroon, Uganda, and Zambia show country guidance when selected, including permits, standards, original documents, and clearing-agent confirmations." },
+      { title: "Approve Dispatch", detail: "Only approve dispatch once required documents are complete and the destination agent has confirmed permits, health or standards controls, originals, duties/VAT responsibility, and final clearance ownership." },
       { title: "Review in Reports", detail: "Africa exports appear in Dashboard, Order Reports, Analytics, and Global Search using the shared database-backed export records." },
     ],
     tips: [
       "Use the HS Code lookup button beside the HS Code field when tariff classification needs checking.",
-      "Mark Agent Check only after the destination clearing agent confirms permits, certificates, originals, and COC/PVOC requirements.",
-      "Existing browser-saved Africa exports are uploaded to the database automatically when the Africa Exports page loads.",
+      "For Zambia DAP Lusaka loads, do not dispatch until Matvin, the buyer, or the Zambia clearing agent confirms import clearance, permits, duties, VAT, taxes, food or health clearance, TPIN, ZCSA, and labelling requirements.",
+      "For Calcium Propionate, include SDS, COA, food grade declaration, and HS confirmation. For ifaBake Z and ifaBake Bun & Roll, check SADC origin support, allergen, soya/GMO, wheat/gluten, and food-grade declarations.",
+      "Existing browser-saved Africa exports and default country rules are uploaded or backfilled to the database automatically when the Africa Exports page loads.",
     ],
   },
   {
@@ -159,6 +180,23 @@ const guideSections: GuideSection[] = [
       { title: "Select Report Type", detail: "Choose from Job Summary, Driver Performance, Customer Analysis, Exception Report, Delivery Performance, Warehouse Utilization, Overdue Analysis, or Africa Export Report." },
       { title: "Apply Filters", detail: "Use the filter controls to narrow results by date range, status, priority, warehouse, or transporter." },
       { title: "Export", detail: "Click 'Export to Excel' to download the filtered report as a spreadsheet." },
+    ],
+  },
+  {
+    id: "invoicing",
+    icon: FileText,
+    title: "Invoicing Reconciliation",
+    description: "Operational workspace for checking invoice document timing, late-invoice reasons, creator activity, and exportable reconciliation reports.",
+    steps: [
+      { title: "Load the Ledger View", detail: "Use the period, creator, status, and search controls to focus on the invoice documents you need to review." },
+      { title: "Review Timing", detail: "Use the timing cards and late invoice views to identify invoices that were created late or still need a reason captured." },
+      { title: "Apply Reasons", detail: "Update late invoice reasons individually or in bulk, then save changes so the review trail stays consistent." },
+      { title: "Navigate Exceptions", detail: "Use linked exception actions to move back into related dispatch work where an invoice issue depends on order data." },
+      { title: "Export Reports", detail: "Export the current reconciliation, exception list, or late-invoice reason report for finance and operations follow-up." },
+    ],
+    tips: [
+      "Keep filters narrow when doing month-end checks so exported reports match the working period.",
+      "Use saved reasons consistently; they make repeated delay patterns easier to spot.",
     ],
   },
   {
@@ -235,6 +273,22 @@ const guideSections: GuideSection[] = [
     ],
   },
   {
+    id: "settings",
+    icon: Settings,
+    title: "Settings",
+    description: "Manage your profile, privacy actions, and application preferences.",
+    steps: [
+      { title: "Open Profile Settings", detail: "Use Settings from the bottom of the sidebar to view account details and profile-related actions." },
+      { title: "Export Personal Data", detail: "Use the data export action to download a copy of your personal information for POPIA access requests." },
+      { title: "Use Privacy Links", detail: "Review privacy information from the login page or Settings when you need to confirm how personal data is handled." },
+      { title: "Admin User Controls", detail: "Admins should use User Management for account creation, password resets, role changes, and data erasure workflows." },
+    ],
+    tips: [
+      "Theme preference is controlled from the sidebar sun/moon button, not inside Settings.",
+      "The connection indicator shows whether the app is currently using the server or local cached data.",
+    ],
+  },
+  {
     id: "general",
     icon: Settings,
     title: "General Tips",
@@ -246,6 +300,7 @@ const guideSections: GuideSection[] = [
       { title: "Notifications", detail: "Toast notifications appear in the top-right corner for success, error, and warning messages. They include sound alerts." },
       { title: "Connection Status", detail: "The indicator in the bottom-right shows if you're connected to the server. If offline, data is served from local cache." },
       { title: "Collapse Sidebar", detail: "Click the arrow button in the sidebar header to collapse it for more screen space." },
+      { title: "Workspace Tabs", detail: "Pages open as tabs across the top of the workspace. Click a tab to switch back to it, or close tabs you no longer need. Dashboard stays available as the fallback tab." },
       { title: "Privacy & Data Export", detail: "Go to Settings > Profile to download a copy of all your personal data (POPIA s23). A Privacy Notice is linked on the login page." },
       { title: "Data Erasure", detail: "Admins can erase a user's personal information via User Management. PII is removed but audit records are preserved (POPIA s25)." },
     ],

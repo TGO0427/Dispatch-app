@@ -339,7 +339,8 @@ const CORE_DOCUMENTS: ChecklistItem[] = [
   { id: "commercial-invoice", label: "Commercial Invoice", purpose: "Customs valuation, buyer and seller details, Incoterm, currency, HS code, product description, and country of origin.", required: true },
   { id: "packing-list", label: "Packing List", purpose: "Carton or pallet count, gross and net weight, dimensions, and batch numbers where applicable.", required: true },
   { id: "sad-500", label: "SAD 500 / Export Customs Declaration", purpose: "South African customs export declaration lodged with SARS.", required: true },
-  { id: "transport-document", label: "Transport Document", purpose: "Road consignment note, CMR, air waybill, or bill of lading depending on transport mode.", required: true },
+  { id: "transport-document", label: "Transport Document / Consignment Note", purpose: "Road consignment note, CMR, air waybill, or bill of lading depending on transport mode.", required: true },
+  { id: "road-manifest", label: "Road Manifest / Cargo Manifest", purpose: "Transporter or clearing-agent manifest used with cross-border road clearance and destination import support.", conditional: "Required for South Africa to Zambia road exports and other road movements where the border agent requests a cargo or road manifest." },
   { id: "hs-code", label: "HS Code / Tariff Classification", purpose: "Required for SA export declaration and destination import clearance.", required: true },
   { id: "exporter-code", label: "Exporter Customs Code / SARS Registration", purpose: "Confirms the exporter is registered with SARS Customs where required.", required: true },
   { id: "proof-export", label: "Proof of Export Pack", purpose: "VAT zero-rating and customs audit support: SAD 500, transport document, border stamps, POD, exit note, and related evidence.", required: true },
@@ -383,9 +384,13 @@ const PERMIT_DOCUMENTS: ChecklistItem[] = [
 
 const DESTINATION_DOCUMENTS: ChecklistItem[] = [
   { id: "importer-tax", label: "Importer Tax / Customs Registration Number", purpose: "Required for import entry in the destination country.", required: true },
+  { id: "zambia-tpin", label: "Zambia TPIN / Importer Registration", purpose: "Confirms the Zambian importer can clear the shipment with ZRA.", conditional: "Required for Zambia import clearance." },
   { id: "agent-appointment", label: "Clearing Agent Appointment", purpose: "Importer appoints destination clearing agent.", required: true },
   { id: "hs-confirmation", label: "Destination HS Code Confirmation", purpose: "Avoids customs disputes by aligning exporter, forwarder, and destination clearing agent.", required: true },
   { id: "duties-vat", label: "Duties and VAT Calculation", purpose: "Based on HS code, customs value, origin, and applicable trade agreement." },
+  { id: "zambia-final-clearance", label: "Zambia Final Clearance Confirmation", purpose: "Buyer, importer, or Zambian clearing agent confirms who handles final import clearance, duties, VAT, and taxes.", conditional: "Confirm before dispatch for DAP Zambia shipments where transport excludes final clearance." },
+  { id: "zcsa-standards", label: "ZCSA / Compulsory Standards Check", purpose: "Zambian agent confirms whether the product is covered by compulsory standards, import quality monitoring, or inspection.", conditional: "Confirm before dispatch for Zambia." },
+  { id: "zambia-labelling", label: "Zambia Food Labelling Check", purpose: "Importer confirms English labels, ingredients, expiry or expiration date, and any product-specific labelling controls.", conditional: "Confirm before dispatch for imported food products." },
   { id: "border-inspection", label: "Border / Port Health / Standards Inspection", purpose: "Food, chemical, cosmetic, animal, and plant products may be inspected." },
   { id: "original-docs", label: "Original Documents Confirmed", purpose: "Some countries still require original COO, SADC, health certificate, or stamped documents." },
 ];
@@ -524,6 +529,58 @@ const DEFAULT_COUNTRY_RULES: Record<string, CountryRule> = {
       "health-free-sale",
       "phyto",
       "vet",
+    ],
+  },
+  Zambia: {
+    country: "Zambia",
+    title: "Zambia Road Export / ZRA Import Requirements",
+    points: [
+      "For South Africa to Zambia road exports, prepare the core export pack before loading: Commercial Invoice, Packing List, SAD 500 export customs declaration, road consignment note or transport document, and road or cargo manifest.",
+      "Commercial Invoice must show buyer or consignee, seller, product description, HS code, quantity, value, currency, Incoterm, country of origin, and payment terms.",
+      "Packing List must align to the invoice and show pallets, cartons or bags, gross and net weight, batch numbers, and best-before or expiry dates.",
+      "Use a SADC Certificate of Origin when the importer will claim SADC preferential duty and the products qualify. In this Zambia road flow, SADC has been confirmed as required.",
+      "Do not dispatch until Matvin, the buyer, or the Zambia clearing agent confirms Zambian import customs clearance, permits, duties, VAT, taxes, and any food or health clearance needed before the truck leaves PTA.",
+      "Under DAP Lusaka, the buyer normally handles Zambia import charges and final clearance unless a different written agreement is in place.",
+      "For food ingredients, send COA per batch, Product Specification or TDS, Food Grade Declaration, Allergen Statement, GMO or Non-GMO Declaration, Manufacturer or Ingredient Declaration, and batch or best-before details.",
+      "For Calcium Propionate Granular, include SDS, COA, Food Grade Declaration, and HS confirmation. SDS is useful because it is a chemical or food additive even when not classified as dangerous goods.",
+      "For ifaBake Z Full Fat Enzyme Active Soya Flour, confirm SADC origin support, soya or GMO status, Allergen Statement, and Food Grade Declaration.",
+      "For ifaBake Bun & Roll 3.5% Wheat Gluten, confirm Allergen Statement, wheat or gluten declaration, and HS confirmation.",
+      "Zambia importer must confirm TPIN/importer registration, ZCSA or compulsory standards inspection need, and English food label requirements including ingredients and expiry or expiration date.",
+      "Recommended Matvin/clearing pack: Commercial Invoice, Packing List, stamped or issued SADC Certificate of Origin, COAs, TDS, SDS for Calcium Propionate, Allergen Statements, GMO/Non-GMO Declaration, Food Grade Declaration, batch and best-before details, transport instruction or collection note, and export customs details for SAD 500 processing.",
+      "For ASO0024913 / Kafue Wholesalers & Distributors in Lusaka, do not release until Zambia clearing confirms the Calcium Propionate, ifaBake Z, and ifaBake Bun & Roll 3.5% controls above.",
+    ],
+    requiredDocumentIds: [
+      "commercial-invoice",
+      "packing-list",
+      "sad-500",
+      "transport-document",
+      "road-manifest",
+      "hs-code",
+      "exporter-code",
+      "proof-export",
+      "sadc-coo",
+      "producer-declaration",
+      "local-content",
+      "coa",
+      "tds",
+      "sds",
+      "food-grade",
+      "allergen",
+      "non-gmo",
+      "shelf-life",
+      "batch-traceability",
+      "import-permit",
+      "health-free-sale",
+      "importer-tax",
+      "zambia-tpin",
+      "agent-appointment",
+      "hs-confirmation",
+      "duties-vat",
+      "zambia-final-clearance",
+      "zcsa-standards",
+      "zambia-labelling",
+      "border-inspection",
+      "original-docs",
     ],
   },
 };
@@ -1118,7 +1175,12 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
         const seededRules = remoteCountryRules.length > 0
           ? remoteCountryRules
           : await africaExportCountryRulesAPI.bulkUpsert(countryRulesToList(DEFAULT_COUNTRY_RULES));
-        const nextCountryRules = { ...DEFAULT_COUNTRY_RULES, ...rulesListToRecord(seededRules) };
+        const seededRuleCountries = new Set(seededRules.map((rule) => rule.country));
+        const missingDefaultRules = countryRulesToList(DEFAULT_COUNTRY_RULES).filter((rule) => !seededRuleCountries.has(rule.country));
+        const backfilledDefaultRules = missingDefaultRules.length > 0
+          ? await africaExportCountryRulesAPI.bulkUpsert(missingDefaultRules)
+          : [];
+        const nextCountryRules = { ...DEFAULT_COUNTRY_RULES, ...rulesListToRecord([...seededRules, ...backfilledDefaultRules]) };
 
         if (cancelled) return;
         setTransporters(nextTransporters);

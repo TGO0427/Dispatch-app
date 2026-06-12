@@ -1,7 +1,10 @@
 import express, { Request, Response } from 'express';
 import prisma from '../db';
+import { requireAuth } from '../auth';
 
 const router = express.Router();
+
+router.use(requireAuth);
 
 // GET all drivers
 router.get('/', async (req: Request, res: Response) => {

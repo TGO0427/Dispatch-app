@@ -1,7 +1,10 @@
 import express, { Request, Response } from 'express';
 import prisma from '../db';
+import { requireAuth } from '../auth';
 
 const router = express.Router();
+
+router.use(requireAuth);
 
 // Helper to format job response (convert DateTime to ISO strings)
 const formatJob = (job: any) => ({

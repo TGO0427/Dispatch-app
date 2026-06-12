@@ -165,9 +165,6 @@ export function validateOrigin(req: { method?: string; headers: { origin?: strin
     if (origin.startsWith("http://localhost:")) return true;
   }
 
-  // If no FRONTEND_URL configured and can't verify, allow (fail open for config simplicity)
-  if (!frontendUrl) return true;
-
   return false;
 }
 

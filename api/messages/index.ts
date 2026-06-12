@@ -61,9 +61,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!tid) return res.status(400).json({ success: false, error: "threadId required" });
         const threadMessages = await prisma.message.findMany({
           where: {
-            OR: [
-              { id: tid },
-              { threadId: tid },
+            AND: [
+              {
+                OR: [
+                  { id: tid },
+                  { threadId: tid },
+                ],
+              },
+              {
+                OR: [
+                  { senderId: user.id },
+                  { recipients: { some: { userId: user.id } } },
+                ],
+              },
             ],
           },
           include: { recipients: true },
@@ -141,6 +151,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (targetUserIds.length === 0) {
         return res.status(400).json({ success: false, error: "At least one recipient is required" });
+      }
+
+      if (threadId) {
+        const parentMessage = await prisma.message.findFirst({
+          where: {
+            id: String(threadId),
+            OR: [
+              { senderId: user.id },
+              { recipients: { some: { userId: user.id } } },
+            ],
+          },
+          select: { id: true },
+        });
+        if (!parentMessage) return res.status(403).json({ success: false, error: "Not authorized for this thread" });
       }
 
       // Get usernames for recipients

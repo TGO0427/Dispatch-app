@@ -41,7 +41,7 @@ import { africaExportCountryRulesAPI, africaExportTransportersAPI, africaExports
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 
-type ExportTab = "overview" | "documents" | "permits" | "incoterms" | "history";
+type ExportTab = "onboarding" | "overview" | "documents" | "permits" | "incoterms" | "history";
 type ExportStatus = "pending" | "assigned" | "in-transit" | "delivered" | "cancelled";
 type DocumentStatus = Record<string, boolean>;
 type DocumentDetails = Record<string, { reference: string; expiry: string; notes: string }>;
@@ -421,6 +421,43 @@ const PRE_DISPATCH_CHECKS = [
   "Invoice and packing list match exactly: description, quantity, weights, batch numbers, and Incoterm.",
   "Destination charges payer is clear under the agreed Incoterm.",
   "Full proof of export pack is retained for SARS and VAT audit.",
+];
+
+const ONBOARDING_REQUIREMENTS = [
+  "Required product description for the destination market.",
+  "Customer product code, if applicable.",
+  "Final consignee and destination country.",
+  "Packaging size and format.",
+  "Label wording and language requirements.",
+  "Ingredient declaration requirements.",
+  "Batch number, manufacturing date, expiry date, and shelf-life format.",
+  "Net weight / quantity declaration requirements.",
+  "Country of origin wording.",
+  "Manufacturer / supplier details required on the label.",
+  "Any special carton, pallet, or product marking requirements.",
+  "Whether the destination requires SGS, COC, PVOC, KEBS, or any other pre-export inspection/certification.",
+  "Whether an import permit, product registration, or destination authority approval is required.",
+  "Whether the client has a previously approved label or document pack for the same destination.",
+  "Whether the label must be approved by the client, SGS, or the destination authority before shipment.",
+];
+
+const ONBOARDING_RESPONSIBILITIES = [
+  {
+    owner: "Sales / Customer Owner",
+    responsibility: "Obtain and confirm the customer-specific and destination-specific requirements from the client.",
+  },
+  {
+    owner: "QA / Regulatory",
+    responsibility: "Confirm the product specification, ingredient declaration, allergen information, label compliance, shelf-life, COA, testing, and regulatory requirements.",
+  },
+  {
+    owner: "Production / Site",
+    responsibility: "Implement the approved label and product procedure only once the requirements have been reviewed and signed off.",
+  },
+  {
+    owner: "Exports / Logistics",
+    responsibility: "Confirm SGS, export, customs, certificate of origin, import permit, and destination documentation requirements.",
+  },
 ];
 
 const UNIVERSAL_EXPORT_RULES = [
@@ -1216,6 +1253,11 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
 
   useEffect(() => {
     const allowedFilters: ExportQueueFilter[] = ["all", "risks", "approved", "pending-approval", "archived", "cancelled"];
+    const allowedTabs: ExportTab[] = ["onboarding", "overview", "documents", "permits", "incoterms", "history"];
+    if (initialFilter && allowedTabs.includes(initialFilter as ExportTab)) {
+      setActiveTab(initialFilter as ExportTab);
+      return;
+    }
     if (initialFilter && allowedFilters.includes(initialFilter as ExportQueueFilter)) {
       setQueueFilter(initialFilter as ExportQueueFilter);
     }
@@ -2171,6 +2213,7 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
   };
 
   const tabs: { id: ExportTab; label: string; icon: React.FC<any> }[] = [
+    { id: "onboarding", label: "Onboarding", icon: ClipboardCheck },
     { id: "overview", label: "Shipment Setup", icon: Globe2 },
     { id: "documents", label: "Document Pack", icon: FileCheck2 },
     { id: "permits", label: "Destination Checks", icon: ShieldCheck },
@@ -2604,6 +2647,88 @@ export const AfricaExportsView: React.FC<AfricaExportsViewProps> = ({ initialRef
               </div>
             </CardContent>
           </Card>
+
+          {activeTab === "onboarding" && (
+            <div className="space-y-4">
+              <Card className="overflow-hidden">
+                <CardHeader className="border-b border-gray-100 p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <CardTitle>Africa Export Customer Onboarding</CardTitle>
+                      <p className="mt-1 text-sm text-gray-600">
+                        Complete this requirement confirmation before any new product is manufactured, relabelled, submitted to SGS, or dispatched to an African export customer.
+                      </p>
+                    </div>
+                    <span className="rounded-card border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-amber-700">
+                      Required before production
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-5">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    {[
+                      "New African export customer",
+                      "New customer-specific product line",
+                      "New African destination",
+                    ].map((trigger) => (
+                      <div key={trigger} className="rounded-card border border-emerald-100 bg-emerald-50 p-4">
+                        <p className="text-sm font-bold text-emerald-900">{trigger}</p>
+                        <p className="mt-1 text-xs text-emerald-700">Start onboarding and confirm destination requirements with the client.</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="overflow-hidden">
+                <CardHeader className="border-b border-gray-100 p-5">
+                  <CardTitle>Client Confirmation Checklist</CardTitle>
+                  <p className="text-sm text-gray-600">Ask the client to confirm every applicable customer and destination-specific requirement at the start of export onboarding.</p>
+                </CardHeader>
+                <CardContent className="p-5">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {ONBOARDING_REQUIREMENTS.map((requirement) => (
+                      <div key={requirement} className="flex gap-3 rounded-card border border-gray-200 bg-white p-3 text-sm text-gray-700">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                        <span>{requirement}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="overflow-hidden">
+                <CardHeader className="border-b border-gray-100 p-5">
+                  <CardTitle>Responsibility Split</CardTitle>
+                  <p className="text-sm text-gray-600">Each function signs off its part before production, relabelling, SGS submission, or dispatch proceeds.</p>
+                </CardHeader>
+                <CardContent className="p-5">
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    {ONBOARDING_RESPONSIBILITIES.map((item) => (
+                      <div key={item.owner} className="rounded-card border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-sm font-bold text-gray-900">{item.owner}</p>
+                        <p className="mt-2 text-sm leading-6 text-gray-700">{item.responsibility}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="overflow-hidden border-emerald-200 bg-emerald-50">
+                <CardContent className="p-5">
+                  <div className="flex gap-3">
+                    <ShieldCheck className="mt-1 h-5 w-5 flex-shrink-0 text-emerald-700" />
+                    <div>
+                      <p className="text-sm font-bold text-emerald-950">Onboarding gate</p>
+                      <p className="mt-1 text-sm leading-6 text-emerald-900">
+                        The confirmed requirements must be reviewed and signed off before any new product is manufactured, relabelled, submitted to SGS, or dispatched to an African export customer.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {activeTab === "overview" && (
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">

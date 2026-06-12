@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutDashboard,
   Home,
+  ClipboardCheck,
   ClipboardList,
   Calendar,
   Grid3x3,
@@ -179,6 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemChange, coll
           badgeLabel: sidebarStats.africaExportRiskCount > 0 ? String(sidebarStats.africaExportRiskCount) : "OK",
           badgeType: sidebarStats.africaExportRiskCount > 0 ? "danger" : "info",
         },
+        { id: "africa-export-onboarding", icon: ClipboardCheck, label: "Export Onboarding" },
       ],
     },
     {

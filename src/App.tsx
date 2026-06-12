@@ -22,6 +22,7 @@ const NAV_TITLES: Record<string, string> = {
   "ibt-dispatch": "IBT Management",
   clipboard: "Order Management",
   "africa-exports": "Africa Exports",
+  "africa-export-onboarding": "Export Onboarding",
   invoicing: "Invoicing Reconciliation",
   calendar: "Scheduling",
   grid: "Order Reports",
@@ -135,6 +136,8 @@ function AppContent() {
         view = <DispatchView onOpenAlerts={() => setAlertHubOpen(true)} initialTab={dispatchTab as any} initialRef={selectedDispatchRef} />; break;
       case "africa-exports":
         view = <AfricaExportsView initialRef={selectedAfricaExportRef} initialFilter={selectedAfricaExportFilter} />; break;
+      case "africa-export-onboarding":
+        view = <AfricaExportsView initialFilter="onboarding" />; break;
       case "invoicing":
         view = <InvoicingReconciliation onNavigate={navigateToPage} />; break;
       case "calendar":

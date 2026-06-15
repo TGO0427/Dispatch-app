@@ -26,6 +26,8 @@ model Job {
 
   pallets          Int?
   outstandingQty   Int?
+  sourceCreatedDate String?  @db.VarChar(255)
+  sourceCreatedBy   String?  @db.VarChar(255)
 
   eta                String?   @db.VarChar(255)
   scheduledAt        String?   @db.VarChar(255)
@@ -65,6 +67,8 @@ model Job {
   @@index([createdAt])
   @@index([eta])
   @@index([createdById])
+  @@index([sourceCreatedBy])
+  @@index([sourceCreatedDate])
   @@map("jobs")
 }
 

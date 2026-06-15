@@ -32,6 +32,8 @@ interface ImportedOrder {
   priority?: string;
   pallets?: number;
   outstandingQty?: number;  // Outstanding quantity from Excel
+  sourceCreatedDate?: string;
+  sourceCreatedBy?: string;
   eta?: string;  // normalized string (e.g., "2025-10-10")
   notes?: string;
 }
@@ -202,6 +204,8 @@ const ALIASES: Record<keyof Omit<ImportedOrder, never>, string[]> = {
   priority: ["priority", "urgency", "rush", "status", "order status"],
   pallets: ["pallets", "pallet qty", "pallet quantity"],
   outstandingQty: ["outstanding qty", "outstanding", "outstanding quantity", "qty outstanding", "balance qty", "balance"],
+  sourceCreatedDate: ["datecreated (day-month-year)", "datecreated", "date created", "created date", "created on"],
+  sourceCreatedBy: ["createdbyuserid", "created by user id", "created by userid", "created by", "creator", "user"],
   eta: ["eta", "delivery date", "required date", "promise date", "due date"],
   notes: ["notes", "remarks", "comment", "inventory description", "description"],
 };
@@ -236,6 +240,8 @@ const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | n
   const priorityIdx = findFirst(idx, ALIASES.priority);
   const palletsIdx = findFirst(idx, ALIASES.pallets);
   const outstandingQtyIdx = findFirst(idx, ALIASES.outstandingQty);
+  const sourceCreatedDateIdx = findFirst(idx, ALIASES.sourceCreatedDate);
+  const sourceCreatedByIdx = findFirst(idx, ALIASES.sourceCreatedBy);
   const etaIdx = findFirst(idx, ALIASES.eta);
   const notesIdx = findFirst(idx, ALIASES.notes);
 
@@ -282,6 +288,8 @@ const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | n
 
   const pallets = parsePallets(safeStr(coalesce(row, palletsIdx)));
   const outstandingQty = parsePallets(safeStr(coalesce(row, outstandingQtyIdx)));
+  const sourceCreatedDate = normalizeEta(coalesce(row, sourceCreatedDateIdx));
+  const sourceCreatedBy = safeStr(coalesce(row, sourceCreatedByIdx));
 
   if (!ref || !customer) return null;
 
@@ -301,6 +309,8 @@ const rowToOrder = (headers: string[], row: any[], i: number): ImportedOrder | n
     priority: safe(priority) as any,
     pallets,
     outstandingQty,
+    sourceCreatedDate: safe(sourceCreatedDate),
+    sourceCreatedBy: safe(sourceCreatedBy),
     eta: safe(eta),
     notes: safe(notes),
   };
@@ -501,6 +511,8 @@ export const OrderImport: React.FC = () => {
         status: DEFAULT_STATUS,
         pallets: order.pallets,
         outstandingQty: order.outstandingQty,
+        sourceCreatedDate: order.sourceCreatedDate,
+        sourceCreatedBy: order.sourceCreatedBy,
         eta: order.eta,
         notes: order.notes,
       }));
@@ -586,6 +598,8 @@ export const OrderImport: React.FC = () => {
       "Inventory Description",
       "Warehouse",
       "Outstanding Qty",
+      "DateCreated (Day-Month-Year)",
+      "CreatedByUserid",
     ];
 
     if (format === "csv") {
@@ -598,6 +612,8 @@ export const OrderImport: React.FC = () => {
         "Sample Line — fragile",
         "K58 Warehouse",
         "120",
+        "2025-10-01",
+        "USER001",
       ];
       const csv = [headers.join(","), example.join(",")].join("\n");
       const blob = new Blob([csv], { type: "text/csv" });
@@ -610,7 +626,7 @@ export const OrderImport: React.FC = () => {
     } else {
       const data = [
         headers,
-        ["SO-0001", "Sample Customer", "Normal", "2025-10-10", "ITEM-001", "Sample Line — fragile", "K58 Warehouse", "120"],
+        ["SO-0001", "Sample Customer", "Normal", "2025-10-10", "ITEM-001", "Sample Line — fragile", "K58 Warehouse", "120", "2025-10-01", "USER001"],
       ];
       const worksheet = XLSX.utils.aoa_to_sheet(data);
       const workbook = XLSX.utils.book_new();
@@ -762,7 +778,7 @@ export const OrderImport: React.FC = () => {
               </span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[900px] text-sm">
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="px-3 py-2 text-left font-semibold text-gray-700">Reference</th>
@@ -771,6 +787,8 @@ export const OrderImport: React.FC = () => {
                     <th className="px-3 py-2 text-left font-semibold text-gray-700">Priority</th>
                     <th className="px-3 py-2 text-left font-semibold text-gray-700">ETA</th>
                     <th className="px-3 py-2 text-right font-semibold text-gray-700">Qty</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Date Created</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Created By</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -784,6 +802,8 @@ export const OrderImport: React.FC = () => {
                       </td>
                       <td className="px-3 py-2 text-gray-500">{String(order.eta ?? "—")}</td>
                       <td className="px-3 py-2 text-right text-gray-700">{order.outstandingQty != null ? String(order.outstandingQty) : "—"}</td>
+                      <td className="px-3 py-2 text-gray-500">{String(order.sourceCreatedDate ?? "—")}</td>
+                      <td className="px-3 py-2 text-gray-500">{String(order.sourceCreatedBy ?? "—")}</td>
                     </tr>
                   ))}
                 </tbody>

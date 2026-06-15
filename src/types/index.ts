@@ -85,6 +85,8 @@ export interface Job {
 
   pallets?: number;
   outstandingQty?: number;  // Outstanding quantity from Excel import
+  sourceCreatedDate?: string; // Source-system DateCreated from sales order import
+  sourceCreatedBy?: string;   // Source-system CreatedByUserid from sales order import
 
   // Workflow tracking
   transporterBooked?: boolean;  // Transporter has been booked
@@ -226,6 +228,8 @@ export const makeNewJob = (partial: Partial<Job> = {}): Job => {
     priority: partial.priority ?? "normal",
     status: partial.status ?? "pending",
     pallets: partial.pallets,
+    sourceCreatedDate: partial.sourceCreatedDate,
+    sourceCreatedBy: partial.sourceCreatedBy,
     eta: partial.eta,
     scheduledAt: partial.scheduledAt,
     dispatchedAt: partial.dispatchedAt,

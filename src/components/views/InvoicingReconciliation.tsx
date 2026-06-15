@@ -97,6 +97,7 @@ interface CreatorWorkload {
   invoices: number;
   matchedAsos: number;
   workloadPercent: number;
+  invoiceWorkloadPercent: number;
   activeMonths: number;
   averagePerMonth: number;
 }
@@ -1127,6 +1128,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     });
 
     const totalOrderRows = orderJobsForCreatorWorkload.filter((job) => !isHiddenCreatorWorkloadName(job.sourceCreatedBy || "Unassigned")).length || 0;
+    const totalInvoiceRows = invoiceLinesInView.filter((line) => !isHiddenCreatorWorkloadName(line.createdBy || "Unassigned")).length || 0;
     return Array.from(byCreator.entries())
       .map(([createdBy, workload]) => ({
         createdBy,
@@ -1137,6 +1139,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
         invoices: workload.invoices.size,
         matchedAsos: workload.matchedAsos.size,
         workloadPercent: totalOrderRows ? (workload.orderRows / totalOrderRows) * 100 : 0,
+        invoiceWorkloadPercent: totalInvoiceRows ? (workload.invoiceRows / totalInvoiceRows) * 100 : 0,
         activeMonths: workload.months.size,
         averagePerMonth: workload.months.size ? workload.orderRows / workload.months.size : workload.orderRows,
       }))
@@ -2097,6 +2100,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                     <th className="px-4 py-3 text-right">Loaded Qty</th>
                     <th className="px-4 py-3 text-right">Invoice Documents</th>
                     <th className="px-4 py-3 text-right">Order Workload %</th>
+                    <th className="px-4 py-3 text-right">Invoice Workload %</th>
                     <th className="px-4 py-3 text-right">Avg / Month</th>
                     <th className="px-4 py-3 text-right">ASOs</th>
                     <th className="px-4 py-3 text-right">Invoices</th>
@@ -2111,6 +2115,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
                       <td className="px-4 py-3 text-right font-medium">{formatNumber(workload.orderQty)}</td>
                       <td className="px-4 py-3 text-right font-medium">{formatNumber(workload.invoiceRows)}</td>
                       <td className="px-4 py-3 text-right font-medium">{formatPercent(workload.workloadPercent, 1)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatPercent(workload.invoiceWorkloadPercent, 1)}</td>
                       <td className="px-4 py-3 text-right">{formatNumber(Math.round(workload.averagePerMonth))}</td>
                       <td className="px-4 py-3 text-right">{formatNumber(workload.asos)}</td>
                       <td className="px-4 py-3 text-right">{formatNumber(workload.invoices)}</td>

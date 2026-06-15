@@ -306,6 +306,10 @@ const getWeekKey = (dateValue: string) => {
 };
 
 const getOrderSourceDate = (job: Job) => normalizeDate(job.sourceCreatedDate || job.createdAt || job.updatedAt);
+const isHiddenCreatorWorkloadName = (createdBy: string) => {
+  const normalized = createdBy.trim().toLowerCase();
+  return normalized === "unassigned" || normalized.includes("paradigm");
+};
 
 const dateOnlyTime = (value: string | undefined) => {
   if (!value) return undefined;
@@ -1074,6 +1078,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
     const byCreator = new Map<string, { orderRows: number; orderQty: number; invoiceRows: number; asos: Set<string>; invoices: Set<string>; matchedAsos: Set<string>; months: Set<string> }>();
     orderJobsForCreatorWorkload.forEach((job) => {
       const createdBy = job.sourceCreatedBy || "Unassigned";
+      if (isHiddenCreatorWorkloadName(createdBy)) return;
       const aso = normalizeAso(job.ref);
       const existing = byCreator.get(createdBy) || {
         orderRows: 0,
@@ -1098,6 +1103,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
 
     invoiceLinesInView.forEach((line) => {
       const createdBy = line.createdBy || "Unassigned";
+      if (isHiddenCreatorWorkloadName(createdBy)) return;
       const aso = normalizeAso(line.aso);
       const existing = byCreator.get(createdBy) || {
         orderRows: 0,
@@ -1120,7 +1126,7 @@ export const InvoicingReconciliation: React.FC<InvoicingReconciliationProps> = (
       byCreator.set(createdBy, existing);
     });
 
-    const totalOrderRows = orderJobsForCreatorWorkload.length || 0;
+    const totalOrderRows = orderJobsForCreatorWorkload.filter((job) => !isHiddenCreatorWorkloadName(job.sourceCreatedBy || "Unassigned")).length || 0;
     return Array.from(byCreator.entries())
       .map(([createdBy, workload]) => ({
         createdBy,
